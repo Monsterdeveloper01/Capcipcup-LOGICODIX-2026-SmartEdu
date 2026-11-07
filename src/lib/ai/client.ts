@@ -12,3 +12,4 @@ export const aiClient = apiKey ? new GoogleGenAI({ apiKey }) : null;
 export function hasAiKey(): boolean {
   return Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== "");
 }
+
