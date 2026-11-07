@@ -7,3 +7,4 @@ export async function GET() {
     status: result.success ? 200 : 500,
   });
 }
+
