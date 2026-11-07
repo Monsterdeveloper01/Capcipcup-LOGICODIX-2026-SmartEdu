@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^3.0.0",
+    "@mediapipe/tasks-vision": "^1.2.2",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "canvas-confetti": "^1.9.4",

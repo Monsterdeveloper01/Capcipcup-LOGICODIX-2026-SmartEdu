@@ -6,6 +6,7 @@ import { Camera, CameraOff, RefreshCw, AlertCircle } from "lucide-react";
 interface CameraFeedProps {
   isActive: boolean;
   onToggleActive?: (active: boolean) => void;
+  onVideoReady?: (video: HTMLVideoElement | null) => void;
   className?: string;
   showControls?: boolean;
 }
@@ -13,6 +14,7 @@ interface CameraFeedProps {
 export default function CameraFeed({
   isActive,
   onToggleActive,
+  onVideoReady,
   className = "",
   showControls = true,
 }: CameraFeedProps) {
@@ -52,6 +54,9 @@ export default function CameraFeed({
           setStream(mediaStream);
           if (videoRef.current) {
             videoRef.current.srcObject = mediaStream;
+            videoRef.current.onloadedmetadata = () => {
+              onVideoReady?.(videoRef.current);
+            };
           }
         }
       } catch (err: any) {
@@ -151,3 +156,4 @@ export default function CameraFeed({
     </div>
   );
 }
+

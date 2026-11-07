@@ -3,6 +3,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import CameraFeed from "@/components/camera/CameraFeed";
+import HandGestureTracker, { HandTransform } from "@/components/camera/HandGestureTracker";
 import {
   Atom,
   Globe2,
@@ -13,10 +14,11 @@ import {
   Layers,
   Sparkles,
   Info,
+  Hand,
+  Sparkle,
 } from "lucide-react";
 import { ModelType } from "./Educational3DScene";
 
-// Dynamic import with SSR disabled to prevent WebGL/window errors on server
 const Educational3DScene = dynamic(() => import("./Educational3DScene"), {
   ssr: false,
   loading: () => (
@@ -38,21 +40,21 @@ const MODEL_INFO: Record<
     category: "Fisika & Kimia",
     description:
       "Visualisasi inti atom (proton & neutron) yang dikelilingi oleh orbit elektron berkecepatan tinggi dalam berbagai bidang dimensi.",
-    hint: "Gunakan mouse/sentuhan untuk memutar sudut pandang 360° dan amati lintasan orbit elektron.",
+    hint: "Gerakkan telapak tangan di depan kamera untuk memutar atom, atau cubit jari untuk zoom in/out.",
   },
   planet: {
     title: "Planet Bercincin & Atmosfer",
     category: "Astronomi & Geografi",
     description:
       "Simulasi benda langit dengan cincin partikel es/debu serta lapisan atmosfer tipis yang membiaskan cahaya bintang.",
-    hint: "Perhatikan perbedaan kecepatan rotasi cincin planet dan atmosfer luarnya.",
+    hint: "Gunakan tangan Anda untuk mengubah sudut inklinasi cincin planet dan mengamati lapisan atmosfer.",
   },
   geometry: {
     title: "Ikosahedron & Struktur Dimensi",
     category: "Matematika & Geometri",
     description:
       "Poliedron beraturan dengan 20 sisi segitiga sama sisi dan 12 titik sudut (salah satu bangun ruang Platonik).",
-    hint: "Aktifkan mode Wireframe untuk melihat struktur kerangka rusuk dan simetri bangun ruang.",
+    hint: "Aktifkan mode Kerangka (Wireframe) lalu gunakan gestur tangan untuk melihat simetri ruang bangun.",
   },
 };
 
@@ -61,6 +63,17 @@ export default function SmartEduViewer() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [autoRotate, setAutoRotate] = useState(true);
   const [wireframe, setWireframe] = useState(false);
+
+  // Hand tracking state
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [handTransform, setHandTransform] = useState<HandTransform>({
+    rotationX: 0,
+    rotationY: 0,
+    scale: 1,
+    isPinching: false,
+    isGrabbing: false,
+    handDetected: false,
+  });
 
   const currentInfo = MODEL_INFO[modelType];
 
@@ -74,9 +87,9 @@ export default function SmartEduViewer() {
           </div>
           <div>
             <h3 className="font-extrabold text-base tracking-tight text-white flex items-center gap-2">
-              SmartEdu 3D & WebAR Lab
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-950/80 border border-indigo-700/60 px-2 py-0.5 rounded-full">
-                Interactive
+              SmartEdu 3D & AI Hand Tracking
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Sparkle className="w-2.5 h-2.5" /> Gesture Control
               </span>
             </h3>
             <p className="text-xs text-zinc-400">{currentInfo.category}</p>
@@ -119,25 +132,36 @@ export default function SmartEduViewer() {
       </div>
 
       {/* Main 3D & Camera Viewport */}
-      <div className="relative h-[480px] sm:h-[540px] w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center overflow-hidden">
+      <div className="relative h-[500px] sm:h-[560px] w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center overflow-hidden">
         {/* Layer 1: Background Camera Feed (for WebAR mode) */}
         {isCameraActive && (
           <div className="absolute inset-0 z-0">
             <CameraFeed
               isActive={isCameraActive}
               onToggleActive={setIsCameraActive}
+              onVideoReady={setVideoElement}
               showControls={false}
               className="w-full h-full rounded-none"
             />
           </div>
         )}
 
-        {/* Layer 2: 3D WebGL Canvas */}
+        {/* Layer 2: Hand Gesture Skeleton Tracker */}
+        {isCameraActive && (
+          <HandGestureTracker
+            videoElement={videoElement}
+            isActive={isCameraActive}
+            onGestureUpdate={setHandTransform}
+          />
+        )}
+
+        {/* Layer 3: 3D WebGL Canvas */}
         <div className="absolute inset-0 z-10 pointer-events-auto">
           <Educational3DScene
             modelType={modelType}
             autoRotate={autoRotate}
             wireframe={wireframe}
+            handTransform={isCameraActive ? handTransform : undefined}
           />
         </div>
 
@@ -175,22 +199,45 @@ export default function SmartEduViewer() {
               onClick={() => setIsCameraActive(!isCameraActive)}
               className={`p-2.5 px-3.5 rounded-xl backdrop-blur-md border text-xs font-bold flex items-center gap-2 transition-all shadow-lg ${
                 isCameraActive
-                  ? "bg-rose-600/90 border-rose-400 text-white animate-pulse"
+                  ? "bg-rose-600/90 hover:bg-rose-700 border-rose-400 text-white"
                   : "bg-emerald-600/90 hover:bg-emerald-700 border-emerald-400/40 text-white"
               }`}
             >
               <Camera className="w-4 h-4" />
-              <span>{isCameraActive ? "Tutup Kamera AR" : "Aktifkan Kamera AR"}</span>
+              <span>{isCameraActive ? "Matikan Kamera AI" : "Aktifkan Kamera & Gestur Tangan"}</span>
             </button>
           </div>
 
           {/* Interactive Hint Pill */}
-          <div className="pointer-events-auto hidden md:flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full text-[11px] text-zinc-300">
-            <Eye className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Klik & geser untuk memutar | Scroll untuk zoom</span>
+          <div className="pointer-events-auto hidden md:flex items-center gap-2 bg-black/70 backdrop-blur-md border border-white/10 px-3.5 py-1.5 rounded-full text-[11px] text-zinc-200 shadow-md">
+            {isCameraActive ? (
+              <>
+                <Hand className="w-3.5 h-3.5 text-emerald-400" />
+                <span>
+                  <strong>Gestur Tangan Aktif:</strong> Gerakkan telapak untuk putar, cubit (pinch) untuk zoom!
+                </span>
+              </>
+            ) : (
+              <>
+                <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Klik & drag mouse untuk putar | Scroll untuk zoom | Aktifkan kamera untuk kontrol tangan</span>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Guide Banner for Hand Interaction */}
+      {isCameraActive && (
+        <div className="bg-emerald-950/60 border-t border-emerald-800/40 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs text-emerald-300">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>
+              <strong>Panduan Kontrol Tangan:</strong> ✋ Buka telapak tangan & gerakkan ke kiri/kanan/atas/bawah untuk memutar | 🤏 Cubit/renggangkan jari jempol-telunjuk untuk zoom in/out.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Concept Explanation Card Below Viewer */}
       <div className="p-6 bg-zinc-900/90 border-t border-zinc-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

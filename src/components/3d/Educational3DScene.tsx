@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Float, Stars } from "@react-three/drei";
 import * as THREE from "three";
+import { HandTransform } from "@/components/camera/HandGestureTracker";
 
 export type ModelType = "atom" | "planet" | "geometry";
 
@@ -11,6 +12,42 @@ interface SceneProps {
   modelType: ModelType;
   autoRotate?: boolean;
   wireframe?: boolean;
+  handTransform?: HandTransform;
+}
+
+// Wrapper yang merespons rotasi dan zoom dari gestur tangan secara realtime
+function HandControlledModel({
+  handTransform,
+  children,
+}: {
+  handTransform?: HandTransform;
+  children: React.ReactNode;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+
+    if (handTransform && handTransform.handDetected) {
+      // Rotasi halus mengikuti pergerakan telapak tangan
+      groupRef.current.rotation.x = THREE.MathUtils.lerp(
+        groupRef.current.rotation.x,
+        handTransform.rotationX,
+        Math.min(delta * 10, 1)
+      );
+      groupRef.current.rotation.y = THREE.MathUtils.lerp(
+        groupRef.current.rotation.y,
+        handTransform.rotationY,
+        Math.min(delta * 10, 1)
+      );
+
+      // Zooming halus (skala) saat jempol & telunjuk mencubit / melebar
+      const targetScale = Math.max(0.4, Math.min(handTransform.scale, 2.8));
+      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), Math.min(delta * 8, 1));
+    }
+  });
+
+  return <group ref={groupRef}>{children}</group>;
 }
 
 // 1. Model Atom & Orbit Elektron (Kimia/Fisika)
@@ -102,7 +139,6 @@ function PlanetModel({ wireframe = false }: { wireframe?: boolean }) {
 
   return (
     <group>
-      {/* Planet Sphere */}
       <mesh ref={planetRef}>
         <sphereGeometry args={[1.2, 48, 48]} />
         <meshStandardMaterial
@@ -113,7 +149,6 @@ function PlanetModel({ wireframe = false }: { wireframe?: boolean }) {
         />
       </mesh>
 
-      {/* Cincin Planet (Ring) */}
       <mesh ref={ringRef} rotation={[Math.PI / 2.8, 0, 0]}>
         <ringGeometry args={[1.6, 2.4, 64]} />
         <meshStandardMaterial
@@ -126,7 +161,6 @@ function PlanetModel({ wireframe = false }: { wireframe?: boolean }) {
         />
       </mesh>
 
-      {/* Atmosfer Glow */}
       <mesh>
         <sphereGeometry args={[1.28, 32, 32]} />
         <meshBasicMaterial color="#60a5fa" transparent opacity={0.15} side={THREE.BackSide} />
@@ -135,7 +169,7 @@ function PlanetModel({ wireframe = false }: { wireframe?: boolean }) {
   );
 }
 
-// 3. Model Geometri Matematika (Icosahedron & Wireframe)
+// 3. Model Geometri Matematika (Ikosahedron & Wireframe)
 function GeometryModel({ wireframe = false }: { wireframe?: boolean }) {
   const meshRef = useRef<THREE.Group>(null);
 
@@ -157,7 +191,6 @@ function GeometryModel({ wireframe = false }: { wireframe?: boolean }) {
           wireframe={wireframe}
         />
       </mesh>
-      {/* Outer Wireframe Cage */}
       <mesh scale={1.05}>
         <icosahedronGeometry args={[1.3, 0]} />
         <meshBasicMaterial color="#ec4899" wireframe />
@@ -170,36 +203,40 @@ export default function Educational3DScene({
   modelType,
   autoRotate = true,
   wireframe = false,
+  handTransform,
 }: SceneProps) {
+  const isHandActive = handTransform?.handDetected ?? false;
+
   return (
     <div className="w-full h-full relative cursor-grab active:cursor-grabbing">
       <Canvas
         camera={{ position: [0, 0, 4.8], fov: 45 }}
         gl={{ alpha: true, antialias: true }}
       >
-        {/* Pencahayaan Studio */}
         <ambientLight intensity={0.9} />
         <directionalLight position={[5, 8, 5]} intensity={1.5} />
         <pointLight position={[-5, -5, -5]} color="#6366f1" intensity={0.8} />
 
-        {/* Orbit Controls (Puter & Zoom) */}
         <OrbitControls
-          enableZoom={true}
-          autoRotate={autoRotate}
+          enableZoom={!isHandActive}
+          enableRotate={!isHandActive}
+          autoRotate={autoRotate && !isHandActive}
           autoRotateSpeed={1.5}
           maxDistance={8}
-          minDistance={2}
+          minDistance={1.8}
         />
 
-        {/* Floating Animation Wrapper */}
-        <Float speed={2} rotationIntensity={0.4} floatIntensity={0.6}>
-          {modelType === "atom" && <AtomModel wireframe={wireframe} />}
-          {modelType === "planet" && <PlanetModel wireframe={wireframe} />}
-          {modelType === "geometry" && <GeometryModel wireframe={wireframe} />}
+        <Float speed={isHandActive ? 0 : 2} rotationIntensity={isHandActive ? 0 : 0.4} floatIntensity={isHandActive ? 0 : 0.6}>
+          <HandControlledModel handTransform={handTransform}>
+            {modelType === "atom" && <AtomModel wireframe={wireframe} />}
+            {modelType === "planet" && <PlanetModel wireframe={wireframe} />}
+            {modelType === "geometry" && <GeometryModel wireframe={wireframe} />}
+          </HandControlledModel>
         </Float>
 
-        {/* Starfield Background */}
-        <Stars radius={50} depth={30} count={600} factor={4} fade speed={1} />
+        {!handTransform?.handDetected && (
+          <Stars radius={50} depth={30} count={600} factor={4} fade speed={1} />
+        )}
       </Canvas>
     </div>
   );

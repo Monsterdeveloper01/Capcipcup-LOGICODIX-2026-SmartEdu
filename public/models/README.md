@@ -27,3 +27,4 @@ useGLTF.preload("/models/heart.glb");
 - [Sketchfab](https://sketchfab.com) (Filter: Downloadable / CC0 / Educational)
 - [Poly Pizza](https://poly.pizza) (Low-poly models gratis)
 - [NASA 3D Resources](https://nasa3d.arc.nasa.gov/) (Model planet, roket, dan tata surya gratis)
+
