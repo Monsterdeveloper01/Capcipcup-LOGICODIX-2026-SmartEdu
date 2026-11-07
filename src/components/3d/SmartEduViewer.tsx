@@ -215,13 +215,13 @@ export default function SmartEduViewer() {
               <>
                 <Hand className="w-3.5 h-3.5 text-emerald-400" />
                 <span>
-                  <strong>Gestur Tangan Aktif:</strong> Gerakkan telapak untuk putar, cubit (pinch) untuk zoom!
+                  <strong>Dual Hand Control:</strong> ✋ Tangan Kanan = Rotasi 360° | 🔍 Tangan Kiri = Zoom In/Out
                 </span>
               </>
             ) : (
               <>
                 <Eye className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Klik & drag mouse untuk putar | Scroll untuk zoom | Aktifkan kamera untuk kontrol tangan</span>
+                <span>Klik & drag mouse untuk putar | Scroll untuk zoom | Aktifkan kamera untuk kontrol 2 tangan</span>
               </>
             )}
           </div>
@@ -234,7 +234,7 @@ export default function SmartEduViewer() {
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
             <span>
-              <strong>Panduan Kontrol Tangan:</strong> ✋ Buka telapak tangan & gerakkan ke kiri/kanan/atas/bawah untuk memutar | 🤏 Cubit/renggangkan jari jempol-telunjuk untuk zoom in/out.
+              <strong>Panduan Kontrol 2 Tangan:</strong> ✋ <strong>Tangan Kanan</strong> (Hijau): Gerakkan untuk memutar objek | 🔍 <strong>Tangan Kiri</strong> (Pink): Naikkan/turunkan tangan untuk Zoom In / Out!
             </span>
           </div>
         </div>
