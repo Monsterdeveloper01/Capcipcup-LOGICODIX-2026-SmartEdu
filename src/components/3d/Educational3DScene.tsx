@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Float, Stars } from "@react-three/drei";
 import * as THREE from "three";
@@ -15,7 +15,7 @@ interface SceneProps {
   handTransform?: HandTransform;
 }
 
-// Wrapper yang merespons rotasi dan zoom dari gestur tangan secara realtime
+// Wrapper yang mengunci objek agar HANYA mengikuti gestur tangan ketika sudah berinteraksi
 function HandControlledModel({
   handTransform,
   children,
@@ -24,26 +24,45 @@ function HandControlledModel({
   children: React.ReactNode;
 }) {
   const groupRef = useRef<THREE.Group>(null);
+  const hasInteractedRef = useRef(false);
+
+  useEffect(() => {
+    // Jika handTransform direset ke 0, perbolehkan reset status interaksi
+    if (handTransform && handTransform.rotationX === 0 && handTransform.rotationY === 0 && handTransform.scale === 1 && !handTransform.handDetected) {
+      hasInteractedRef.current = false;
+      if (groupRef.current) {
+        groupRef.current.rotation.set(0, 0, 0);
+        groupRef.current.scale.set(1, 1, 1);
+      }
+    }
+  }, [handTransform]);
 
   useFrame((_, delta) => {
-    if (!groupRef.current) return;
+    if (!groupRef.current || !handTransform) return;
 
-    if (handTransform && handTransform.handDetected) {
-      // Rotasi halus mengikuti pergerakan telapak tangan
+    if (handTransform.handDetected) {
+      hasInteractedRef.current = true;
+    }
+
+    // Jika objek sudah pernah/sedang diinteraksikan oleh tangan:
+    // Hentikan semua gerakan default, dan objek HANYA mengikuti posisi tangan!
+    if (hasInteractedRef.current) {
       groupRef.current.rotation.x = THREE.MathUtils.lerp(
         groupRef.current.rotation.x,
         handTransform.rotationX,
-        Math.min(delta * 10, 1)
+        Math.min(delta * 12, 1)
       );
       groupRef.current.rotation.y = THREE.MathUtils.lerp(
         groupRef.current.rotation.y,
         handTransform.rotationY,
-        Math.min(delta * 10, 1)
+        Math.min(delta * 12, 1)
       );
 
-      // Zooming halus (skala) saat jempol & telunjuk mencubit / melebar
       const targetScale = Math.max(0.4, Math.min(handTransform.scale, 2.8));
-      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), Math.min(delta * 8, 1));
+      groupRef.current.scale.lerp(
+        new THREE.Vector3(targetScale, targetScale, targetScale),
+        Math.min(delta * 10, 1)
+      );
     }
   });
 
@@ -51,17 +70,20 @@ function HandControlledModel({
 }
 
 // 1. Model Atom & Orbit Elektron (Kimia/Fisika)
-function AtomModel({ wireframe = false }: { wireframe?: boolean }) {
+function AtomModel({ wireframe = false, isControlled = false }: { wireframe?: boolean; isControlled?: boolean }) {
   const electron1Ref = useRef<THREE.Group>(null);
   const electron2Ref = useRef<THREE.Group>(null);
   const electron3Ref = useRef<THREE.Group>(null);
   const nucleusRef = useRef<THREE.Group>(null);
 
   useFrame((_, delta) => {
+    // Elektron tetap mengorbit, tetapi inti atom berhenti berputar jika dikontrol tangan
     if (electron1Ref.current) electron1Ref.current.rotation.z += delta * 2.5;
     if (electron2Ref.current) electron2Ref.current.rotation.x += delta * 2;
     if (electron3Ref.current) electron3Ref.current.rotation.y += delta * 1.8;
-    if (nucleusRef.current) nucleusRef.current.rotation.y += delta * 0.5;
+    if (!isControlled && nucleusRef.current) {
+      nucleusRef.current.rotation.y += delta * 0.5;
+    }
   });
 
   return (
@@ -128,13 +150,18 @@ function AtomModel({ wireframe = false }: { wireframe?: boolean }) {
 }
 
 // 2. Model Planet & Atmosfer (Geografi/Astronomi)
-function PlanetModel({ wireframe = false }: { wireframe?: boolean }) {
+function PlanetModel({ wireframe = false, isControlled = false }: { wireframe?: boolean; isControlled?: boolean }) {
   const planetRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
 
   useFrame((_, delta) => {
-    if (planetRef.current) planetRef.current.rotation.y += delta * 0.4;
-    if (ringRef.current) ringRef.current.rotation.z -= delta * 0.2;
+    // Jika sedang/sudah dikontrol tangan, planet TIDAK berputar sendiri
+    if (!isControlled && planetRef.current) {
+      planetRef.current.rotation.y += delta * 0.4;
+    }
+    if (ringRef.current) {
+      ringRef.current.rotation.z -= delta * (isControlled ? 0.05 : 0.2);
+    }
   });
 
   return (
@@ -170,11 +197,12 @@ function PlanetModel({ wireframe = false }: { wireframe?: boolean }) {
 }
 
 // 3. Model Geometri Matematika (Ikosahedron & Wireframe)
-function GeometryModel({ wireframe = false }: { wireframe?: boolean }) {
+function GeometryModel({ wireframe = false, isControlled = false }: { wireframe?: boolean; isControlled?: boolean }) {
   const meshRef = useRef<THREE.Group>(null);
 
   useFrame((_, delta) => {
-    if (meshRef.current) {
+    // Matikan rotasi otomatis mandiri jika dikontrol tangan!
+    if (!isControlled && meshRef.current) {
       meshRef.current.rotation.x += delta * 0.5;
       meshRef.current.rotation.y += delta * 0.7;
     }
@@ -205,7 +233,9 @@ export default function Educational3DScene({
   wireframe = false,
   handTransform,
 }: SceneProps) {
-  const isHandActive = handTransform?.handDetected ?? false;
+  const isHandActive = Boolean(
+    handTransform && (handTransform.handDetected || handTransform.rotationX !== 0 || handTransform.rotationY !== 0 || handTransform.scale !== 1)
+  );
 
   return (
     <div className="w-full h-full relative cursor-grab active:cursor-grabbing">
@@ -226,15 +256,19 @@ export default function Educational3DScene({
           minDistance={1.8}
         />
 
-        <Float speed={isHandActive ? 0 : 2} rotationIntensity={isHandActive ? 0 : 0.4} floatIntensity={isHandActive ? 0 : 0.6}>
+        <Float
+          speed={isHandActive ? 0 : 2}
+          rotationIntensity={isHandActive ? 0 : 0.4}
+          floatIntensity={isHandActive ? 0 : 0.6}
+        >
           <HandControlledModel handTransform={handTransform}>
-            {modelType === "atom" && <AtomModel wireframe={wireframe} />}
-            {modelType === "planet" && <PlanetModel wireframe={wireframe} />}
-            {modelType === "geometry" && <GeometryModel wireframe={wireframe} />}
+            {modelType === "atom" && <AtomModel wireframe={wireframe} isControlled={isHandActive} />}
+            {modelType === "planet" && <PlanetModel wireframe={wireframe} isControlled={isHandActive} />}
+            {modelType === "geometry" && <GeometryModel wireframe={wireframe} isControlled={isHandActive} />}
           </HandControlledModel>
         </Float>
 
-        {!handTransform?.handDetected && (
+        {!isHandActive && (
           <Stars radius={50} depth={30} count={600} factor={4} fade speed={1} />
         )}
       </Canvas>

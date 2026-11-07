@@ -78,6 +78,23 @@ export default function SmartEduViewer() {
 
   const currentInfo = MODEL_INFO[modelType];
 
+  const handleToggleCamera = () => {
+    setIsCameraActive((prev) => {
+      const next = !prev;
+      if (next) {
+        setAutoRotate(false);
+      }
+      return next;
+    });
+  };
+
+  const handleGestureUpdate = (transform: HandTransform) => {
+    if (transform.handDetected && autoRotate) {
+      setAutoRotate(false);
+    }
+    setHandTransform(transform);
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto rounded-3xl bg-zinc-950 text-white border border-zinc-800 shadow-2xl overflow-hidden">
       {/* Top Header */}
@@ -139,7 +156,7 @@ export default function SmartEduViewer() {
           <div className="absolute inset-0 z-0">
             <CameraFeed
               isActive={isCameraActive}
-              onToggleActive={setIsCameraActive}
+              onToggleActive={handleToggleCamera}
               onVideoReady={setVideoElement}
               showControls={false}
               className="w-full h-full rounded-none"
@@ -152,7 +169,7 @@ export default function SmartEduViewer() {
           <HandGestureTracker
             videoElement={videoElement}
             isActive={isCameraActive}
-            onGestureUpdate={setHandTransform}
+            onGestureUpdate={handleGestureUpdate}
           />
         )}
 
@@ -180,7 +197,7 @@ export default function SmartEduViewer() {
               }`}
             >
               <RotateCw className={`w-3.5 h-3.5 ${autoRotate ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Rotasi</span>
+              <span className="hidden sm:inline">Rotasi Otomatis</span>
             </button>
 
             <button
@@ -197,7 +214,7 @@ export default function SmartEduViewer() {
             </button>
 
             <button
-              onClick={() => setIsCameraActive(!isCameraActive)}
+              onClick={handleToggleCamera}
               className={`p-2.5 px-3.5 rounded-xl backdrop-blur-md border text-xs font-bold flex items-center gap-2 transition-all shadow-lg ${
                 isCameraActive
                   ? "bg-rose-600/90 hover:bg-rose-700 border-rose-400 text-white"
