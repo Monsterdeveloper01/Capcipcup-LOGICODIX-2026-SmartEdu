@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import confetti from "canvas-confetti";
 import {
   Sparkles,
@@ -14,7 +15,20 @@ import {
   Flame,
   Award,
   Zap,
+  Box,
 } from "lucide-react";
+
+const SmartEduViewer = dynamic(() => import("@/components/3d/SmartEduViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-96 flex items-center justify-center bg-zinc-950 text-indigo-400 rounded-3xl border border-zinc-800">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-semibold">Menyiapkan Laboratorium 3D...</span>
+      </div>
+    </div>
+  ),
+});
 
 interface DbStatus {
   success: boolean;
@@ -169,16 +183,22 @@ export default function Home() {
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <a
-            href="#ai-tutor"
-            className="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2"
+            href="#3d-lab"
+            className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all flex items-center gap-2"
           >
-            Coba AI Tutor Sekarang <ArrowRight className="w-4 h-4" />
+            <Box className="w-4 h-4 text-amber-300" /> Coba Visualisasi 3D & AR <ArrowRight className="w-4 h-4" />
+          </a>
+          <a
+            href="#ai-tutor"
+            className="px-6 py-3.5 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 font-bold text-sm shadow-sm transition-all flex items-center gap-2"
+          >
+            <Brain className="w-4 h-4 text-indigo-500" /> Demo AI Tutor
           </a>
           <a
             href="#quiz-arena"
             className="px-6 py-3.5 rounded-xl bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 font-bold text-sm shadow-sm transition-all flex items-center gap-2"
           >
-            <Gamepad2 className="w-4 h-4 text-amber-500" /> Mainkan Kuis Interaktif
+            <Gamepad2 className="w-4 h-4 text-amber-500" /> Kuis Interaktif
           </a>
         </div>
       </section>
@@ -216,6 +236,23 @@ export default function Home() {
             </p>
           </div>
         </div>
+      </section>
+
+      {/* Interactive 3D & WebAR Lab Section */}
+      <section id="3d-lab" className="max-w-6xl mx-auto px-4 py-12">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-bold uppercase tracking-wider mb-3">
+            <Box className="w-3.5 h-3.5" /> 3D Engine & WebAR Visualizer
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-zinc-900 tracking-tight">
+            Eksplorasi Konsep Abstrak dalam 3 Dimensi
+          </h2>
+          <p className="mt-2 text-zinc-600 text-sm max-w-xl mx-auto">
+            Putar objek 360°, amati struktur mikroskopis hingga tata surya, atau aktifkan kamera untuk membawa model 3D ke dunia nyata (Augmented Reality).
+          </p>
+        </div>
+
+        <SmartEduViewer />
       </section>
 
       {/* Interactive AI Tutor Playground */}
