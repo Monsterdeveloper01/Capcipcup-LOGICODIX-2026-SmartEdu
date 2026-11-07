@@ -73,6 +73,7 @@ export default function SmartEduViewer() {
     isPinching: false,
     isGrabbing: false,
     handDetected: false,
+    activeMode: "rotate",
   });
 
   const currentInfo = MODEL_INFO[modelType];

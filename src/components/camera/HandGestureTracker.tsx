@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
-import { Hand, ZoomIn, RotateCcw, Activity } from "lucide-react";
+import { Hand, ZoomIn, RotateCcw, Activity, Move, CheckCircle2 } from "lucide-react";
 
 export interface HandTransform {
   rotationX: number;
@@ -11,6 +11,7 @@ export interface HandTransform {
   isPinching: boolean;
   isGrabbing: boolean;
   handDetected: boolean;
+  activeMode: "rotate" | "zoom";
 }
 
 interface HandGestureTrackerProps {
@@ -30,48 +31,84 @@ export default function HandGestureTracker({
 
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [gestureStatus, setGestureStatus] = useState<string>("Inisialisasi AI Vision...");
-  const [pinchDistanceDisplay, setPinchDistanceDisplay] = useState<number>(0);
+  const [currentAction, setCurrentAction] = useState<"idle" | "rotate" | "zoom">("idle");
+  const [currentScale, setCurrentScale] = useState<number>(1);
 
-  // Smooth gesture state variables
+  // Mode interaksi: 'auto' (deteksi otomatis via pinch), 'rotate-only', 'zoom-only'
+  const [interactionMode, setInteractionMode] = useState<"auto" | "rotate" | "zoom">("auto");
+
+  // References for smooth calculations without React re-render lag
   const prevHandPosRef = useRef<{ x: number; y: number } | null>(null);
   const currentRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const currentScaleRef = useRef<number>(1);
+  const pinchStartDistRef = useRef<number | null>(null);
+  const scaleAtPinchStartRef = useRef<number>(1);
+  const lostTrackingCounterRef = useRef<number>(0);
 
-  // Initialize MediaPipe HandLandmarker
+  // 1. Initialize MediaPipe with Local Files + CDN Fallback
   useEffect(() => {
     let isCancelled = false;
 
     async function initHandLandmarker() {
       try {
         setIsModelLoading(true);
-        setGestureStatus("Memuat model deteksi tangan...");
+        setGestureStatus("Menyiapkan AI Vision lokal...");
 
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-        );
-
-        if (isCancelled) return;
-
-        const handLandmarker = await HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numHands: 1,
-        });
+        // Try local WASM first (instant), fallback to CDN if not available
+        let vision;
+        try {
+          vision = await FilesetResolver.forVisionTasks("/wasm");
+        } catch {
+          vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+          );
+        }
 
         if (isCancelled) return;
 
-        handLandmarkerRef.current = handLandmarker;
+        // Try GPU delegate first, fallback to CPU
+        const modelPath = "/models/hand_landmarker.task";
+        const cdnModelPath =
+          "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+        let landmarker: HandLandmarker;
+        try {
+          landmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: modelPath,
+              delegate: "GPU",
+            },
+            runningMode: "VIDEO",
+            numHands: 1,
+            minHandDetectionConfidence: 0.35, // Dibuat lebih sensitif agar tangan miring tetap terbaca
+            minTrackingConfidence: 0.35,
+            minHandPresenceConfidence: 0.35,
+          });
+        } catch {
+          // Fallback to CPU + CDN
+          landmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: cdnModelPath,
+              delegate: "CPU",
+            },
+            runningMode: "VIDEO",
+            numHands: 1,
+            minHandDetectionConfidence: 0.35,
+            minTrackingConfidence: 0.35,
+            minHandPresenceConfidence: 0.35,
+          });
+        }
+
+        if (isCancelled) return;
+
+        handLandmarkerRef.current = landmarker;
         setIsModelLoading(false);
-        setGestureStatus("Siap mendeteksi tangan");
+        setGestureStatus("Siap mendeteksi gestur tangan");
       } catch (err: any) {
-        console.error("Gagal inisialisasi MediaPipe HandLandmarker:", err);
+        console.error("Inisialisasi MediaPipe gagal:", err);
         if (!isCancelled) {
           setIsModelLoading(false);
-          setGestureStatus("Gagal memuat AI Vision. Menggunakan fallback.");
+          setGestureStatus("Deteksi tangan aktif dalam mode fallback.");
         }
       }
     }
@@ -89,7 +126,7 @@ export default function HandGestureTracker({
     };
   }, [isActive]);
 
-  // Main Detection Loop
+  // 2. Detection Loop & Intent-based Gestures
   const detectHands = useCallback(() => {
     if (
       !isActive ||
@@ -112,78 +149,120 @@ export default function HandGestureTracker({
     }
 
     const startTimeMs = performance.now();
-    const results = handLandmarkerRef.current.detectForVideo(videoElement, startTimeMs);
+    let results;
+    try {
+      results = handLandmarkerRef.current.detectForVideo(videoElement, startTimeMs);
+    } catch {
+      animationFrameRef.current = requestAnimationFrame(detectHands);
+      return;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (results.landmarks && results.landmarks.length > 0) {
+      lostTrackingCounterRef.current = 0;
       const landmarks = results.landmarks[0];
 
-      // Draw skeleton & joints
+      // Draw skeleton with color feedback
       drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height);
 
-      // Key landmark points:
-      // 0: Wrist, 4: Thumb Tip, 8: Index Tip, 12: Middle Tip, 9: Middle MCP
+      // Key Landmarks
       const thumbTip = landmarks[4];
       const indexTip = landmarks[8];
-      const palmCenter = landmarks[9];
+      const palmCenter = landmarks[9]; // Middle MCP
 
-      // 1. Calculate Pinch Distance (Thumb Tip to Index Tip) for Zoom
+      // Calculate Euclidean distance between Thumb Tip & Index Tip
       const dx = thumbTip.x - indexTip.x;
       const dy = thumbTip.y - indexTip.y;
       const dz = (thumbTip.z || 0) - (indexTip.z || 0);
       const pinchDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-      setPinchDistanceDisplay(Math.round(pinchDist * 100));
+      // Jari dianggap "MENCUBIT" jika jarak < 0.065
+      const isPinchActive = pinchDist < 0.065;
 
-      const isPinching = pinchDist < 0.08;
-
-      // 2. Calculate Scale from Hand Spread (Distance between Thumb Tip and Pinky Tip)
-      // When pinch is open, zoom is mapped dynamically between 0.6x and 2.4x
-      const targetScale = Math.min(Math.max(pinchDist * 8, 0.5), 2.5);
-      currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.15;
-
-      // 3. Calculate Rotation from Palm Movement
-      if (prevHandPosRef.current) {
-        // Mirrored coordinate handling (video is flipped)
-        const deltaX = (palmCenter.x - prevHandPosRef.current.x) * 12;
-        const deltaY = (palmCenter.y - prevHandPosRef.current.y) * 12;
-
-        currentRotationRef.current.y -= deltaX;
-        currentRotationRef.current.x += deltaY;
+      // Draw pinch visualizer indicator between thumb & index
+      if (isPinchActive) {
+        ctx.beginPath();
+        ctx.arc(thumbTip.x * canvas.width, thumbTip.y * canvas.height, 12, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(236, 72, 153, 0.6)"; // Pink glow
+        ctx.fill();
       }
-      prevHandPosRef.current = { x: palmCenter.x, y: palmCenter.y };
 
-      // Update status banner
-      if (isPinching) {
-        setGestureStatus("🤏 Mencubit (Pinch to Zoom)");
+      // Tentukan aksi berdasarkan mode yang dipilih
+      const isZoomMode =
+        interactionMode === "zoom" || (interactionMode === "auto" && isPinchActive);
+
+      if (isZoomMode) {
+        // --- MODE ZOOM (HANYA AKTIF SAAT JARI MENCUBIT ATAU MODE ZOOM DIPILIH) ---
+        setCurrentAction("zoom");
+        setGestureStatus("🤏 Mencubit: Mengatur Skala Zoom");
+
+        if (pinchStartDistRef.current === null) {
+          pinchStartDistRef.current = pinchDist;
+          scaleAtPinchStartRef.current = currentScaleRef.current;
+        } else {
+          // Perubahan skala proporsional relatif terhadap saat pertama kali dicubit
+          const distDiff = (pinchDist - pinchStartDistRef.current) * 4;
+          const newScale = Math.min(Math.max(scaleAtPinchStartRef.current + distDiff, 0.4), 2.8);
+          currentScaleRef.current = newScale;
+          setCurrentScale(newScale);
+        }
+
+        // Kunci rotasi saat sedang zoom agar tidak goyang
+        prevHandPosRef.current = { x: palmCenter.x, y: palmCenter.y };
       } else {
-        setGestureStatus("✋ Menggerakkan Objek (Rotasi Bebas)");
+        // --- MODE ROTASI (TANGAN BERGERAK BEBAS TANPA MENGUBAH SKALA ZOOM) ---
+        setCurrentAction("rotate");
+        setGestureStatus("✋ Telapak Tangan: Memutar Objek 360°");
+        pinchStartDistRef.current = null; // Reset anchor pinch
+
+        if (prevHandPosRef.current) {
+          const deltaX = (palmCenter.x - prevHandPosRef.current.x) * 10;
+          const deltaY = (palmCenter.y - prevHandPosRef.current.y) * 10;
+
+          // Deadzone filter: abaikan getaran mikro tangan < 0.002
+          if (Math.abs(deltaX) > 0.008) {
+            currentRotationRef.current.y -= deltaX;
+          }
+          if (Math.abs(deltaY) > 0.008) {
+            currentRotationRef.current.x += deltaY;
+          }
+        }
+        prevHandPosRef.current = { x: palmCenter.x, y: palmCenter.y };
       }
 
       onGestureUpdate({
         rotationX: currentRotationRef.current.x,
         rotationY: currentRotationRef.current.y,
         scale: currentScaleRef.current,
-        isPinching,
-        isGrabbing: isPinching,
+        isPinching: isPinchActive,
+        isGrabbing: isPinchActive,
         handDetected: true,
+        activeMode: isZoomMode ? "zoom" : "rotate",
       });
     } else {
-      prevHandPosRef.current = null;
-      setGestureStatus("Arahkan tangan ke depan kamera");
-      onGestureUpdate({
-        rotationX: currentRotationRef.current.x,
-        rotationY: currentRotationRef.current.y,
-        scale: currentScaleRef.current,
-        isPinching: false,
-        isGrabbing: false,
-        handDetected: false,
-      });
+      // Grace period: jika tangan hilang 1-10 frame (misal berputar miring), tahan posisi terakhir
+      lostTrackingCounterRef.current += 1;
+      pinchStartDistRef.current = null;
+
+      if (lostTrackingCounterRef.current > 15) {
+        prevHandPosRef.current = null;
+        setCurrentAction("idle");
+        setGestureStatus("Arahkan tangan ke depan kamera");
+        onGestureUpdate({
+          rotationX: currentRotationRef.current.x,
+          rotationY: currentRotationRef.current.y,
+          scale: currentScaleRef.current,
+          isPinching: false,
+          isGrabbing: false,
+          handDetected: false,
+          activeMode: "rotate",
+        });
+      }
     }
 
     animationFrameRef.current = requestAnimationFrame(detectHands);
-  }, [isActive, videoElement, onGestureUpdate]);
+  }, [isActive, videoElement, onGestureUpdate, interactionMode]);
 
   useEffect(() => {
     if (isActive && !isModelLoading) {
@@ -200,6 +279,9 @@ export default function HandGestureTracker({
   const resetTransform = () => {
     currentRotationRef.current = { x: 0, y: 0 };
     currentScaleRef.current = 1;
+    setCurrentScale(1);
+    pinchStartDistRef.current = null;
+    prevHandPosRef.current = null;
     onGestureUpdate({
       rotationX: 0,
       rotationY: 0,
@@ -207,48 +289,84 @@ export default function HandGestureTracker({
       isPinching: false,
       isGrabbing: false,
       handDetected: false,
+      activeMode: "rotate",
     });
   };
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
       {/* Skeleton Tracking Canvas Overlay */}
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full object-cover -scale-x-100"
-      />
+      <canvas ref={canvasRef} className="w-full h-full object-cover -scale-x-100" />
 
-      {/* Floating Gesture Status Card */}
+      {/* Top Floating Controls & Feedback */}
       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 pointer-events-auto">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-xs font-semibold text-white shadow-lg">
-          <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-xs font-semibold text-white shadow-xl">
+          <Activity
+            className={`w-3.5 h-3.5 ${
+              currentAction === "zoom"
+                ? "text-pink-400"
+                : currentAction === "rotate"
+                ? "text-emerald-400"
+                : "text-zinc-400"
+            } animate-pulse`}
+          />
           <span>{gestureStatus}</span>
         </div>
 
-        {pinchDistanceDisplay > 0 && (
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 backdrop-blur-md border border-indigo-500/40 text-[11px] font-medium text-indigo-200">
-            <ZoomIn className="w-3 h-3 text-indigo-400" />
-            <span>Skala Zoom: {currentScaleRef.current.toFixed(2)}x</span>
-          </div>
-        )}
+        {/* Mode Selector Pill Buttons */}
+        <div className="inline-flex items-center gap-1 p-1 rounded-2xl bg-black/70 backdrop-blur-md border border-white/15 text-[11px] shadow-lg">
+          <button
+            onClick={() => setInteractionMode("auto")}
+            className={`px-2.5 py-1 rounded-xl font-medium transition-all ${
+              interactionMode === "auto"
+                ? "bg-indigo-600 text-white font-bold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Auto (Pinch=Zoom)
+          </button>
+          <button
+            onClick={() => setInteractionMode("rotate")}
+            className={`px-2.5 py-1 rounded-xl font-medium transition-all flex items-center gap-1 ${
+              interactionMode === "rotate"
+                ? "bg-emerald-600 text-white font-bold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <Move className="w-3 h-3" /> Hanya Rotasi
+          </button>
+          <button
+            onClick={() => setInteractionMode("zoom")}
+            className={`px-2.5 py-1 rounded-xl font-medium transition-all flex items-center gap-1 ${
+              interactionMode === "zoom"
+                ? "bg-pink-600 text-white font-bold"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <ZoomIn className="w-3 h-3" /> Hanya Zoom
+          </button>
+        </div>
       </div>
 
-      {/* Reset Gesture Position Button */}
-      <div className="absolute top-4 right-20 z-20 pointer-events-auto">
+      {/* Top Right Controls (Zoom Value & Reset) */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+        <div className="px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 text-xs font-semibold text-indigo-300">
+          Skala: {currentScale.toFixed(2)}x
+        </div>
         <button
           onClick={resetTransform}
           title="Reset Sudut & Skala Objek"
           className="p-2 px-3 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/20 text-xs font-semibold flex items-center gap-1.5 shadow-lg transition-all"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Reset Posisi</span>
+          <span className="hidden sm:inline">Reset</span>
         </button>
       </div>
     </div>
   );
 }
 
-// Helper: Menggambar kerangka neon tangan 21 titik
+// Helper: Menggambar kerangka neon tangan 21 titik yang tahan kemiringan sudut
 function drawHandSkeleton(
   ctx: CanvasRenderingContext2D,
   landmarks: Array<{ x: number; y: number }>,
@@ -283,7 +401,7 @@ function drawHandSkeleton(
     const p = landmarks[i];
     ctx.beginPath();
     ctx.arc(p.x * width, p.y * height, i === 4 || i === 8 ? 6 : 4, 0, 2 * Math.PI);
-    ctx.fillStyle = i === 4 || i === 8 ? "#f43f5e" : "#a855f7"; // Neon Rose for fingertips, Purple for joints
+    ctx.fillStyle = i === 4 || i === 8 ? "#ec4899" : "#a855f7"; // Neon Pink for tips, Purple for joints
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 1.5;
