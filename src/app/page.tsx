@@ -64,41 +64,24 @@ export default function Home() {
       });
   }, []);
 
-  const handleAskTutor = async (preset?: string) => {
+  const handleAskTutor = (preset?: string) => {
     const question = preset || tutorInput.trim();
     if (!question) return;
 
-    const newMessages = [...tutorChat, { sender: "user" as const, text: question }];
-    setTutorChat(newMessages);
+    setTutorChat((prev) => [...prev, { sender: "user", text: question }]);
     setTutorInput("");
     setIsTyping(true);
 
-    try {
-      const res = await fetch("/api/ai/tutor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages.map((m) => ({
-            role: m.sender === "user" ? "user" : "model",
-            content: m.text,
-          })),
-        }),
-      });
-
-      const data = await res.json();
-      const reply = data.reply || "Ada yang bisa kubantu jelaskan lagi?";
-      setTutorChat((prev) => [...prev, { sender: "ai", text: reply }]);
-    } catch {
+    setTimeout(() => {
       setTutorChat((prev) => [
         ...prev,
         {
           sender: "ai",
-          text: "Konsep ini sangat menarik untuk dipelajari lebih dalam bersama CapcipBot! 🚀",
+          text: `Pertanyaan yang bagus tentang "${question}"! Ini adalah contoh interaksi awal. Endpoint dan integrasi AI lengkap akan disesuaikan dengan arsitektur tim.`,
         },
       ]);
-    } finally {
       setIsTyping(false);
-    }
+    }, 700);
   };
 
   const handleAnswerQuiz = (index: number) => {

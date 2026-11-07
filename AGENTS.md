@@ -8,194 +8,88 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Panduan Arsitektur & Fondasi Integrasi AI: Capcipcup SmartEdu (LOGICODIX 2026)
+# Panduan Fondasi AI & Manajemen API Token: Capcipcup SmartEdu
 
-Dokumen ini adalah referensi utama bagi AI Coding Agents dan developer tim u    ntuk memahami, mengimplementasikan, dan memperluas integrasi AI dalam proyek **Capcipcup SmartEdu**.
-
----
-
-## 1. Visi & Filosofi AI (Smart & Fun Education)
-
-Fondasi AI dalam sistem ini dirancang untuk mencapai tema kompetisi:
-> **Smart & Fun Education:** Mengembangkan solusi digital yang membuat proses belajar-mengajar menjadi lebih interaktif, aksesibel, dan menyenangkan bagi pelajar maupun pengajar, termasuk penggunaan AI sebagai tutor pribadi atau alat bantu visualisasi materi.
-
-### Karakteristik & Persona AI Tutor ("CapcipBot"):
-1. **Socratic & Adaptive:** Tidak sekadar memberikan jawaban langsung, tetapi membimbing siswa langkah demi langkah (*scaffolding*).
-2. **ELI5 (Explain Like I'm 5):** Menjelaskan konsep abstrak (fisika, kalkulus, biologi, coding) dengan analogi dunia nyata dan visual yang mudah dibayangkan.
-3. **Fun & Gamified:** Respons ceria, suportif, kaya emoji edukatif, dan siap memicu kuis interaktif atau penghargaan XP.
-4. **Resilient / Zero-Crash:** Memiliki sistem *smart fallback* lokal sehingga aplikasi tetap dapat mendemonstrasikan respons cerdas meskipun API key belum disetel.
+Dokumen ini adalah acuan bagi developer dan AI Coding Agent mengenai cara meletakkan, membaca, dan mengamankan Token/API Key AI di project ini.
 
 ---
 
-## 2. Struktur Modul & Fondasi Kode
+## 1. Tempat Menaruh Token / API Key
 
-```text
-src/
-├── app/
-│   ├── api/
-│   │   ├── ai/
-│   │   │   ├── tutor/route.ts      <-- Endpoint POST Chat AI Tutor
-│   │   │   └── quiz/route.ts       <-- Endpoint POST Generator Kuis Otomatis
-│   │   └── db-test/route.ts        <-- Endpoint status koneksi database
-│   ├── page.tsx                    <-- Landing page & interactive playground
-│   └── layout.tsx
-├── lib/
-│   ├── ai/
-│   │   └── gemini.ts               <-- Core AI Engine (Google Gen AI SDK & Prompts)
-│   └── db.ts                       <-- MariaDB / MySQL connection pool (mysql2)
+Token AI dikelola melalui environment variables di Next.js:
+
+### A. Di Komputer Lokal (`.env.local`)
+File [`.env.local`](file:///D:/Application/examppp/htdocs/capcipcup/.env.local) bersifat rahasia dan **otomatis diabaikan oleh Git** (`.gitignore`) agar token tidak bocor ke publik:
+```env
+# Google Gemini API Key
+# Dapatkan token gratis di: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=masukkan_token_api_di_sini
+```
+
+### B. Template untuk Tim (`.env.example`)
+File [`.env.example`](file:///D:/Application/examppp/htdocs/capcipcup/.env.example) dicatat di Git sebagai panduan bagi rekan tim saat clone:
+```env
+GEMINI_API_KEY=
 ```
 
 ---
 
-## 3. Cara Menggunakan & Memanggil AI
+## 2. Fondasi Client AI (`src/lib/ai/client.ts`)
 
-### A. Memanggil AI Tutor dari Client Component (React)
+File [`src/lib/ai/client.ts`](file:///D:/Application/examppp/htdocs/capcipcup/src/lib/ai/client.ts) berfungsi sebagai fondasi dasar yang membaca token dan menginisialisasi SDK AI (`@google/genai`):
 
-Gunakan `fetch` ke endpoint `/api/ai/tutor`:
+```ts
+import { GoogleGenAI } from "@google/genai";
 
-```tsx
-"use client";
-import { useState } from "react";
+const apiKey = process.env.GEMINI_API_KEY || "";
 
-export function TutorWidget() {
-  const [input, setInput] = useState("");
-  const [reply, setReply] = useState("");
-  const [loading, setLoading] = useState(false);
+// Instance client AI (bernilai null jika token belum diisi)
+export const aiClient = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-  const askTutor = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/ai/tutor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            { role: "user", content: input }
-          ],
-          subject: "Fisika",              // Opsional
-          mode: "explain"                 // "explain" | "quiz" | "visualize" | "story"
-        }),
-      });
-
-      const data = await res.json();
-      setReply(data.reply);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      <input value={input} onChange={(e) => setInput(e.target.value)} />
-      <button onClick={askTutor} disabled={loading}>Tanya Tutor</button>
-      <p>{reply}</p>
-    </div>
-  );
+// Helper untuk mengecek ketersediaan token
+export function hasAiKey(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== "");
 }
 ```
 
 ---
 
-### B. Membuat Kuis Otomatis dari Topik Pelajaran
+## 3. Cara Menggunakan Client AI di Route Handler / Server Action
 
-Panggil endpoint `/api/ai/quiz` untuk mendapatkan soal terstruktur dalam bentuk array JSON:
-
-```tsx
-const res = await fetch("/api/ai/quiz", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    topic: "Sistem Tata Surya",
-    count: 3
-  }),
-});
-
-const data = await res.json();
-// data.questions format:
-// [
-//   {
-//     question: "Planet apa yang terbesar di tata surya?",
-//     options: ["Mars", "Jupiter", "Bumi", "Venus"],
-//     correctAnswerIndex: 1,
-//     explanation: "Jupiter adalah planet terbesar dengan massa lebih dari dua kali lipat gabungan semua planet lain."
-//   }
-// ]
-```
-
----
-
-### C. Memanggil Langsung di Server-Side / Server Action
-
-Gunakan fungsi dari `src/lib/ai/gemini.ts`:
+Kapan pun tim ingin membuat endpoint atau fitur AI baru, gunakan fondasi dari `src/lib/ai/client.ts`:
 
 ```ts
-import { chatWithTutor, generateQuizQuestions } from "@/lib/ai/gemini";
+import { NextResponse } from "next/server";
+import { aiClient, hasAiKey } from "@/lib/ai/client";
 
-// Di Server Action atau API Route:
-export async function handleServerAction(userPrompt: string) {
-  const response = await chatWithTutor({
-    messages: [{ role: "user", content: userPrompt }],
-    mode: "visualize",
+export async function POST(req: Request) {
+  if (!hasAiKey() || !aiClient) {
+    return NextResponse.json(
+      { error: "GEMINI_API_KEY belum disetel di .env.local" },
+      { status: 500 }
+    );
+  }
+
+  const { prompt } = await req.json();
+
+  const response = await aiClient.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: prompt,
   });
-  return response;
+
+  return NextResponse.json({
+    result: response.text,
+  });
 }
 ```
 
 ---
 
-## 4. Konfigurasi Lingkungan (`.env.local`)
-
-Untuk mengaktifkan model Gemini secara live:
-1. Dapatkan API Key gratis di [Google AI Studio](https://aistudio.google.com/app/apikey).
-2. Tambahkan ke file `.env.local`:
-   ```env
-   GEMINI_API_KEY=AIzaSy...
-   ```
-3. Jika `GEMINI_API_KEY` tidak diisi, sistem akan otomatis beralih ke *Smart Fallback Mode* (menjawab topik umum seperti fotosintesis, pythagoras, gravitasi, dll.) tanpa melempar error.
-
----
-
-## 5. Integrasi Database MariaDB/MySQL (`src/lib/db.ts`)
-
-AI ini dapat langsung diintegrasikan dengan database MariaDB yang telah terhubung:
-
-### Rekomendasi Skema Tabel AI:
-```sql
--- Tabel riwayat chat tutor
-CREATE TABLE IF NOT EXISTS tutor_conversations (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id VARCHAR(64) DEFAULT 'guest',
-    subject VARCHAR(64),
-    mode VARCHAR(32) DEFAULT 'explain',
-    user_message TEXT NOT NULL,
-    ai_response TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tabel kuis dan pencapaian XP gamifikasi
-CREATE TABLE IF NOT EXISTS quiz_results (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id VARCHAR(64) DEFAULT 'guest',
-    topic VARCHAR(128) NOT NULL,
-    score INT DEFAULT 0,
-    xp_earned INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-Untuk menyimpan interaksi chat:
-```ts
-import { query } from "@/lib/db";
-
-await query(
-  "INSERT INTO tutor_conversations (subject, mode, user_message, ai_response) VALUES (?, ?, ?, ?)",
-  [subject, mode, userMessage, aiResponse]
-);
-```
-
----
-
-## 6. Aturan untuk AI Coding Agents Selanjutnya:
-- **Keamanan Kunci API:** Jangan pernah menaruh `GEMINI_API_KEY` di Client Components (`use client`). Selalu panggil melalui server handler / API route.
-- **Konsistensi UI:** Komponen interaktif baru harus selaras dengan estetika Tailwind CSS v4, menggunakan `lucide-react` untuk ikonografi dan `canvas-confetti` untuk efek selebrasi gamifikasi.
-- **Dokumentasi Terjaga:** Jangan menghapus blok pembuka `<!-- BEGIN:nextjs-agent-rules -->`.
+## 4. Aturan Keamanan Penting untuk AI Agents & Tim:
+1. **Jangan Mengekspos Token ke Client:**
+   - Dilarang memberi prefix `NEXT_PUBLIC_` pada token AI.
+   - Panggilan ke SDK AI **hanya boleh dilakukan di Server** (Route Handler di `src/app/api/...` atau Server Action).
+2. **Koneksi Database:**
+   - Jika ingin menyimpan input/output AI ke database, gunakan helper `query` dari [`src/lib/db.ts`](file:///D:/Application/examppp/htdocs/capcipcup/src/lib/db.ts).
+3. **Fleksibilitas Desain:**
+   - Seluruh logika bisnis, pembuatan prompt, struktur JSON kuis, dan alur percakapan diserahkan kepada perancangan tim.
