@@ -38,3 +38,4 @@ export async function GET(
     return NextResponse.json({ error: "Gagal memuat room.", details: err.message }, { status: 500 });
   }
 }
+

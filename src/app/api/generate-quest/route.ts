@@ -163,3 +163,4 @@ Return STRICTLY a JSON object matching this schema:
     return NextResponse.json({ error: "Gagal membuat quest.", details: err.message }, { status: 500 });
   }
 }
+

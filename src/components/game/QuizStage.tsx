@@ -157,3 +157,4 @@ export default function QuizStage({ questions, onQuizCompleted }: QuizStageProps
     </div>
   );
 }
+
