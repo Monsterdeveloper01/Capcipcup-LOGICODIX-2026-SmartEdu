@@ -135,18 +135,20 @@ export default function LinguaNavbar({
               </button>
             )}
 
-            {/* Boss Raid Tab */}
-            <button
-              onClick={() => onViewChange("boss_raid")}
-              className={`px-3 py-1 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 border-2 ${
-                activeView === "boss_raid"
-                  ? "bg-[#f97316] text-white border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
-                  : "bg-transparent text-zinc-700 border-transparent hover:border-black hover:bg-white"
-              }`}
-            >
-              <MonitorPlay className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span className="hidden md:inline">Boss Raid</span>
-            </button>
+            {/* Boss Raid Tab: Khusus Siswa & Superadmin (Guru TIDAK bisa akses) */}
+            {(isStudent || isSuperadmin) && (
+              <button
+                onClick={() => onViewChange("boss_raid")}
+                className={`px-3 py-1 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 border-2 ${
+                  activeView === "boss_raid"
+                    ? "bg-[#f97316] text-white border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
+                    : "bg-transparent text-zinc-700 border-transparent hover:border-black hover:bg-white"
+                }`}
+              >
+                <MonitorPlay className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="hidden md:inline">Boss Raid</span>
+              </button>
+            )}
 
             {/* Split Screen Demo Tab (For Presentation/Hackathon Demo) */}
             {(isTeacher || isSuperadmin) && (

@@ -107,10 +107,37 @@ export default function StudentGameView({
 
   // Camera & Image State
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  // Centralized Bulletproof Camera Killer (Turns off Hardware Light Immediately)
+  const stopCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
+      streamRef.current = null;
+    }
+
+    if (videoRef.current && videoRef.current.srcObject) {
+      const ms = videoRef.current.srcObject as MediaStream;
+      if (ms && typeof ms.getTracks === "function") {
+        ms.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch (e) {}
+        });
+      }
+      videoRef.current.srcObject = null;
+    }
+
+    setIsCameraActive(false);
+  };
 
   // Quest & Inventory State
   const [currentQuest, setCurrentQuest] = useState<QuestScenario | null>(null);
@@ -367,16 +394,31 @@ export default function StudentGameView({
   };
 
   // ============================================================================
-  // CAMERA STREAM HANDLER
+  // CAMERA STREAM HANDLER (HARDWARE INDICATOR AUTO-SHUTOFF)
   // ============================================================================
   useEffect(() => {
-    let stream: MediaStream | null = null;
+    let isCancelled = false;
 
-    if (step === "scanning" && isCameraActive) {
+    // Kamera HANYA menyala saat benar-benar di step scanning dan belum mengambil foto
+    if (step === "scanning" && isCameraActive && !capturedImage) {
       navigator.mediaDevices
         ?.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } })
         .then((s) => {
-          stream = s;
+          if (isCancelled) {
+            // Jika user sudah berpindah step sebelum izin kamera selesai, langsung matikan track
+            s.getTracks().forEach((track) => {
+              try { track.stop(); } catch (e) {}
+            });
+            return;
+          }
+
+          if (streamRef.current && streamRef.current !== s) {
+            streamRef.current.getTracks().forEach((t) => {
+              try { t.stop(); } catch (e) {}
+            });
+          }
+
+          streamRef.current = s;
           if (videoRef.current) {
             videoRef.current.srcObject = s;
             videoRef.current.play().catch(() => {});
@@ -384,17 +426,19 @@ export default function StudentGameView({
         })
         .catch((err) => {
           console.warn("Kamera tidak dapat diakses:", err);
-          setIsCameraActive(false);
+          stopCameraStream();
           setScanError("Kamera tidak dapat diakses atau izin ditolak. Anda dapat mengunggah file foto di bawah.");
         });
+    } else {
+      // Step selain scanning, atau foto sudah terambil -> MATIKAN LAMPU KAMERA
+      stopCameraStream();
     }
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      isCancelled = true;
+      stopCameraStream();
     };
-  }, [step, isCameraActive]);
+  }, [step, isCameraActive, capturedImage]);
 
   // ============================================================================
   // WEB SPEECH API (STT & TTS)
@@ -472,6 +516,10 @@ export default function StudentGameView({
     if (!ctx) return;
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+    // Matikan lampu kamera perangkat segera begitu foto diambil
+    stopCameraStream();
+
     setCapturedImage(dataUrl);
     processVisionScan(dataUrl);
   };
@@ -479,6 +527,10 @@ export default function StudentGameView({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Matikan lampu kamera jika user beralih mengunggah file
+    stopCameraStream();
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -540,6 +592,7 @@ export default function StudentGameView({
   // ACTION: START HUD ROLEPLAY
   // ============================================================================
   const startRoleplaySession = () => {
+    stopCameraStream();
     if (!currentQuest) return;
     const initialMsg: RoleplayTurnMessage = {
       id: `npc_init_${Date.now()}`,
@@ -644,6 +697,7 @@ export default function StudentGameView({
   // ACTION: FINISH QUEST & RUN POST-GAME AUTOPSY
   // ============================================================================
   const finishQuestSession = async (allMessages?: RoleplayTurnMessage[]) => {
+    stopCameraStream();
     if (!currentQuest) return;
     setIsEvaluating(true);
     setStep("autopsy");
@@ -684,6 +738,7 @@ export default function StudentGameView({
   };
 
   const resetAll = () => {
+    stopCameraStream();
     setStep("select_mode");
     setCapturedImage(null);
     setCurrentQuest(null);

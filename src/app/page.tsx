@@ -296,8 +296,32 @@ export default function Home() {
                 )
               )}
 
-              {/* CLASSROOM BOSS RAID */}
-              {activeView === "boss_raid" && <ClassroomBossRaidView />}
+              {/* CLASSROOM BOSS RAID (Siswa & Superadmin Only; Guru dialihkan ke dashboard guru) */}
+              {activeView === "boss_raid" && (
+                (isSuperadmin || currentUser?.role === "student") ? (
+                  <ClassroomBossRaidView />
+                ) : (
+                  <div className="border-2 border-black bg-white p-8 shadow-[4px_4px_0px_#000000] text-center max-w-xl mx-auto space-y-4 my-8 font-mono">
+                    <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-800">
+                      [ MODE KHUSUS SISWA ]
+                    </span>
+                    <h2 className="text-xl font-black text-black uppercase">
+                      Classroom Boss Raid
+                    </h2>
+                    <p className="text-xs text-zinc-600 leading-relaxed">
+                      Mode Boss Raid dirancang khusus sebagai arena bermain kolaboratif siswa. Akun Guru menggunakan Dashboard Guru untuk administrasi kelas dan evaluasi.
+                    </p>
+                    <div className="pt-2">
+                      <button
+                        onClick={() => setActiveView("teacher")}
+                        className="brutal-btn-cyan px-5 py-2.5 text-xs font-black uppercase"
+                      >
+                        [ KEMBALI KE DASHBOARD GURU ]
+                      </button>
+                    </div>
+                  </div>
+                )
+              )}
 
               {/* SPLIT SCREEN DEMO (Available to teachers and admins) */}
               {activeView === "split_screen" && <SplitScreenDemoView />}

@@ -15,6 +15,7 @@ export default function CameraScanner({
   onObjectConfirmed,
 }: CameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -22,14 +23,44 @@ export default function CameraScanner({
   const [selectedDetection, setSelectedDetection] = useState<YoloDetection | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const stopCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try { track.stop(); } catch (e) {}
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const ms = videoRef.current.srcObject as MediaStream;
+      if (ms && typeof ms.getTracks === "function") {
+        ms.getTracks().forEach((track) => {
+          try { track.stop(); } catch (e) {}
+        });
+      }
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
   useEffect(() => {
-    let stream: MediaStream | null = null;
+    let isCancelled = false;
 
     if (isCameraActive) {
       navigator.mediaDevices
         ?.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } })
         .then((s) => {
-          stream = s;
+          if (isCancelled) {
+            s.getTracks().forEach((t) => {
+              try { t.stop(); } catch (e) {}
+            });
+            return;
+          }
+          if (streamRef.current && streamRef.current !== s) {
+            streamRef.current.getTracks().forEach((t) => {
+              try { t.stop(); } catch (e) {}
+            });
+          }
+          streamRef.current = s;
           if (videoRef.current) {
             videoRef.current.srcObject = s;
             videoRef.current.play().catch(() => {});
@@ -37,15 +68,16 @@ export default function CameraScanner({
         })
         .catch((err) => {
           console.warn("Camera stream error:", err);
-          setIsCameraActive(false);
+          stopCameraStream();
           setErrorMsg("Izin kamera ditolak atau kamera tidak ditemukan. Anda dapat mengunggah foto.");
         });
+    } else {
+      stopCameraStream();
     }
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-      }
+      isCancelled = true;
+      stopCameraStream();
     };
   }, [isCameraActive]);
 

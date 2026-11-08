@@ -19,16 +19,33 @@ export default function CameraFeed({
   showControls = true,
 }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
 
+  const stopAllTracks = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try { track.stop(); } catch (e) {}
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const ms = videoRef.current.srcObject as MediaStream;
+      if (ms && typeof ms.getTracks === "function") {
+        ms.getTracks().forEach((track) => {
+          try { track.stop(); } catch (e) {}
+        });
+      }
+      videoRef.current.srcObject = null;
+    }
+    setStream(null);
+  };
+
   useEffect(() => {
     if (!isActive) {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-        setStream(null);
-      }
+      stopAllTracks();
       return;
     }
 
@@ -37,9 +54,7 @@ export default function CameraFeed({
     async function startCamera() {
       try {
         setError(null);
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-        }
+        stopAllTracks();
 
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -50,14 +65,20 @@ export default function CameraFeed({
           audio: false,
         });
 
-        if (isMounted) {
-          setStream(mediaStream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-            videoRef.current.onloadedmetadata = () => {
-              onVideoReady?.(videoRef.current);
-            };
-          }
+        if (!isMounted) {
+          mediaStream.getTracks().forEach((track) => {
+            try { track.stop(); } catch (e) {}
+          });
+          return;
+        }
+
+        streamRef.current = mediaStream;
+        setStream(mediaStream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.onloadedmetadata = () => {
+            onVideoReady?.(videoRef.current);
+          };
         }
       } catch (err: any) {
         if (isMounted) {
@@ -74,9 +95,7 @@ export default function CameraFeed({
 
     return () => {
       isMounted = false;
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      stopAllTracks();
     };
   }, [isActive, facingMode]);
 
