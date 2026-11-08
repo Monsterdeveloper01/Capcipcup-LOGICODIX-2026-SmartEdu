@@ -97,3 +97,121 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const {
+      id,
+      title,
+      roomCode,
+      caseStudyStory,
+      npcName = "Mr. Arthur",
+      npcPersona = "Examiner & Evaluator",
+      requiredObjectHint = "Benda fisik di meja",
+      missionObjectives = [],
+      targetVocabularies = [],
+      quizQuestions = [],
+      difficultyLevel = "B1",
+    } = body;
+
+    if (!id || !title || !caseStudyStory) {
+      return NextResponse.json(
+        { error: "ID, Judul misi, dan skenario studi kasus wajib diisi." },
+        { status: 400 }
+      );
+    }
+
+    const vocabList = Array.isArray(targetVocabularies)
+      ? targetVocabularies
+      : typeof targetVocabularies === "string"
+      ? targetVocabularies.split(",").map((v: string) => v.trim()).filter(Boolean)
+      : [];
+
+    await query(
+      `UPDATE quests SET 
+        title = ?,
+        room_code = ?,
+        difficulty_level = ?,
+        case_study_story = ?,
+        npc_name = ?,
+        npc_persona = ?,
+        required_object_hint = ?,
+        mission_objectives = ?,
+        target_vocabularies = ?,
+        quiz_questions = ?
+      WHERE id = ?`,
+      [
+        title,
+        roomCode?.trim().toUpperCase(),
+        difficultyLevel,
+        caseStudyStory,
+        npcName,
+        npcPersona,
+        requiredObjectHint,
+        JSON.stringify(missionObjectives),
+        JSON.stringify(vocabList),
+        JSON.stringify(quizQuestions),
+        id,
+      ]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: `Room kelas [${roomCode}] berhasil diperbarui.`,
+    });
+  } catch (err: any) {
+    console.error("Update room error:", err);
+    return NextResponse.json(
+      { error: "Gagal memperbarui room kelas.", details: err.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    let id = searchParams.get("id");
+
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body?.id;
+      } catch {}
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "ID room kelas wajib disertakan." }, { status: 400 });
+    }
+
+    // Ambil info room sebelum dihapus untuk bersihkan speaking_sessions jika ada
+    const existing = await query<any[]>(`SELECT id, room_code FROM quests WHERE id = ? LIMIT 1`, [id]);
+    if (!existing || existing.length === 0) {
+      return NextResponse.json({ error: "Room kelas tidak ditemukan." }, { status: 404 });
+    }
+
+    const roomCode = existing[0].room_code;
+
+    // Bersihkan sesi yang terkait dengan room/PIN ini jika ada
+    if (roomCode) {
+      await query(`DELETE FROM speaking_sessions WHERE quest_id = ? OR class_code = ?`, [id, roomCode]);
+    } else {
+      await query(`DELETE FROM speaking_sessions WHERE quest_id = ?`, [id]);
+    }
+
+    // Hapus dari quests (submissions akan terhapus otomatis via ON DELETE CASCADE)
+    await query(`DELETE FROM quests WHERE id = ?`, [id]);
+
+    return NextResponse.json({
+      success: true,
+      message: `Room kelas [PIN: ${roomCode || id}] berhasil dihapus beserta data sesinya.`,
+    });
+  } catch (err: any) {
+    console.error("Delete room error:", err);
+    return NextResponse.json(
+      { error: "Gagal menghapus room kelas.", details: err.message },
+      { status: 500 }
+    );
+  }
+}

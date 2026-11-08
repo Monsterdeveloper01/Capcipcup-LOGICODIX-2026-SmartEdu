@@ -21,6 +21,7 @@ import {
   X,
   ArrowRight,
   ShieldAlert,
+  Pencil,
 } from "lucide-react";
 
 interface TeacherRoomItem {
@@ -33,6 +34,9 @@ interface TeacherRoomItem {
   npcName?: string;
   npcPersona?: string;
   requiredObjectHint?: string;
+  missionObjectives?: any;
+  targetVocabularies?: any;
+  quizQuestions?: any;
   submissionsCount?: number;
   speakingCount?: number;
   createdAt?: string;
@@ -105,6 +109,23 @@ export default function TeacherDashboardView() {
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [createSuccessMsg, setCreateSuccessMsg] = useState<string | null>(null);
+
+  // Edit Room Modal State
+  const [editingRoom, setEditingRoom] = useState<TeacherRoomItem | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editRoomCode, setEditRoomCode] = useState("");
+  const [editDifficulty, setEditDifficulty] = useState("B1");
+  const [editCaseStory, setEditCaseStory] = useState("");
+  const [editNpcName, setEditNpcName] = useState("");
+  const [editNpcPersona, setEditNpcPersona] = useState("");
+  const [editRequiredHint, setEditRequiredHint] = useState("");
+  const [editTargetVocab, setEditTargetVocab] = useState("");
+  const [editQuizQuestions, setEditQuizQuestions] = useState<QuizQuestionItem[]>([]);
+  const [isUpdatingRoom, setIsUpdatingRoom] = useState(false);
+
+  // Delete Room Modal State
+  const [roomToDelete, setRoomToDelete] = useState<TeacherRoomItem | null>(null);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
 
   // Load Rooms & Heatmap on Mount
   useEffect(() => {
@@ -239,6 +260,137 @@ export default function TeacherDashboardView() {
       alert(err.message || "Gagal mempublikasikan room.");
     } finally {
       setIsSavingRoom(false);
+    }
+  };
+
+  // Open Edit Modal & Populate Form
+  const handleOpenEditModal = (room: TeacherRoomItem) => {
+    setEditingRoom(room);
+    setEditTitle(room.title || "");
+    setEditRoomCode(room.roomCode || "");
+    setEditDifficulty(room.difficultyLevel || "B1");
+    setEditCaseStory(room.caseStudyStory || "");
+    setEditNpcName(room.npcName || "Mr. Arthur");
+    setEditNpcPersona(room.npcPersona || "Examiner & Evaluator");
+    setEditRequiredHint(room.requiredObjectHint || "Benda fisik di meja");
+
+    if (Array.isArray(room.targetVocabularies)) {
+      setEditTargetVocab(room.targetVocabularies.join(", "));
+    } else if (typeof room.targetVocabularies === "string") {
+      try {
+        const parsed = JSON.parse(room.targetVocabularies);
+        setEditTargetVocab(Array.isArray(parsed) ? parsed.join(", ") : room.targetVocabularies);
+      } catch {
+        setEditTargetVocab(room.targetVocabularies);
+      }
+    } else {
+      setEditTargetVocab("");
+    }
+
+    if (Array.isArray(room.quizQuestions)) {
+      setEditQuizQuestions(room.quizQuestions);
+    } else if (typeof room.quizQuestions === "string") {
+      try {
+        const parsed = JSON.parse(room.quizQuestions);
+        setEditQuizQuestions(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setEditQuizQuestions([]);
+      }
+    } else {
+      setEditQuizQuestions([]);
+    }
+  };
+
+  // Submit Edited Room (PUT)
+  const handleSaveEditedRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoom) return;
+    if (!editTitle.trim() || !editCaseStory.trim()) {
+      alert("Judul materi dan skenario studi kasus wajib diisi.");
+      return;
+    }
+
+    setIsUpdatingRoom(true);
+    const vocabList = editTargetVocab
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+    try {
+      const res = await fetch("/api/teacher/rooms", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingRoom.id,
+          title: editTitle,
+          roomCode: editRoomCode,
+          difficultyLevel: editDifficulty,
+          caseStudyStory: editCaseStory,
+          npcName: editNpcName,
+          npcPersona: editNpcPersona,
+          requiredObjectHint: editRequiredHint,
+          targetVocabularies: vocabList,
+          quizQuestions: editQuizQuestions,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memperbarui room.");
+
+      setCreateSuccessMsg(`Room kelas [PIN: ${editRoomCode}] berhasil diperbarui!`);
+      await fetchRooms();
+      setEditingRoom(null);
+    } catch (err: any) {
+      alert(err.message || "Gagal memperbarui room.");
+    } finally {
+      setIsUpdatingRoom(false);
+    }
+  };
+
+  const handleAddEditQuestion = () => {
+    setEditQuizQuestions((prev) => [
+      ...prev,
+      {
+        question: "Pertanyaan kuis baru...",
+        options: ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
+        correctIndex: 0,
+        explanation: "Penjelasan jawaban benar...",
+      },
+    ]);
+  };
+
+  const handleRemoveEditQuestion = (idx: number) => {
+    setEditQuizQuestions((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleUpdateEditOption = (qIdx: number, optIdx: number, val: string) => {
+    setEditQuizQuestions((prev) => {
+      const next = [...prev];
+      const opts = [...next[qIdx].options] as [string, string, string, string];
+      opts[optIdx] = val;
+      next[qIdx] = { ...next[qIdx], options: opts };
+      return next;
+    });
+  };
+
+  // Submit Delete Room (DELETE)
+  const handleConfirmDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setIsDeletingRoom(true);
+    try {
+      const res = await fetch(`/api/teacher/rooms?id=${roomToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menghapus room.");
+
+      setCreateSuccessMsg(`Room kelas [PIN: ${roomToDelete.roomCode}] berhasil dihapus.`);
+      await fetchRooms();
+      setRoomToDelete(null);
+    } catch (err: any) {
+      alert(err.message || "Gagal menghapus room.");
+    } finally {
+      setIsDeletingRoom(false);
     }
   };
 
@@ -515,24 +667,47 @@ export default function TeacherDashboardView() {
                   </div>
 
                   {/* Actions Bar */}
-                  <div className="pt-2 border-t-2 border-zinc-200 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setProjectorModalRoom(room)}
-                      className="flex-1 brutal-btn-yellow py-2 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                    >
-                      <Monitor className="w-3.5 h-3.5" />
-                      <span>[ 🖥️ PROYEKTOR PIN ]</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setFilterRoomCode(room.roomCode);
-                        setActiveTab("grader");
-                      }}
-                      className="flex-1 brutal-btn-white py-2 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                    >
-                      <Users className="w-3.5 h-3.5" />
-                      <span>[ LIHAT NILAI ]</span>
-                    </button>
+                  <div className="pt-3 border-t-2 border-zinc-200 flex flex-col gap-2 font-mono">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setProjectorModalRoom(room)}
+                        className="flex-1 brutal-btn-yellow py-2 text-xs font-black uppercase flex items-center justify-center gap-1.5"
+                        title="Tampilkan PIN Layar Penuh di Proyektor Depan Kelas"
+                      >
+                        <Monitor className="w-3.5 h-3.5" />
+                        <span>[ 🖥️ PROYEKTOR PIN ]</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setFilterRoomCode(room.roomCode);
+                          setActiveTab("grader");
+                        }}
+                        className="flex-1 brutal-btn-white py-2 text-xs font-black uppercase flex items-center justify-center gap-1.5"
+                        title="Lihat Rekap Nilai Siswa untuk Room Ini"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>[ 👥 LIHAT NILAI ]</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenEditModal(room)}
+                        className="flex-1 brutal-btn-cyan py-2 text-xs font-black uppercase flex items-center justify-center gap-1.5"
+                        title="Edit Judul, PIN, Skenario, dan Soal Kuis"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>[ ✏️ EDIT ROOM ]</span>
+                      </button>
+                      <button
+                        onClick={() => setRoomToDelete(room)}
+                        className="px-3.5 py-2 border-2 border-red-700 bg-red-100 hover:bg-red-200 text-red-900 text-xs font-black uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000000] transition-colors"
+                        title="Hapus Room Kelas & Sesi Terkait"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-700" />
+                        <span>[ HAPUS ]</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1131,6 +1306,351 @@ export default function TeacherDashboardView() {
                 className="brutal-btn-yellow px-5 py-2 text-xs font-black uppercase"
               >
                 [ SELESAI // TUTUP ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: EDIT ROOM KELAS & KUIS
+          ===================================================================== */}
+      {editingRoom && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 font-mono overflow-y-auto">
+          <div className="border-4 border-black bg-white max-w-3xl w-full my-8 p-6 shadow-[8px_8px_0px_#000000] space-y-6 text-black max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b-2 border-black pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase bg-[#22d3ee] text-black px-2 py-0.5 border border-black">
+                    [EDIT ROOM KELAS]
+                  </span>
+                  <span className="text-xs font-black uppercase text-zinc-500">
+                    PIN: [{editRoomCode}]
+                  </span>
+                </div>
+                <h2 className="text-lg font-black uppercase tracking-tight mt-1">
+                  Sunting Skenario & Kuis Room Kelas
+                </h2>
+              </div>
+              <button
+                onClick={() => setEditingRoom(null)}
+                className="p-1.5 bg-black text-white hover:bg-zinc-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleSaveEditedRoom} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    PIN Room Kelas:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={10}
+                    value={editRoomCode}
+                    onChange={(e) => setEditRoomCode(e.target.value.toUpperCase())}
+                    className="w-full border-2 border-black p-2.5 font-mono text-sm uppercase bg-yellow-50 focus:bg-white outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Target CEFR Level:
+                  </label>
+                  <select
+                    value={editDifficulty}
+                    onChange={(e) => setEditDifficulty(e.target.value)}
+                    className="w-full border-2 border-black p-2.5 font-mono text-xs bg-white outline-hidden font-bold"
+                  >
+                    <option value="A1">A1 - Pemula Dasar</option>
+                    <option value="A2">A2 - Elementary</option>
+                    <option value="B1">B1 - Intermediate</option>
+                    <option value="B2">B2 - Upper Intermediate</option>
+                    <option value="C1">C1 - Advanced Professional</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    ID Room di Database:
+                  </label>
+                  <input
+                    type="text"
+                    disabled
+                    value={editingRoom.id}
+                    className="w-full border-2 border-zinc-300 p-2.5 font-mono text-xs bg-zinc-100 text-zinc-500 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-black uppercase block mb-1">
+                  Judul Skenario Misi / Ujian:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full border-2 border-black p-2.5 font-mono text-xs bg-white outline-hidden font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-black uppercase block mb-1">
+                  Skenario Kasus Nyata (Case Study Story):
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={editCaseStory}
+                  onChange={(e) => setEditCaseStory(e.target.value)}
+                  className="w-full border-2 border-black p-2.5 font-mono text-xs bg-white outline-hidden leading-relaxed"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Nama Karakter Penguji (NPC):
+                  </label>
+                  <input
+                    type="text"
+                    value={editNpcName}
+                    onChange={(e) => setEditNpcName(e.target.value)}
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Persona & Sikap Penguji:
+                  </label>
+                  <input
+                    type="text"
+                    value={editNpcPersona}
+                    onChange={(e) => setEditNpcPersona(e.target.value)}
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Benda Nyata yang Harus Discan:
+                  </label>
+                  <input
+                    type="text"
+                    value={editRequiredHint}
+                    onChange={(e) => setEditRequiredHint(e.target.value)}
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Target Kosakata Wajib (Pisahkan Koma):
+                  </label>
+                  <input
+                    type="text"
+                    value={editTargetVocab}
+                    onChange={(e) => setEditTargetVocab(e.target.value)}
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Edit Quiz Section */}
+              <div className="border-t-2 border-black pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-black uppercase block text-black">
+                      Soal Kuis Pilihan Ganda ({editQuizQuestions.length} Butir)
+                    </span>
+                    <span className="text-[11px] text-zinc-500">
+                      Siswa akan menjawab soal-soal ini sebelum atau setelah sesi speaking.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddEditQuestion}
+                    className="brutal-btn-white px-3 py-1.5 text-xs font-black uppercase flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>[ + Tambah Soal ]</span>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {editQuizQuestions.map((qItem, qIdx) => (
+                    <div key={qIdx} className="border-2 border-black bg-zinc-50 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase bg-black text-white px-2 py-0.5">
+                          Soal #{qIdx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditQuestion(qIdx)}
+                          className="text-red-700 hover:text-red-900 text-xs font-black flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus Soal</span>
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={qItem.question}
+                        onChange={(e) => {
+                          const next = [...editQuizQuestions];
+                          next[qIdx].question = e.target.value;
+                          setEditQuizQuestions(next);
+                        }}
+                        className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden font-bold"
+                        placeholder="Ketik pertanyaan kuis..."
+                      />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {qItem.options.map((opt, optIdx) => (
+                          <div key={optIdx} className="flex items-center gap-2">
+                            <span className="font-black text-zinc-700 w-5">
+                              {["A", "B", "C", "D"][optIdx]}.
+                            </span>
+                            <input
+                              type="text"
+                              value={opt}
+                              onChange={(e) => handleUpdateEditOption(qIdx, optIdx, e.target.value)}
+                              className="flex-1 border border-black p-1.5 font-mono text-xs bg-white outline-hidden"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="text-[11px] font-black uppercase block mb-1">
+                            Kunci Jawaban Benar:
+                          </label>
+                          <select
+                            value={qItem.correctIndex}
+                            onChange={(e) => {
+                              const next = [...editQuizQuestions];
+                              next[qIdx].correctIndex = parseInt(e.target.value);
+                              setEditQuizQuestions(next);
+                            }}
+                            className="w-full border border-black p-1.5 font-mono text-xs bg-white outline-hidden font-bold"
+                          >
+                            <option value={0}>Pilihan A</option>
+                            <option value={1}>Pilihan B</option>
+                            <option value={2}>Pilihan C</option>
+                            <option value={3}>Pilihan D</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-black uppercase block mb-1">
+                            Penjelasan / Feedback:
+                          </label>
+                          <input
+                            type="text"
+                            value={qItem.explanation}
+                            onChange={(e) => {
+                              const next = [...editQuizQuestions];
+                              next[qIdx].explanation = e.target.value;
+                              setEditQuizQuestions(next);
+                            }}
+                            className="w-full border border-black p-1.5 font-mono text-xs bg-white outline-hidden"
+                            placeholder="Alasan jawaban ini benar..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="border-t-2 border-black pt-4 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingRoom(null)}
+                  disabled={isUpdatingRoom}
+                  className="brutal-btn-white px-5 py-2.5 text-xs font-black uppercase"
+                >
+                  [ BATAL ]
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingRoom}
+                  className="brutal-btn-yellow px-6 py-2.5 text-xs font-black uppercase flex items-center gap-1.5 shadow-[3px_3px_0px_#000000]"
+                >
+                  {isUpdatingRoom ? (
+                    <span>[ MENYIMPAN PERUBAHAN... ]</span>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>[ SIMPAN PERUBAHAN ROOM ]</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: KONFIRMASI HAPUS ROOM KELAS
+          ===================================================================== */}
+      {roomToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 font-mono">
+          <div className="border-4 border-black bg-white max-w-md w-full p-6 shadow-[8px_8px_0px_#000000] space-y-4 text-black">
+            <div className="flex items-center gap-2">
+              <span className="p-2 bg-red-100 border-2 border-red-700 text-red-700">
+                <AlertCircle className="w-5 h-5 stroke-[2.5]" />
+              </span>
+              <div>
+                <span className="text-[10px] font-black uppercase text-red-700 tracking-wider block">
+                  [KONFIRMASI TINDAKAN BERBAHAYA]
+                </span>
+                <h2 className="text-base font-black uppercase text-black">
+                  Hapus Room Kelas?
+                </h2>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-red-50 border-2 border-red-700 text-xs text-red-950 space-y-2">
+              <p>
+                Anda akan menghapus room kelas:
+                <strong className="block text-black font-black mt-1">
+                  [PIN: {roomToDelete.roomCode}] {roomToDelete.title}
+                </strong>
+              </p>
+              <p className="text-[11px] text-red-800 leading-relaxed font-bold">
+                ⚠️ Peringatan: Seluruh data evaluasi siswa, skor e-Rapor, dan transkrip audio/teks yang terhubung ke room ini akan dihapus secara permanen dari basis data MariaDB.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setRoomToDelete(null)}
+                disabled={isDeletingRoom}
+                className="brutal-btn-white px-4 py-2 text-xs font-black uppercase"
+              >
+                [ BATAL ]
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteRoom}
+                disabled={isDeletingRoom}
+                className="px-5 py-2 border-2 border-black bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingRoom ? "[ MENGHAPUS... ]" : "[ YA, HAPUS PERMANEN ]"}</span>
               </button>
             </div>
           </div>
