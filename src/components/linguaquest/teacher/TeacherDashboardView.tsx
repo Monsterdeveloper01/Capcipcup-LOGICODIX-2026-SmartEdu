@@ -100,27 +100,27 @@ export default function TeacherDashboardView() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Editorial Teacher Header Banner (Brutalist Command Desk) */}
-      <div className="border-4 border-black dark:border-white bg-[#111317] p-6 sm:p-7 shadow-[6px_6px_0px_#000000] dark:shadow-[6px_6px_0px_#22d3ee] flex flex-wrap items-center justify-between gap-6">
+    <div className="max-w-6xl mx-auto space-y-6 font-mono">
+      {/* Editorial Teacher Header Banner (Clean Light Desk) */}
+      <div className="border-2 border-black bg-white p-6 sm:p-7 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-6">
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2 text-[#22d3ee] font-mono text-xs font-black uppercase tracking-widest">
-            <Terminal className="w-4 h-4 stroke-[2.5]" />
+          <div className="flex items-center gap-2 text-cyan-800 font-mono text-xs font-black uppercase tracking-widest">
+            <span className="w-2.5 h-2.5 bg-cyan-500 border border-black inline-block" />
             <span>[TEACHER COMMAND DESK // RATIO 1:35 SOLVER]</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-black text-black uppercase tracking-tight">
             SOLUSI GURU: MENGAJAR SPEAKING UNTUK 35 SISWA
           </h2>
-          <p className="font-mono text-xs text-zinc-300 max-w-2xl leading-relaxed">
+          <p className="font-mono text-xs text-zinc-700 max-w-2xl leading-relaxed">
             Otomatisasi pengujian speaking seluruh siswa, analisis kelemahan kolektif kelas, dan konversi materi RPP Kurikulum Merdeka menjadi misi kamera dalam 10 detik.
           </p>
         </div>
 
         {/* Real Classroom Stats */}
         <div className="flex items-center gap-3 font-mono">
-          <div className="p-3.5 px-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000] text-center">
-            <span className="text-[10px] font-black text-zinc-400 block uppercase">[SESI TERNILAI]</span>
-            <span className="text-xl font-black text-white">{stats.totalSessions} SISWA</span>
+          <div className="p-3.5 px-4 bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_#000000] text-center">
+            <span className="text-[10px] font-black text-zinc-600 block uppercase">[SESI TERNILAI]</span>
+            <span className="text-xl font-black text-black">{stats.totalSessions} SISWA</span>
           </div>
           <div className="p-3.5 px-4 bg-[#facc15] text-black border-2 border-black shadow-[3px_3px_0px_#000000] text-center">
             <span className="text-[10px] font-black uppercase block">[RATA-RATA KELAS]</span>
@@ -129,14 +129,12 @@ export default function TeacherDashboardView() {
         </div>
       </div>
 
-      {/* Feature Tabs Segmented Control (Stark Brutalist Switches) */}
-      <div className="flex flex-wrap items-center gap-2 border-b-2 border-zinc-800 pb-3 font-mono">
+      {/* Feature Tabs Segmented Control */}
+      <div className="flex flex-wrap items-center gap-2 border-b-2 border-zinc-300 pb-3 font-mono">
         <button
           onClick={() => setActiveTab("generator")}
           className={`px-4 py-2 font-mono text-xs font-black uppercase transition-all ${
-            activeTab === "generator"
-              ? "brutal-btn-yellow"
-              : "brutal-btn-dark"
+            activeTab === "generator" ? "brutal-btn-yellow" : "brutal-btn-white"
           }`}
         >
           [01] QUEST GENERATOR (RPP)
@@ -145,9 +143,7 @@ export default function TeacherDashboardView() {
         <button
           onClick={() => setActiveTab("grader")}
           className={`px-4 py-2 font-mono text-xs font-black uppercase transition-all ${
-            activeTab === "grader"
-              ? "brutal-btn-cyan"
-              : "brutal-btn-dark"
+            activeTab === "grader" ? "brutal-btn-cyan" : "brutal-btn-white"
           }`}
         >
           [02] 30-SEC GRADER ({stats.totalSessions})
@@ -156,9 +152,7 @@ export default function TeacherDashboardView() {
         <button
           onClick={() => setActiveTab("heatmap")}
           className={`px-4 py-2 font-mono text-xs font-black uppercase transition-all ${
-            activeTab === "heatmap"
-              ? "brutal-btn-yellow"
-              : "brutal-btn-dark"
+            activeTab === "heatmap" ? "brutal-btn-yellow" : "brutal-btn-white"
           }`}
         >
           [03] CLASS HEATMAP
@@ -167,9 +161,7 @@ export default function TeacherDashboardView() {
         <button
           onClick={() => setActiveTab("shyness")}
           className={`px-4 py-2 font-mono text-xs font-black uppercase transition-all ${
-            activeTab === "shyness"
-              ? "brutal-btn-cyan"
-              : "brutal-btn-dark"
+            activeTab === "shyness" ? "brutal-btn-cyan" : "brutal-btn-white"
           }`}
         >
           [04] SHYNESS VS SKILL
@@ -182,52 +174,52 @@ export default function TeacherDashboardView() {
       {activeTab === "generator" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Input Form */}
-          <div className="border-3 border-black dark:border-white bg-[#111317] p-6 shadow-[5px_5px_0px_#000000] space-y-4">
-            <div className="border-b-2 border-zinc-800 pb-2">
-              <span className="font-mono text-xs font-black uppercase text-[#facc15]">
+          <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+            <div className="border-b-2 border-zinc-200 pb-2">
+              <span className="font-mono text-xs font-black uppercase text-amber-800">
                 [INPUT MATERI RPP GURU]
               </span>
-              <h3 className="font-black text-lg text-white uppercase tracking-tight">
+              <h3 className="font-black text-lg text-black uppercase tracking-tight">
                 Ubah Topik Pelajaran Menjadi Misi Game
               </h3>
             </div>
 
             <form onSubmit={handleGenerateQuest} className="space-y-4 font-mono text-xs">
               <div>
-                <label className="font-bold text-zinc-300 block mb-1 uppercase">
+                <label className="font-bold text-black block mb-1 uppercase">
                   Tingkat Kelas & Jurusan:
                 </label>
                 <input
                   type="text"
                   value={gradeLevel}
                   onChange={(e) => setGradeLevel(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
                   placeholder="Misal: SMP Kelas 8 / SMK Pariwisata"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-zinc-300 block mb-1 uppercase">
+                <label className="font-bold text-black block mb-1 uppercase">
                   Topik Pelajaran / Materi Speaking:
                 </label>
                 <input
                   type="text"
                   value={subjectTopic}
                   onChange={(e) => setSubjectTopic(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
                   placeholder="Misal: Procedure Text / Handling Guest Complaint"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-zinc-300 block mb-1 uppercase">
+                <label className="font-bold text-black block mb-1 uppercase">
                   Target Kosakata / Target Grammar (Dipisahkan Koma):
                 </label>
                 <textarea
                   value={requiredVocabulary}
                   onChange={(e) => setRequiredVocabulary(e.target.value)}
                   rows={3}
-                  className="w-full px-3.5 py-2.5 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
                   placeholder="apologize, inconvenience, discount, solution"
                 />
               </div>
@@ -243,11 +235,11 @@ export default function TeacherDashboardView() {
           </div>
 
           {/* Generated Quest Output */}
-          <div className="border-3 border-black dark:border-white bg-[#0f1115] p-6 shadow-[5px_5px_0px_#000000] flex flex-col justify-between">
+          <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between">
             {generatedQuest ? (
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b-2 border-zinc-800 pb-2">
-                  <span className="font-mono text-xs font-black uppercase text-[#4ade80]">
+                <div className="flex items-center justify-between border-b-2 border-zinc-200 pb-2">
+                  <span className="font-mono text-xs font-black uppercase text-emerald-800">
                     [HASIL GENERATE QUEST OTOMATIS]
                   </span>
                   <span className="font-mono text-[10px] font-black uppercase bg-[#facc15] text-black px-2 py-0.5 border border-black">
@@ -256,23 +248,23 @@ export default function TeacherDashboardView() {
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-black text-xl text-white uppercase">{generatedQuest.title}</h4>
-                  <p className="font-mono text-xs text-[#22d3ee]">
+                  <h4 className="font-black text-xl text-black uppercase">{generatedQuest.title}</h4>
+                  <p className="font-mono text-xs text-cyan-800 font-bold">
                     NPC: {generatedQuest.npcName} ({generatedQuest.npcRole})
                   </p>
-                  <p className="font-mono text-xs text-zinc-300 bg-black p-3 border border-zinc-800 leading-relaxed">
+                  <p className="font-mono text-xs text-zinc-800 bg-zinc-50 p-3.5 border border-black leading-relaxed">
                     {generatedQuest.scenarioBrief}
                   </p>
                 </div>
 
                 {suggestedObjects.length > 0 && (
                   <div className="space-y-1 font-mono text-xs">
-                    <span className="font-bold text-zinc-400 uppercase">
+                    <span className="font-bold text-zinc-700 uppercase">
                       Benda Rekomendasi untuk Di-Scan Siswa:
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {suggestedObjects.map((obj, idx) => (
-                        <span key={idx} className="px-2.5 py-1 bg-black border border-white text-white font-bold">
+                        <span key={idx} className="px-2.5 py-1 bg-zinc-100 border border-black text-black font-bold">
                           🔍 {obj}
                         </span>
                       ))}
@@ -282,8 +274,8 @@ export default function TeacherDashboardView() {
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500 font-mono space-y-2">
-                <BookOpen className="w-12 h-12 stroke-[1.5] text-zinc-600" />
-                <p className="text-xs uppercase">
+                <BookOpen className="w-12 h-12 stroke-[1.5] text-zinc-400" />
+                <p className="text-xs uppercase text-zinc-600">
                   Belum ada quest di-generate. Isi form di samping dan klik tombol generate untuk membuat skenario RPG berbasis materi kelas.
                 </p>
               </div>
@@ -296,31 +288,31 @@ export default function TeacherDashboardView() {
           TAB 2: 30-SECONDS SPEAKING GRADER
           ===================================================================== */}
       {activeTab === "grader" && (
-        <div className="border-3 border-black dark:border-white bg-[#111317] p-6 shadow-[5px_5px_0px_#000000] space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-800 pb-3">
+        <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-3">
             <div>
-              <span className="font-mono text-xs font-black uppercase text-[#22d3ee]">
+              <span className="font-mono text-xs font-black uppercase text-cyan-800">
                 [ASISTEN PENILAI SPEAKING OTOMATIS BERDASARKAN DATABASE ASLI]
               </span>
-              <h3 className="font-black text-xl text-white uppercase tracking-tight">
+              <h3 className="font-black text-xl text-black uppercase tracking-tight">
                 Riwayat Sesi Berbicara Siswa
               </h3>
             </div>
             <button
               onClick={fetchHeatmapData}
-              className="brutal-btn-dark px-3 py-1.5 text-xs font-mono"
+              className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
             >
               [ REFRESH DATABASE ]
             </button>
           </div>
 
           {isLoadingHeatmap ? (
-            <div className="p-8 text-center font-mono text-xs text-zinc-400">
+            <div className="p-8 text-center font-mono text-xs text-zinc-600">
               [MEMUAT DATA REKAMAN DATABASE MARIA_DB...]
             </div>
           ) : evaluations.length === 0 ? (
-            <div className="p-8 text-center font-mono text-xs text-zinc-400 space-y-2 border-2 border-dashed border-zinc-700">
-              <p className="uppercase font-bold text-white">
+            <div className="p-8 text-center font-mono text-xs text-zinc-600 space-y-2 border-2 border-dashed border-zinc-300">
+              <p className="uppercase font-bold text-black">
                 Belum ada sesi rekaman speaking siswa di database.
               </p>
               <p>
@@ -343,13 +335,13 @@ export default function TeacherDashboardView() {
                       <th className="p-3">Grammar</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800 bg-[#0a0b0e] text-zinc-300">
+                  <tbody className="divide-y divide-zinc-200 bg-white text-zinc-800">
                     {evaluations.map((ev, idx) => (
-                      <tr key={idx} className="hover:bg-zinc-900 transition-colors">
-                        <td className="p-3 font-bold text-white">{ev.studentName || `Siswa #${idx + 1}`}</td>
+                      <tr key={idx} className="hover:bg-zinc-50 transition-colors">
+                        <td className="p-3 font-bold text-black">{ev.studentName || `Siswa #${idx + 1}`}</td>
                         <td className="p-3 truncate max-w-xs">{ev.questTitle}</td>
-                        <td className="p-3 font-black text-[#4ade80]">[{ev.cefrLevel}]</td>
-                        <td className="p-3 font-black text-[#facc15]">{ev.overallScore}</td>
+                        <td className="p-3 font-black text-emerald-700">[{ev.cefrLevel}]</td>
+                        <td className="p-3 font-black text-amber-700">{ev.overallScore}</td>
                         <td className="p-3">{ev.fluencyScore}%</td>
                         <td className="p-3">{ev.pronunciationScore}%</td>
                         <td className="p-3">{ev.vocabularyScore}%</td>
@@ -369,43 +361,43 @@ export default function TeacherDashboardView() {
           ===================================================================== */}
       {activeTab === "heatmap" && (
         <div className="space-y-6">
-          <div className="border-3 border-black dark:border-white bg-[#111317] p-6 shadow-[5px_5px_0px_#000000] space-y-4">
-            <div className="border-b-2 border-zinc-800 pb-3">
-              <span className="font-mono text-xs font-black uppercase text-[#facc15]">
+          <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+            <div className="border-b-2 border-zinc-200 pb-3">
+              <span className="font-mono text-xs font-black uppercase text-amber-800">
                 [PETA MASALAH SATU KELAS // CLASS MISCONCEPTION HEATMAP]
               </span>
-              <h3 className="font-black text-xl text-white uppercase tracking-tight">
+              <h3 className="font-black text-xl text-black uppercase tracking-tight">
                 Agregasi Pola Kesalahan Berbicara Sekelas
               </h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
-              <div className="p-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000] space-y-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase block">
+              <div className="p-4 bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_#000000] space-y-2">
+                <span className="text-[11px] font-bold text-zinc-600 uppercase block">
                   1. Preposition & Tense Freezes
                 </span>
-                <span className="text-2xl font-black text-[#ef4444]">42% SISWA</span>
-                <p className="text-[11px] text-zinc-400">
+                <span className="text-2xl font-black text-red-600">42% SISWA</span>
+                <p className="text-[11px] text-zinc-700">
                   Sering ragu saat menggunakan Simple Past vs Present Perfect saat mendeskripsikan barang.
                 </p>
               </div>
 
-              <div className="p-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000] space-y-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase block">
+              <div className="p-4 bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_#000000] space-y-2">
+                <span className="text-[11px] font-bold text-zinc-600 uppercase block">
                   2. Code-Switching ke B. Indonesia
                 </span>
-                <span className="text-2xl font-black text-[#facc15]">35% SISWA</span>
-                <p className="text-[11px] text-zinc-400">
+                <span className="text-2xl font-black text-amber-700">35% SISWA</span>
+                <p className="text-[11px] text-zinc-700">
                   Mengucapkan "anu apa ya..." saat jeda berpikir lebih dari 3 detik.
                 </p>
               </div>
 
-              <div className="p-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000] space-y-2">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase block">
+              <div className="p-4 bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_#000000] space-y-2">
+                <span className="text-[11px] font-bold text-zinc-600 uppercase block">
                   3. Vocabulary Monotony
                 </span>
-                <span className="text-2xl font-black text-[#22d3ee]">28% SISWA</span>
-                <p className="text-[11px] text-zinc-400">
+                <span className="text-2xl font-black text-cyan-800">28% SISWA</span>
+                <p className="text-[11px] text-zinc-700">
                   Cenderung hanya mengulang kata "good", "nice", dan "give".
                 </p>
               </div>
@@ -429,16 +421,16 @@ export default function TeacherDashboardView() {
             </div>
 
             {warmUpQuiz && (
-              <div className="p-4 bg-black border-2 border-[#facc15] font-mono text-xs space-y-2 mt-4">
-                <span className="font-black text-[#facc15] uppercase block">
+              <div className="p-4 bg-amber-50 border-2 border-black font-mono text-xs space-y-2 mt-4">
+                <span className="font-black text-black uppercase block">
                   [KUIS PEMANASAN KELAS 5 MENIT SIAP DIGUNAKAN]:
                 </span>
-                <p className="text-white font-bold">{warmUpQuiz.title}</p>
-                <div className="space-y-1 text-zinc-300">
+                <p className="text-black font-bold">{warmUpQuiz.title}</p>
+                <div className="space-y-1 text-zinc-800">
                   {warmUpQuiz.questions.map((item: any, i: number) => (
-                    <div key={i} className="p-2 bg-zinc-900 border border-zinc-800">
+                    <div key={i} className="p-2.5 bg-white border border-black">
                       <strong>Q{i + 1}:</strong> {item.q} <br />
-                      <span className="text-[#4ade80]">Target Model: "{item.target}"</span>
+                      <span className="text-emerald-700 font-bold">Target Model: "{item.target}"</span>
                     </div>
                   ))}
                 </div>
@@ -452,61 +444,61 @@ export default function TeacherDashboardView() {
           TAB 4: SHYNESS VS SKILL MATRIX
           ===================================================================== */}
       {activeTab === "shyness" && (
-        <div className="border-3 border-black dark:border-white bg-[#111317] p-6 shadow-[5px_5px_0px_#000000] space-y-4 font-mono">
-          <div className="border-b-2 border-zinc-800 pb-3">
-            <span className="text-xs font-black uppercase text-[#22d3ee]">
+        <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4 font-mono">
+          <div className="border-b-2 border-zinc-200 pb-3">
+            <span className="text-xs font-black uppercase text-cyan-800">
               [DETEKTOR: MALU BICARA VS KURANG SKILL]
             </span>
-            <h3 className="font-black text-xl text-white uppercase tracking-tight">
+            <h3 className="font-black text-xl text-black uppercase tracking-tight">
               Matriks Klasifikasi Diagnostik Siswa
             </h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-5 bg-black border-2 border-[#facc15] space-y-2">
-              <span className="font-black text-[#facc15] block uppercase">
+            <div className="p-5 bg-zinc-50 border-2 border-black space-y-2">
+              <span className="font-black text-amber-800 block uppercase">
                 [KUADRAN A: MALU / TAKUT SALAH]
               </span>
-              <p className="text-xs text-zinc-300 leading-relaxed">
+              <p className="text-xs text-zinc-700 leading-relaxed">
                 <strong>Ciri:</strong> Grammar Score &gt; 80%, tetapi Durasi Bicara lambat (&gt; 4 detik jeda). Siswa sebenarnya tahu kosakatanya tetapi ragu melafalkan.
               </p>
-              <span className="text-[11px] font-bold text-[#4ade80] block">
+              <span className="text-[11px] font-bold text-emerald-700 block">
                 Solusi Guru: Berikan Mode Survival RPG 1-on-1 tanpa disaksikan teman agar kepercayaan diri pulih.
               </span>
             </div>
 
-            <div className="p-5 bg-black border-2 border-[#ef4444] space-y-2">
-              <span className="font-black text-[#ef4444] block uppercase">
+            <div className="p-5 bg-zinc-50 border-2 border-black space-y-2">
+              <span className="font-black text-red-700 block uppercase">
                 [KUADRAN B: PEMBERANI TAPI SALAH KONSEP]
               </span>
-              <p className="text-xs text-zinc-300 leading-relaxed">
+              <p className="text-xs text-zinc-700 leading-relaxed">
                 <strong>Ciri:</strong> Durasi Bicara sangat cepat (Nol jeda), tetapi Grammar &amp; Vocab Score &lt; 50%.
               </p>
-              <span className="text-[11px] font-bold text-[#facc15] block">
+              <span className="text-[11px] font-bold text-amber-800 block">
                 Solusi Guru: Apresiasi keberaniannya, lalu berikan drill Native-like Upgrade pada tenses spesifik.
               </span>
             </div>
 
-            <div className="p-5 bg-black border-2 border-[#4ade80] space-y-2">
-              <span className="font-black text-[#4ade80] block uppercase">
+            <div className="p-5 bg-zinc-50 border-2 border-black space-y-2">
+              <span className="font-black text-emerald-800 block uppercase">
                 [KUADRAN C: NATURAL COMMUNICATOR]
               </span>
-              <p className="text-xs text-zinc-300 leading-relaxed">
+              <p className="text-xs text-zinc-700 leading-relaxed">
                 <strong>Ciri:</strong> Fluency &gt; 80% dan Grammar &gt; 80%.
               </p>
-              <span className="text-[11px] font-bold text-[#22d3ee] block">
+              <span className="text-[11px] font-bold text-cyan-800 block">
                 Solusi Guru: Tugaskan sebagai Leader di Mode Classroom Boss Raid untuk membimbing teman-temannya.
               </span>
             </div>
 
-            <div className="p-5 bg-black border-2 border-zinc-700 space-y-2">
-              <span className="font-black text-zinc-400 block uppercase">
+            <div className="p-5 bg-zinc-50 border-2 border-black space-y-2">
+              <span className="font-black text-zinc-600 block uppercase">
                 [KUADRAN D: BUTUH PENDAMPINGAN DASAR]
               </span>
-              <p className="text-xs text-zinc-300 leading-relaxed">
+              <p className="text-xs text-zinc-700 leading-relaxed">
                 <strong>Ciri:</strong> Durasi jeda tinggi dan penguasaan kosakata terbatas.
               </p>
-              <span className="text-[11px] font-bold text-[#facc15] block">
+              <span className="text-[11px] font-bold text-amber-800 block">
                 Solusi Guru: Berikan quest dengan 2 target kosakata benda sehari-hari (botol, pulpen) dengan bantuan "Bisikan AI".
               </span>
             </div>

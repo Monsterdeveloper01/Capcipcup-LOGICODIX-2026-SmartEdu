@@ -394,34 +394,34 @@ export default function StudentGameView({
   // ============================================================================
   if (step === "select_mode") {
     return (
-      <div className="space-y-8">
-        {/* Anti-slop Stark Brutalist Hero */}
-        <div className="border-4 border-black dark:border-white bg-[#111317] p-6 sm:p-8 shadow-[6px_6px_0px_#000000] dark:shadow-[6px_6px_0px_#facc15] relative">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-700 pb-4 mb-5">
+      <div className="space-y-8 font-mono">
+        {/* Anti-slop Stark Brutalist Hero (Clean Light) */}
+        <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] relative">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-4 mb-5">
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 bg-[#facc15] border border-black inline-block" />
-              <span className="font-mono text-xs font-black uppercase tracking-widest text-[#facc15]">
+              <span className="font-mono text-xs font-black uppercase tracking-widest text-black">
                 [PROTOCOL: LIVE_VISION_ENGLISH_RPG]
               </span>
             </div>
-            <span className="font-mono text-xs font-bold text-zinc-400">
+            <span className="font-mono text-xs font-bold text-zinc-600">
               TARGET: PATAHKAN PASSIVE FLUENCY TRAP
             </span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none mb-4">
+          <h1 className="text-3xl sm:text-5xl font-black text-black uppercase tracking-tight leading-none mb-4">
             SCAN BENDA NYATA. HADAPI NPC. <br />
-            <span className="text-[#facc15] bg-black px-2 py-0.5 inline-block border-2 border-[#facc15] mt-1">
+            <span className="text-black bg-[#facc15] px-2.5 py-0.5 inline-block border-2 border-black shadow-[2px_2px_0px_#000000] mt-1.5">
               BICARA BAHASA INGGRIS SEKARANG.
             </span>
           </h1>
 
-          <p className="text-sm font-mono text-zinc-300 max-w-2xl leading-relaxed">
+          <p className="text-xs sm:text-sm font-mono text-zinc-700 max-w-2xl leading-relaxed">
             Hentikan menghafal rumus di atas kertas. Arahkan kamera ke meja juri atau ruanganmu. AI Vision mendeteksi objek nyata, mengubahnya menjadi Kartu Item RPG, dan mengunci kamu dalam misi darurat berbicara spontan selama 3 menit.
           </p>
         </div>
 
-        {/* 4 Neo-Brutalist Game Cartridges */}
+        {/* 4 Neo-Brutalist Game Cartridges (Light Cards) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {GAME_MODES.map((mode) => (
             <div
@@ -431,42 +431,42 @@ export default function StudentGameView({
                 setStep("scanning");
                 setIsCameraActive(true);
               }}
-              className="group cursor-pointer bg-[#14161d] border-3 border-black dark:border-white/90 p-6 shadow-[5px_5px_0px_#000000] dark:shadow-[5px_5px_0px_#ffffff] transition-all hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[8px_8px_0px_#facc15] flex flex-col justify-between"
+              className="group cursor-pointer bg-white border-2 border-black p-6 shadow-[4px_4px_0px_#000000] transition-all hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[6px_6px_0px_#facc15] flex flex-col justify-between"
             >
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b-2 border-zinc-800 pb-3">
+                <div className="flex items-center justify-between border-b-2 border-zinc-200 pb-3">
                   <span className="font-mono text-xs font-black bg-[#facc15] text-black px-2.5 py-1 border border-black shadow-[2px_2px_0px_#000000]">
                     [{mode.code}]
                   </span>
-                  <span className="font-mono text-[11px] font-bold uppercase text-zinc-400">
+                  <span className="font-mono text-[11px] font-bold uppercase text-zinc-600">
                     {mode.badge}
                   </span>
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="text-4xl p-2 bg-black border-2 border-white/20 shadow-[2px_2px_0px_#000000] group-hover:scale-105 transition-transform">
+                  <div className="text-4xl p-2.5 bg-zinc-50 border-2 border-black shadow-[2px_2px_0px_#000000] group-hover:scale-105 transition-transform">
                     {mode.icon}
                   </div>
                   <div>
-                    <h3 className="font-black text-xl text-white uppercase tracking-tight group-hover:text-[#facc15] transition-colors">
+                    <h3 className="font-black text-xl text-black uppercase tracking-tight group-hover:text-amber-600 transition-colors">
                       {mode.title}
                     </h3>
-                    <span className="font-mono text-xs font-bold text-[#22d3ee] block mt-0.5">
+                    <span className="font-mono text-xs font-bold text-cyan-700 block mt-0.5">
                       TARGET: {mode.target}
                     </span>
                   </div>
                 </div>
 
-                <p className="text-xs font-mono text-zinc-300 leading-relaxed bg-black/60 p-3 border border-zinc-800">
+                <p className="text-xs font-mono text-zinc-700 leading-relaxed bg-zinc-50 p-3.5 border border-black">
                   {mode.description}
                 </p>
               </div>
 
-              <div className="mt-5 pt-4 border-t-2 border-zinc-800 flex items-center justify-between">
-                <span className="font-mono text-xs font-black uppercase text-white group-hover:text-[#facc15]">
+              <div className="mt-5 pt-4 border-t-2 border-zinc-200 flex items-center justify-between">
+                <span className="font-mono text-xs font-black uppercase text-black group-hover:text-amber-600">
                   [ AKTIFKAN KAMERA ]
                 </span>
-                <ArrowRight className="w-4 h-4 text-[#facc15] group-hover:translate-x-1.5 transition-transform stroke-[3]" />
+                <ArrowRight className="w-4 h-4 text-black group-hover:translate-x-1.5 transition-transform stroke-[3]" />
               </div>
             </div>
           ))}
@@ -480,11 +480,11 @@ export default function StudentGameView({
   // ============================================================================
   if (step === "scanning") {
     return (
-      <div className="max-w-3xl mx-auto space-y-5">
+      <div className="max-w-3xl mx-auto space-y-5 font-mono">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setStep("select_mode")}
-            className="brutal-btn-dark px-3 py-1.5 text-xs font-mono"
+            className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
           >
             ← KEMBALI KE PILIHAN MODE
           </button>
@@ -493,27 +493,27 @@ export default function StudentGameView({
           </span>
         </div>
 
-        {/* Industrial Viewfinder Frame */}
-        <div className="border-4 border-black dark:border-white bg-[#0f1115] shadow-[8px_8px_0px_#000000] dark:shadow-[8px_8px_0px_#22d3ee] relative">
+        {/* Industrial Viewfinder Frame (Clean Light Frame) */}
+        <div className="border-2 border-black bg-white shadow-[4px_4px_0px_#000000] relative">
           {/* Viewfinder Header Bar */}
-          <div className="p-3 bg-black border-b-3 border-black dark:border-white flex items-center justify-between text-xs font-mono font-black text-white">
+          <div className="p-3 bg-zinc-100 border-b-2 border-black flex items-center justify-between text-xs font-mono font-black text-black">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-red-600 border border-black animate-ping" />
+              <span className="w-2.5 h-2.5 bg-red-600 rounded-full border border-black animate-pulse" />
               <span>[CAM_FEED: 1280X720 // SENSOR: ACTIVE]</span>
             </div>
-            <span className="text-[#facc15] hidden sm:inline">
+            <span className="text-black hidden sm:inline bg-[#facc15] px-2 py-0.5 border border-black">
               [TARGET: 2-3 BENDA DI MEJA]
             </span>
           </div>
 
           {/* Camera Viewport with Corner Crosshairs */}
-          <div className="relative h-[380px] sm:h-[460px] bg-black flex items-center justify-center overflow-hidden">
+          <div className="relative h-[380px] sm:h-[460px] bg-zinc-900 flex items-center justify-center overflow-hidden">
             {capturedImage ? (
               <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
             ) : isCameraActive ? (
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             ) : (
-              <div className="flex flex-col items-center gap-3 text-zinc-400 p-6 text-center">
+              <div className="flex flex-col items-center gap-3 text-zinc-300 p-6 text-center">
                 <Camera className="w-12 h-12 stroke-[2] text-[#facc15]" />
                 <p className="font-mono text-xs max-w-sm">
                   Kamera belum aktif. Klik tombol di bawah untuk menyalakan webcam atau unggah foto benda dari komputermu.
@@ -552,12 +552,12 @@ export default function StudentGameView({
 
             {/* Analyzing Overlay */}
             {isAnalyzing && (
-              <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center gap-3 z-30 p-6 text-center">
-                <div className="w-10 h-10 border-4 border-[#facc15] border-t-transparent animate-spin" />
-                <span className="font-mono text-sm font-black uppercase text-[#facc15]">
-                  [GEMINI_2.5_FLASH // VISION SCANNING...]
+              <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center gap-3 z-30 p-6 text-center">
+                <div className="w-10 h-10 border-4 border-black border-t-[#facc15] animate-spin" />
+                <span className="font-mono text-sm font-black uppercase text-black bg-[#facc15] px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
+                  [GEMINI 3.1 FLASH-LITE // VISION SCANNING...]
                 </span>
-                <p className="font-mono text-xs text-zinc-300 max-w-xs">
+                <p className="font-mono text-xs text-zinc-700 max-w-xs">
                   Mengekstrak kosakata bahasa Inggris, simbol fonetik IPA, idiom, dan menyintesis skenario darurat RPG...
                 </p>
               </div>
@@ -566,16 +566,16 @@ export default function StudentGameView({
 
           {/* Scan Error Bar */}
           {scanError && (
-            <div className="p-3 bg-red-950 border-t-3 border-black text-red-200 text-xs font-mono font-bold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <div className="p-3 bg-red-50 border-t-2 border-red-600 text-red-900 text-xs font-mono font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
               <span>{scanError}</span>
             </div>
           )}
 
           {/* Bottom Shutter Controls */}
-          <div className="p-4 bg-black border-t-3 border-black dark:border-white flex flex-wrap items-center justify-between gap-3">
+          <div className="p-4 bg-white border-t-2 border-black flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <label className="brutal-btn-dark px-3.5 py-2 text-xs font-mono cursor-pointer flex items-center gap-2">
+              <label className="brutal-btn-white px-3.5 py-2 text-xs font-mono cursor-pointer flex items-center gap-2">
                 <Upload className="w-3.5 h-3.5" />
                 <span>[ UNGGAH FOTO ]</span>
                 <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
@@ -587,7 +587,7 @@ export default function StudentGameView({
                     setCapturedImage(null);
                     setIsCameraActive(true);
                   }}
-                  className="brutal-btn-dark px-3 py-2 text-xs font-mono"
+                  className="brutal-btn-white px-3 py-2 text-xs font-mono"
                 >
                   [ FOTO ULANG ]
                 </button>
@@ -611,33 +611,33 @@ export default function StudentGameView({
   }
 
   // ============================================================================
-  // RENDER: STEP 3 - INVENTORY CARDS & QUEST BRIEFING (TACTILE MEMORANDUM)
+  // RENDER: STEP 3 - INVENTORY CARDS & QUEST BRIEFING (LIGHT TACTILE CARDS)
   // ============================================================================
   if (step === "inventory") {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6 font-mono">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setStep("scanning")}
-            className="brutal-btn-dark px-3 py-1.5 text-xs font-mono"
+            className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
           >
             ← SCAN FOTO LAIN
           </button>
           <span className="font-mono text-xs font-black uppercase bg-[#4ade80] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-            [STATUS: 3 OBJEK TERDETEKSI & TERDAFTAR]
+            [STATUS: {inventoryItems.length} OBJEK TERDETEKSI & TERDAFTAR]
           </span>
         </div>
 
-        {/* 3 Brutalist RPG Inventory Cards */}
+        {/* 3 Brutalist RPG Inventory Cards (Light Mode) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {inventoryItems.map((item, idx) => (
             <div
               key={item.id}
-              className="bg-[#12141a] border-3 border-black dark:border-white p-5 shadow-[5px_5px_0px_#000000] dark:shadow-[5px_5px_0px_#facc15] flex flex-col justify-between"
+              className="bg-white border-2 border-black p-5 shadow-[4px_4px_0px_#000000] flex flex-col justify-between"
             >
               <div className="space-y-3">
-                <div className="flex items-center justify-between border-b-2 border-zinc-800 pb-2">
-                  <span className="font-mono text-[10px] font-black uppercase text-zinc-400">
+                <div className="flex items-center justify-between border-b-2 border-zinc-200 pb-2">
+                  <span className="font-mono text-[10px] font-black uppercase text-zinc-600">
                     [ITEM-0{idx + 1}: {item.objectName}]
                   </span>
                   <button
@@ -650,23 +650,23 @@ export default function StudentGameView({
                 </div>
 
                 <div>
-                  <h4 className="font-black text-xl text-white uppercase tracking-tight">
+                  <h4 className="font-black text-xl text-black uppercase tracking-tight">
                     {item.englishWord}
                   </h4>
-                  <p className="font-mono text-xs font-bold text-[#22d3ee] mt-0.5">
+                  <p className="font-mono text-xs font-bold text-cyan-700 mt-0.5">
                     {item.phonetics}
                   </p>
                 </div>
 
-                <div className="p-3 bg-black border-2 border-zinc-800 font-mono text-[11px] text-zinc-300">
-                  <span className="font-black text-[#facc15] block uppercase mb-0.5">
+                <div className="p-3 bg-zinc-50 border border-black font-mono text-[11px] text-zinc-800">
+                  <span className="font-black text-black block uppercase mb-0.5">
                     [IDIOM]:
                   </span>
                   <p className="italic">"{item.idiom}"</p>
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t-2 border-zinc-800 font-mono text-[11px] font-bold text-[#4ade80] flex items-center gap-1.5">
+              <div className="mt-4 pt-3 border-t-2 border-zinc-200 font-mono text-[11px] font-bold text-emerald-700 flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="truncate">{item.rpgAttribute}</span>
               </div>
@@ -674,42 +674,42 @@ export default function StudentGameView({
           ))}
         </div>
 
-        {/* Dynamic Emergency Quest Memorandum */}
+        {/* Dynamic Emergency Quest Memorandum (Light Mode) */}
         {currentQuest && (
-          <div className="border-4 border-black dark:border-[#facc15] bg-[#111317] p-6 sm:p-8 shadow-[8px_8px_0px_#000000] dark:shadow-[8px_8px_0px_#facc15] space-y-5">
+          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] space-y-5">
             {/* Memorandum Header Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-zinc-700 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-zinc-200 pb-4">
               <div className="flex items-center gap-3.5">
-                <span className="text-4xl p-2 bg-black border-2 border-white shadow-[3px_3px_0px_#000000]">
+                <span className="text-4xl p-2 bg-zinc-50 border-2 border-black shadow-[2px_2px_0px_#000000]">
                   {currentQuest.npcAvatar}
                 </span>
                 <div>
-                  <div className="font-mono text-xs font-black uppercase text-[#facc15]">
+                  <div className="font-mono text-xs font-black uppercase text-black">
                     [DARURAT: MISI PERCAKAPAN NPC]
                   </div>
-                  <h3 className="font-black text-2xl text-white uppercase tracking-tight">
+                  <h3 className="font-black text-2xl text-black uppercase tracking-tight">
                     {currentQuest.title}
                   </h3>
-                  <p className="font-mono text-xs text-[#22d3ee] font-bold">
+                  <p className="font-mono text-xs text-cyan-800 font-bold">
                     NPC: {currentQuest.npcName} ({currentQuest.npcRole})
                   </p>
                 </div>
               </div>
 
-              <div className="font-mono text-xs font-black bg-black text-[#facc15] px-4 py-2 border-2 border-[#facc15] shadow-[3px_3px_0px_#000000]">
+              <div className="font-mono text-xs font-black bg-[#facc15] text-black px-4 py-2 border-2 border-black shadow-[2px_2px_0px_#000000]">
                 ⏱️ BATAS WAKTU: {currentQuest.timeLimitSeconds} DETIK
               </div>
             </div>
 
-            <div className="font-mono text-xs sm:text-sm text-zinc-200 leading-relaxed bg-black p-4 border-2 border-zinc-700">
-              <span className="font-black text-[#facc15] block mb-1 uppercase">
+            <div className="font-mono text-xs sm:text-sm text-zinc-800 leading-relaxed bg-zinc-50 p-4 border border-black">
+              <span className="font-black text-black block mb-1 uppercase">
                 [SKENARIO SITUASI]:
               </span>
               {currentQuest.scenarioBrief}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-              <span className="font-black text-zinc-400 uppercase">
+              <span className="font-black text-black uppercase">
                 KOSAKATA WAJIB DIUCAPKAN:
               </span>
               {currentQuest.targetVocab.map((word, idx) => (
@@ -738,36 +738,36 @@ export default function StudentGameView({
   }
 
   // ============================================================================
-  // RENDER: STEP 4 - LIVE COACHING HUD (THE NEO-BRUTALIST GAME SCREEN)
+  // RENDER: STEP 4 - LIVE COACHING HUD (LIGHT THEME ARCADE HUD)
   // ============================================================================
   if (step === "hud" && currentQuest) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className="max-w-4xl mx-auto space-y-4 font-mono">
         {/* Top Bar: NPC Identity & Arcade Rapport Meter */}
-        <div className="border-3 border-black dark:border-white bg-[#111317] p-4 shadow-[5px_5px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
+        <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-3xl p-1.5 bg-black border-2 border-white">{currentQuest.npcAvatar}</span>
+            <span className="text-3xl p-1.5 bg-zinc-50 border-2 border-black">{currentQuest.npcAvatar}</span>
             <div>
-              <div className="font-mono text-[10px] font-black uppercase text-[#facc15]">
+              <div className="font-mono text-[10px] font-black uppercase text-zinc-600">
                 [TARGET NPC]
               </div>
-              <h3 className="font-black text-sm text-white uppercase">{currentQuest.npcName}</h3>
-              <p className="font-mono text-xs text-zinc-400">{currentQuest.npcRole}</p>
+              <h3 className="font-black text-sm text-black uppercase">{currentQuest.npcName}</h3>
+              <p className="font-mono text-xs text-zinc-600">{currentQuest.npcRole}</p>
             </div>
           </div>
 
           {/* Arcade Rapport Health Bar */}
           <div className="flex-1 max-w-xs space-y-1">
             <div className="flex items-center justify-between font-mono text-xs font-black">
-              <span className="text-zinc-400 uppercase">[RAPPORT METER]:</span>
-              <span className={rapport >= 80 ? "text-[#4ade80]" : "text-[#facc15]"}>
+              <span className="text-zinc-600 uppercase">[RAPPORT METER]:</span>
+              <span className={rapport >= 80 ? "text-emerald-700 font-black" : "text-amber-700 font-black"}>
                 {rapport}% {rapport >= 80 ? "[PASS!]" : "[TARGET: 80%]"}
               </span>
             </div>
-            <div className="w-full h-4 bg-black border-2 border-white p-0.5">
+            <div className="w-full h-4 bg-zinc-100 border-2 border-black p-0.5">
               <div
                 className={`h-full transition-all duration-300 ${
-                  rapport >= 80 ? "bg-[#4ade80]" : "bg-[#facc15]"
+                  rapport >= 80 ? "bg-emerald-500" : "bg-[#facc15]"
                 }`}
                 style={{ width: `${rapport}%` }}
               />
@@ -776,27 +776,27 @@ export default function StudentGameView({
 
           <button
             onClick={() => finishQuestSession()}
-            className="brutal-btn-dark px-3.5 py-2 text-xs font-mono"
+            className="brutal-btn-white px-3.5 py-2 text-xs font-mono"
           >
             [ SELESAIKAN & AUTOPSI ]
           </button>
         </div>
 
-        {/* Live Conversation Terminal Stream */}
-        <div className="border-3 border-black dark:border-white bg-[#0a0b0e] p-5 min-h-[340px] max-h-[420px] overflow-y-auto space-y-4 shadow-[6px_6px_0px_#000000] relative">
+        {/* Live Conversation Stream (Clean Light Stream) */}
+        <div className="border-2 border-black bg-zinc-50 p-5 min-h-[340px] max-h-[420px] overflow-y-auto space-y-4 shadow-[4px_4px_0px_#000000] relative">
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex flex-col ${msg.sender === "student" ? "items-end" : "items-start"}`}
             >
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono text-[11px] font-black uppercase text-zinc-400">
+                <span className="font-mono text-[11px] font-black uppercase text-zinc-600">
                   {msg.sender === "student" ? "[KAMU // SISWA]" : `[${currentQuest.npcName.toUpperCase()}]`}
                 </span>
                 {msg.sender === "npc" && (
                   <button
                     onClick={() => speakText(msg.text)}
-                    className="p-1 bg-black border border-zinc-700 text-zinc-400 hover:text-[#facc15]"
+                    className="p-1 bg-white border border-black text-black hover:bg-[#facc15]"
                   >
                     <Volume2 className="w-3 h-3" />
                   </button>
@@ -806,8 +806,8 @@ export default function StudentGameView({
               <div
                 className={`p-4 max-w-xl text-sm leading-relaxed border-2 border-black font-mono ${
                   msg.sender === "student"
-                    ? "bg-[#22d3ee] text-black shadow-[4px_4px_0px_#000000]"
-                    : "bg-[#facc15] text-black shadow-[4px_4px_0px_#000000]"
+                    ? "bg-[#22d3ee] text-black shadow-[3px_3px_0px_#000000]"
+                    : "bg-[#facc15] text-black shadow-[3px_3px_0px_#000000]"
                 }`}
               >
                 <p className="font-bold">{msg.text}</p>
@@ -825,15 +825,15 @@ export default function StudentGameView({
           ))}
 
           {isAiThinking && (
-            <div className="font-mono text-xs text-[#facc15] flex items-center gap-2 bg-black p-2 border border-zinc-800">
-              <span className="w-2 h-2 bg-[#facc15] animate-ping" />
+            <div className="font-mono text-xs text-black flex items-center gap-2 bg-amber-50 p-2.5 border border-black">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
               <span>[NPC SEDANG MENDENGARKAN DAN MERESPONS...]</span>
             </div>
           )}
 
           {/* Floating Brutalist "Bisikan AI" Warning Card */}
           {activeHint && (
-            <div className="sticky bottom-2 left-0 right-0 p-3.5 bg-[#facc15] text-black border-3 border-black shadow-[5px_5px_0px_#000000] flex items-center justify-between gap-3 animate-slideUp">
+            <div className="sticky bottom-2 left-0 right-0 p-3.5 bg-[#facc15] text-black border-2 border-black shadow-[4px_4px_0px_#000000] flex items-center justify-between gap-3 animate-slideUp">
               <div className="flex items-center gap-2 font-mono text-xs">
                 <ShieldAlert className="w-5 h-5 flex-shrink-0 stroke-[2.5]" />
                 <div>
@@ -854,8 +854,8 @@ export default function StudentGameView({
         </div>
 
         {/* Scanned Items Tray: Glows when Spoken in Brutal Style */}
-        <div className="p-3 bg-black border-2 border-white/80 flex flex-wrap items-center gap-2 font-mono text-xs">
-          <span className="font-black text-zinc-400 mr-2 uppercase">
+        <div className="p-3 bg-white border-2 border-black flex flex-wrap items-center gap-2 font-mono text-xs">
+          <span className="font-black text-black mr-2 uppercase">
             [BENDA DIUCAPKAN]:
           </span>
           {inventoryItems.map((item) => (
@@ -864,7 +864,7 @@ export default function StudentGameView({
               className={`px-3 py-1 font-black uppercase border-2 transition-all ${
                 item.usedInSpeech
                   ? "brutal-glow-active bg-[#facc15] text-black border-black"
-                  : "bg-[#181a20] text-zinc-400 border-zinc-700"
+                  : "bg-zinc-100 text-zinc-600 border-zinc-400"
               }`}
             >
               {item.usedInSpeech && "✓ "}
@@ -874,7 +874,7 @@ export default function StudentGameView({
         </div>
 
         {/* Live Speech Microphone Input Controller */}
-        <div className="border-3 border-black dark:border-white bg-[#111317] p-4 shadow-[5px_5px_0px_#000000] flex flex-col sm:flex-row items-center gap-3">
+        <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-col sm:flex-row items-center gap-3">
           <button
             onClick={toggleListening}
             className={`w-14 h-14 flex items-center justify-center flex-shrink-0 transition-all font-mono font-black ${
@@ -894,10 +894,10 @@ export default function StudentGameView({
               onChange={(e) => setTextInput(e.target.value)}
               placeholder={isListening ? "Mendengarkan suaramu... bicara dalam Bahasa Inggris..." : "Bicara lewat mikrofon, atau ketik kalimat di sini..."}
               onKeyDown={(e) => e.key === "Enter" && handleSendSpokenLine()}
-              className="w-full px-4 py-3 bg-black border-2 border-white text-sm font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-[#facc15]"
+              className="w-full px-4 py-3 bg-zinc-50 border-2 border-black text-sm font-mono text-black placeholder-zinc-500 focus:outline-none focus:bg-white"
             />
             {isListening && (
-              <span className="font-mono text-[10px] text-[#ef4444] font-black uppercase block animate-pulse">
+              <span className="font-mono text-[10px] text-red-600 font-black uppercase block animate-pulse">
                 🔴 SUARA SEDANG DIREKAM REAL-TIME VIA WEB SPEECH API (ENGLISH)...
               </span>
             )}
@@ -917,18 +917,18 @@ export default function StudentGameView({
   }
 
   // ============================================================================
-  // RENDER: STEP 5 - POST-GAME CEFR RAPOR (INDUSTRIAL DIAGNOSTIC AUTOPSY)
+  // RENDER: STEP 5 - POST-GAME CEFR RAPOR (LIGHT DIAGNOSTIC AUTOPSY)
   // ============================================================================
   if (step === "autopsy") {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6 font-mono">
         <div className="flex items-center justify-between">
           <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3.5 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
             [POST-GAME CEFR REPLAY & AUTOPSY]
           </span>
           <button
             onClick={resetAll}
-            className="brutal-btn-dark px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5"
+            className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>MAIN MISI BARU</span>
@@ -936,31 +936,31 @@ export default function StudentGameView({
         </div>
 
         {isEvaluating ? (
-          <div className="border-4 border-black dark:border-white bg-[#111317] p-12 text-center shadow-[8px_8px_0px_#000000] flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 border-4 border-[#facc15] border-t-transparent animate-spin" />
-            <h3 className="font-mono text-base font-black text-white uppercase">
+          <div className="border-2 border-black bg-white p-12 text-center shadow-[4px_4px_0px_#000000] flex flex-col items-center justify-center gap-4">
+            <div className="w-12 h-12 border-4 border-black border-t-[#facc15] animate-spin" />
+            <h3 className="font-mono text-base font-black text-black uppercase">
               [MENGANALISIS TRANSKRIP SESI BERBICARA DENGAN STANDAR CEFR...]
             </h3>
-            <p className="font-mono text-xs text-zinc-400 max-w-sm">
+            <p className="font-mono text-xs text-zinc-600 max-w-sm">
               Menilai kelancaran, tata bahasa, dan membandingkan kalimatmu dengan versi Native-like Upgrade...
             </p>
           </div>
         ) : evaluation ? (
           <div className="space-y-6">
             {/* Top Diagnostic Banner */}
-            <div className="border-4 border-black dark:border-white bg-[#111317] p-6 shadow-[8px_8px_0px_#000000] dark:shadow-[8px_8px_0px_#facc15] flex flex-wrap items-center justify-between gap-6">
+            <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-6">
               <div className="space-y-1">
-                <span className="font-mono text-xs font-black text-[#facc15] uppercase tracking-wider block">
+                <span className="font-mono text-xs font-black text-amber-800 uppercase tracking-wider block">
                   [HASIL DIAGNOSTIK KELANCARAN BERBICARA]
                 </span>
-                <h3 className="text-2xl font-black text-white uppercase">{evaluation.questTitle}</h3>
-                <p className="font-mono text-xs text-zinc-300 max-w-xl">{evaluation.transcriptSummary}</p>
+                <h3 className="text-2xl font-black text-black uppercase">{evaluation.questTitle}</h3>
+                <p className="font-mono text-xs text-zinc-700 max-w-xl">{evaluation.transcriptSummary}</p>
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="text-center p-3 px-5 bg-black border-2 border-white shadow-[3px_3px_0px_#000000]">
-                  <span className="font-mono text-[10px] font-black text-zinc-400 uppercase block">LEVEL CEFR</span>
-                  <span className="font-mono text-3xl font-black text-[#4ade80]">{evaluation.cefrLevel}</span>
+                <div className="text-center p-3 px-5 bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_#000000]">
+                  <span className="font-mono text-[10px] font-black text-zinc-600 uppercase block">LEVEL CEFR</span>
+                  <span className="font-mono text-3xl font-black text-emerald-700">{evaluation.cefrLevel}</span>
                 </div>
 
                 <div className="text-center p-3 px-5 bg-[#facc15] text-black border-2 border-black shadow-[3px_3px_0px_#000000]">
@@ -972,48 +972,48 @@ export default function StudentGameView({
 
             {/* 4-Pillar Score Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-              <div className="p-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-400 block mb-1 uppercase">Fluency</span>
-                <span className="font-mono text-2xl font-black text-[#facc15]">{evaluation.fluencyScore}%</span>
+              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
+                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Fluency</span>
+                <span className="font-mono text-2xl font-black text-amber-600">{evaluation.fluencyScore}%</span>
               </div>
-              <div className="p-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-400 block mb-1 uppercase">Pronunciation</span>
-                <span className="font-mono text-2xl font-black text-[#22d3ee]">{evaluation.pronunciationScore}%</span>
+              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
+                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Pronunciation</span>
+                <span className="font-mono text-2xl font-black text-cyan-700">{evaluation.pronunciationScore}%</span>
               </div>
-              <div className="p-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-400 block mb-1 uppercase">Vocabulary</span>
-                <span className="font-mono text-2xl font-black text-[#4ade80]">{evaluation.vocabularyScore}%</span>
+              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
+                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Vocabulary</span>
+                <span className="font-mono text-2xl font-black text-emerald-700">{evaluation.vocabularyScore}%</span>
               </div>
-              <div className="p-4 bg-black border-2 border-white shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-400 block mb-1 uppercase">Grammar</span>
-                <span className="font-mono text-2xl font-black text-[#f43f5e]">{evaluation.grammarScore}%</span>
+              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
+                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Grammar</span>
+                <span className="font-mono text-2xl font-black text-rose-600">{evaluation.grammarScore}%</span>
               </div>
             </div>
 
             {/* Native-like Upgrade Comparison Table */}
             {evaluation.nativeUpgrades.length > 0 && (
-              <div className="border-3 border-black dark:border-white bg-[#111317] p-6 shadow-[6px_6px_0px_#000000] space-y-4">
-                <h4 className="font-mono text-sm font-black text-white uppercase flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#facc15]" />
+              <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+                <h4 className="font-mono text-sm font-black text-black uppercase flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
                   [NATIVE-LIKE UPGRADE: CARA MENGUCAPKAN DENGAN LEBIH ALAMI]
                 </h4>
 
                 <div className="space-y-3 font-mono text-xs">
                   {evaluation.nativeUpgrades.map((item, idx) => (
-                    <div key={idx} className="p-4 bg-black border-2 border-zinc-700 space-y-2">
+                    <div key={idx} className="p-4 bg-zinc-50 border-2 border-black space-y-2">
                       <div>
-                        <span className="text-zinc-500 font-bold block text-[11px] uppercase">
+                        <span className="text-zinc-600 font-bold block text-[11px] uppercase">
                           Yang Kamu Ucapkan:
                         </span>
-                        <p className="text-zinc-300 italic">"{item.original}"</p>
+                        <p className="text-zinc-800 italic">"{item.original}"</p>
                       </div>
                       <div>
-                        <span className="text-[#4ade80] font-black block text-[11px] uppercase">
+                        <span className="text-emerald-700 font-black block text-[11px] uppercase">
                           Versi Lebih Natural (Native):
                         </span>
-                        <p className="text-white font-bold">"{item.upgraded}"</p>
+                        <p className="text-black font-bold">"{item.upgraded}"</p>
                       </div>
-                      <p className="text-[11px] text-zinc-400 pt-1 border-t border-zinc-800">{item.explanation}</p>
+                      <p className="text-[11px] text-zinc-600 pt-1 border-t border-zinc-200">{item.explanation}</p>
                     </div>
                   ))}
                 </div>
@@ -1022,22 +1022,22 @@ export default function StudentGameView({
 
             {/* Strengths & Improvements */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 bg-black border-2 border-[#4ade80] shadow-[4px_4px_0px_#000000] space-y-2 font-mono">
-                <h5 className="font-black text-xs text-[#4ade80] uppercase flex items-center gap-1.5">
+              <div className="p-5 bg-white border-2 border-black shadow-[4px_4px_0px_#000000] space-y-2 font-mono">
+                <h5 className="font-black text-xs text-emerald-800 uppercase flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" /> [KELEBIHAN KAMU]:
                 </h5>
-                <ul className="text-xs text-zinc-300 space-y-1.5 list-disc list-inside">
+                <ul className="text-xs text-zinc-700 space-y-1.5 list-disc list-inside">
                   {evaluation.strengths.map((str, idx) => (
                     <li key={idx}>{str}</li>
                   ))}
                 </ul>
               </div>
 
-              <div className="p-5 bg-black border-2 border-[#facc15] shadow-[4px_4px_0px_#000000] space-y-2 font-mono">
-                <h5 className="font-black text-xs text-[#facc15] uppercase flex items-center gap-1.5">
+              <div className="p-5 bg-white border-2 border-black shadow-[4px_4px_0px_#000000] space-y-2 font-mono">
+                <h5 className="font-black text-xs text-amber-800 uppercase flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" /> [AREA PERLU DITINGKATKAN]:
                 </h5>
-                <ul className="text-xs text-zinc-300 space-y-1.5 list-disc list-inside">
+                <ul className="text-xs text-zinc-700 space-y-1.5 list-disc list-inside">
                   {evaluation.areasToImprove.map((area, idx) => (
                     <li key={idx}>{area}</li>
                   ))}

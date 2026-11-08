@@ -58,33 +58,33 @@ export default function ClassroomBossRaidView() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 font-mono">
       {/* Projector Header Bar */}
-      <div className="border-3 border-black dark:border-white bg-[#111317] p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-3 font-mono text-xs font-black">
-        <span className="flex items-center gap-2 text-[#ef4444] uppercase">
+      <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-3 text-xs font-black">
+        <span className="flex items-center gap-2 text-red-600 uppercase">
           <Terminal className="w-4 h-4 stroke-[2.5]" />
           [MODE PROYEKTOR KELAS: 1 LAPTOP GURU DI DEPAN PAPAN TULIS]
         </span>
-        <span className="px-3 py-1 bg-[#ef4444] text-white border-2 border-black shadow-[2px_2px_0px_#000000] uppercase">
+        <span className="px-3 py-1 bg-red-600 text-white border-2 border-black shadow-[2px_2px_0px_#000000] uppercase">
           [TARGET: CO-OP SPEAKING SELURUH SISWA KELAS]
         </span>
       </div>
 
       {/* Main Boss Raid Arena */}
-      <div className="border-4 border-black dark:border-[#ef4444] bg-[#0c0d10] p-6 sm:p-8 shadow-[8px_8px_0px_#000000] dark:shadow-[8px_8px_0px_#ef4444] space-y-6 font-mono">
-        {/* Boss HP Health Bar (Chunky Arcade Blocks) */}
+      <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] space-y-6">
+        {/* Boss HP Health Bar */}
         <div className="space-y-2 max-w-2xl mx-auto text-center">
           <div className="flex items-center justify-between text-xs sm:text-sm font-black">
-            <span className="text-[#ef4444] uppercase tracking-wide">
+            <span className="text-red-600 uppercase tracking-wide">
               🌋 TITAN SMOG [BOSS MONSTER POLUSI]
             </span>
-            <span className="text-white text-base font-black">{bossHp} / 100 HP</span>
+            <span className="text-black text-base font-black">{bossHp} / 100 HP</span>
           </div>
 
-          <div className="w-full h-6 bg-black border-3 border-white p-0.5">
+          <div className="w-full h-6 bg-zinc-100 border-2 border-black p-0.5">
             <div
               className={`h-full transition-all duration-300 ${
-                bossHp > 40 ? "bg-[#ef4444]" : "bg-[#facc15]"
+                bossHp > 40 ? "bg-red-600" : "bg-[#facc15]"
               }`}
               style={{ width: `${bossHp}%` }}
             />
@@ -97,24 +97,24 @@ export default function ClassroomBossRaidView() {
             {bossHp > 0 ? "🌋" : "🌱"}
           </div>
 
-          <div className="max-w-xl p-5 bg-black border-2 border-white shadow-[4px_4px_0px_#000000] text-sm text-zinc-100 leading-relaxed">
-            <p className="font-bold uppercase text-[#facc15] mb-1 text-xs">[TITAN SMOG SAYS]:</p>
+          <div className="max-w-xl p-5 bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_#000000] text-sm text-zinc-900 leading-relaxed">
+            <p className="font-bold uppercase text-red-600 mb-1 text-xs">[TITAN SMOG SAYS]:</p>
             <p className="italic">"{bossDialogue}"</p>
           </div>
         </div>
 
         {/* Turn Indicator & Attack Form */}
-        <div className="p-5 bg-[#12141a] border-3 border-black dark:border-white space-y-4">
-          <div className="flex items-center justify-between border-b-2 border-zinc-800 pb-2">
-            <span className="font-black text-xs text-[#22d3ee] uppercase">
+        <div className="p-5 bg-zinc-50 border-2 border-black space-y-4">
+          <div className="flex items-center justify-between border-b-2 border-zinc-200 pb-2">
+            <span className="font-black text-xs text-cyan-800 uppercase">
               [GILIRAN BICARA]: {currentSpeaker.toUpperCase()}
             </span>
-            <span className="font-black text-xs text-[#facc15] uppercase">
+            <span className="font-black text-xs text-amber-800 uppercase">
               [TOTAL SKOR KELAS]: {classScore} PTS
             </span>
           </div>
 
-          <p className="text-xs text-zinc-300 leading-relaxed">
+          <p className="text-xs text-zinc-700 leading-relaxed">
             Siswa yang memegang benda (misal: botol reusable atau tas kain) berdiri dan ucapkan argumen dalam Bahasa Inggris untuk menyerang monster:
           </p>
 
@@ -125,7 +125,7 @@ export default function ClassroomBossRaidView() {
               onChange={(e) => setTranscript(e.target.value)}
               placeholder="Contoh: 'We use reusable water bottles instead of single-use plastic!'"
               onKeyDown={(e) => e.key === "Enter" && handleAttackBoss()}
-              className="flex-1 w-full px-4 py-3 bg-black border-2 border-white text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#facc15]"
+              className="flex-1 w-full px-4 py-3 bg-white border-2 border-black text-sm text-black placeholder-zinc-500 focus:outline-none"
             />
 
             <button
@@ -141,20 +141,20 @@ export default function ClassroomBossRaidView() {
         {/* Attack Damage Log */}
         {raidLogs.length > 0 && (
           <div className="space-y-2">
-            <span className="text-xs font-black text-zinc-400 uppercase block">
+            <span className="text-xs font-black text-zinc-600 uppercase block">
               [CATATAN SERANGAN SUARA SISWA KELAS]:
             </span>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {raidLogs.map((log, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-black border-2 border-zinc-800 flex items-center justify-between text-xs"
+                  className="p-3 bg-zinc-50 border-2 border-black flex items-center justify-between text-xs"
                 >
                   <div>
-                    <span className="font-black text-[#22d3ee] block">{log.student}:</span>
-                    <p className="text-zinc-300 italic">"{log.text}"</p>
+                    <span className="font-black text-cyan-800 block">{log.student}:</span>
+                    <p className="text-zinc-800 italic">"{log.text}"</p>
                   </div>
-                  <span className="font-black text-[#ef4444] text-sm flex-shrink-0">
+                  <span className="font-black text-red-600 text-sm flex-shrink-0">
                     -{log.damage} HP CRITICAL!
                   </span>
                 </div>

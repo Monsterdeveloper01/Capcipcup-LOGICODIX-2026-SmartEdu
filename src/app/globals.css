@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #08090b;
-  --foreground: #f4f4f5;
-  --surface-dark: #121418;
-  --surface-light: #ffffff;
-  --border-stark: #ffffff;
+  --background: #f8fafc;
+  --foreground: #09090b;
+  --surface-card: #ffffff;
+  --surface-muted: #f1f5f9;
+  --border-stark: #000000;
   --accent-yellow: #facc15;
-  --accent-cyan: #22d3ee;
+  --accent-cyan: #06b6d4;
   --accent-red: #ef4444;
-  --accent-green: #4ade80;
+  --accent-green: #10b981;
 }
 
 @theme inline {
@@ -29,67 +29,68 @@ body {
 }
 
 /* ============================================================================
-   NEO-BRUTALIST ARCHITECTURAL GRID BACKGROUND
+   LIGHT-THEME NEO-BRUTALIST ARCHITECTURAL GRID BACKGROUND
    ============================================================================ */
 .brutal-grid {
-  background-color: #08090b;
+  background-color: #f8fafc;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-  background-size: 32px 32px;
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 
 .brutal-grid-dense {
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
-  background-size: 16px 16px;
+    linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+  background-size: 14px 14px;
 }
 
 /* ============================================================================
-   NEO-BRUTALIST HARD CARDS & SURFACES (ANTI-SLOP)
+   NEO-BRUTALIST HARD CARDS & SURFACES (CRISP LIGHT THEME)
    ============================================================================ */
 .brutal-card {
-  background: #111317;
-  border: 2px solid #ffffff;
-  box-shadow: 5px 5px 0px 0px #000000;
+  background: #ffffff;
+  color: #09090b;
+  border: 2px solid #000000;
+  box-shadow: 4px 4px 0px 0px #000000;
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .brutal-card:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0px 0px #facc15;
+  box-shadow: 6px 6px 0px 0px #000000;
 }
 
 .brutal-card-white {
   background: #ffffff;
-  color: #000000;
-  border: 3px solid #000000;
-  box-shadow: 5px 5px 0px 0px #000000;
+  color: #09090b;
+  border: 2px solid #000000;
+  box-shadow: 4px 4px 0px 0px #000000;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .brutal-card-white:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0px 0px #facc15;
+  box-shadow: 6px 6px 0px 0px #facc15;
 }
 
 .brutal-card-yellow {
   background: #facc15;
   color: #000000;
-  border: 3px solid #000000;
-  box-shadow: 5px 5px 0px 0px #000000;
+  border: 2px solid #000000;
+  box-shadow: 4px 4px 0px 0px #000000;
 }
 
 .brutal-card-cyan {
   background: #06b6d4;
   color: #000000;
-  border: 3px solid #000000;
-  box-shadow: 5px 5px 0px 0px #000000;
+  border: 2px solid #000000;
+  box-shadow: 4px 4px 0px 0px #000000;
 }
 
 /* ============================================================================
-   NEO-BRUTALIST TACTILE BUTTONS (MECHANICAL CRUNCH FEEDBACK)
+   NEO-BRUTALIST TACTILE BUTTONS (CRUNCH FEEDBACK)
    ============================================================================ */
 .brutal-btn-yellow {
   display: inline-flex;
@@ -184,9 +185,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #17191e;
-  color: #f4f4f5;
-  border: 2px solid #ffffff;
+  background-color: #09090b;
+  color: #ffffff;
+  border: 2px solid #000000;
   font-family: var(--font-mono);
   font-weight: 800;
   text-transform: uppercase;
@@ -197,7 +198,7 @@ body {
 }
 
 .brutal-btn-dark:hover:not(:disabled) {
-  background-color: #242730;
+  background-color: #27272a;
   transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0px 0px #facc15;
 }
@@ -207,8 +208,35 @@ body {
   box-shadow: 1px 1px 0px 0px #000000;
 }
 
+.brutal-btn-white {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  color: #09090b;
+  border: 2px solid #000000;
+  font-family: var(--font-mono);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: all 0.1s ease;
+  cursor: pointer;
+}
+
+.brutal-btn-white:hover:not(:disabled) {
+  background-color: #f4f4f5;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #000000;
+}
+
+.brutal-btn-white:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
 /* ============================================================================
-   HAZARD WARNING STRIPES (BRUTALIST TAPE)
+   HAZARD WARNING STRIPES (LIGHT THEME)
    ============================================================================ */
 .hazard-stripes {
   background: repeating-linear-gradient(
@@ -223,16 +251,17 @@ body {
 .hazard-stripes-subtle {
   background: repeating-linear-gradient(
     -45deg,
-    rgba(250, 204, 21, 0.15),
-    rgba(250, 204, 21, 0.15) 10px,
-    transparent 10px,
-    transparent 20px
+    #fef08a,
+    #fef08a 10px,
+    #ffffff 10px,
+    #ffffff 20px
   );
 }
 
 /* Glowing Border for Spoken Item in Brutal Style */
 .brutal-glow-active {
-  border-color: #facc15 !important;
+  border-color: #000000 !important;
+  background-color: #fef08a !important;
   box-shadow: 0 0 0 3px #facc15, 6px 6px 0px 0px #000000 !important;
   transform: translate(-3px, -3px) !important;
 }
@@ -240,19 +269,19 @@ body {
 /* Crosshair indicator */
 .crosshair-reticle {
   background: 
-    linear-gradient(to right, #facc15 2px, transparent 2px) 50% 50% / 40px 40px no-repeat,
-    linear-gradient(to bottom, #facc15 2px, transparent 2px) 50% 50% / 40px 40px no-repeat;
+    linear-gradient(to right, #000000 2px, transparent 2px) 50% 50% / 40px 40px no-repeat,
+    linear-gradient(to bottom, #000000 2px, transparent 2px) 50% 50% / 40px 40px no-repeat;
 }
 
-/* Custom Brutalist Scrollbar */
+/* Custom Light Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #08090b;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f1f5f9;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -261,5 +290,5 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #fde047;
+  background: #eab308;
 }

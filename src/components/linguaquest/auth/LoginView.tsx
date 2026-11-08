@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { AuthUser } from "@/lib/auth/types";
-import { Terminal, Shield, GraduationCap, Gamepad2, ArrowRight, AlertCircle, Key, UserCheck } from "lucide-react";
+import { Terminal, Shield, GraduationCap, Gamepad2, ArrowRight, AlertCircle, Key, UserCheck, CheckCircle } from "lucide-react";
 
 interface LoginViewProps {
   onLoginSuccess: (user: AuthUser) => void;
+  onCancel?: () => void;
 }
 
-export default function LoginView({ onLoginSuccess }: LoginViewProps) {
+export default function LoginView({ onLoginSuccess, onCancel }: LoginViewProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -64,75 +65,94 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 font-mono py-8">
-      {/* Neo-Brutalist Login Header */}
-      <div className="border-4 border-black dark:border-white bg-[#111317] p-6 shadow-[6px_6px_0px_#000000] dark:shadow-[6px_6px_0px_#facc15] space-y-2">
-        <div className="flex items-center gap-2 text-[#facc15] text-xs font-black uppercase">
-          <Terminal className="w-4 h-4 stroke-[3]" />
-          <span>[SECURITY GATEWAY // ROLE-BASED ACCESS CONTROL]</span>
+    <div className="max-w-2xl mx-auto space-y-6 font-mono py-6">
+      {/* Header Portal Login */}
+      <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-black text-xs font-black uppercase">
+            <span className="w-2.5 h-2.5 bg-[#facc15] border border-black inline-block" />
+            <span>[PORTAL LOGIN RESMI // CAPCIPCUP SMARTEDU]</span>
+          </div>
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="text-xs font-bold text-zinc-500 hover:text-black underline uppercase"
+            >
+              [Tutup / Kembali]
+            </button>
+          )}
         </div>
-        <h1 className="text-2xl sm:text-4xl font-black text-white uppercase tracking-tight leading-none">
-          LOGIN CAPCIPCUP SMARTEDU
+        <h1 className="text-2xl sm:text-3xl font-black text-black uppercase tracking-tight">
+          Masuk ke Akun Anda
         </h1>
-        <p className="text-xs text-zinc-300 leading-relaxed">
-          Pilih atau masukkan kredensial untuk mengakses Dashboard khusus Siswa, Guru, atau Superadmin.
+        <p className="text-xs text-zinc-600 leading-relaxed">
+          Pilih role atau masukkan username dan password untuk mengakses dashboard khusus Siswa, Guru, atau Superadmin.
         </p>
       </div>
 
-      {/* Quick 1-Click Role Login Bar (Hackathon Frictionless Speed) */}
-      <div className="border-3 border-black dark:border-white bg-[#0f1115] p-5 shadow-[5px_5px_0px_#000000] space-y-3">
-        <span className="font-black text-xs text-[#facc15] uppercase block">
-          [ ⚡ CONTOH LOGIN 1-KLIK LANGSUNG ]:
-        </span>
+      {/* Quick 1-Click Role Login Bar */}
+      <div className="border-2 border-black bg-amber-50/60 p-5 shadow-[4px_4px_0px_#000000] space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="font-black text-xs text-black uppercase">
+            ⚡ PILIH PERAN // LOGIN CEPAT 1-KLIK:
+          </span>
+          <span className="text-[10px] font-bold bg-[#facc15] text-black px-2 py-0.5 border border-black">
+            AKUN TERVERIFIKASI
+          </span>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("superadmin")}
-            className="brutal-btn-dark p-3 text-xs flex flex-col items-center text-center gap-1 border-2 hover:border-[#ef4444]"
-          >
-            <Shield className="w-5 h-5 text-[#ef4444] stroke-[2.5]" />
-            <span className="font-black text-white">[ SUPERADMIN ]</span>
-            <span className="text-[10px] text-zinc-400">superadmin / admin123</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("guru")}
-            className="brutal-btn-dark p-3 text-xs flex flex-col items-center text-center gap-1 border-2 hover:border-[#22d3ee]"
-          >
-            <GraduationCap className="w-5 h-5 text-[#22d3ee] stroke-[2.5]" />
-            <span className="font-black text-white">[ GURU ]</span>
-            <span className="text-[10px] text-zinc-400">guru / guru123</span>
-          </button>
-
+          {/* Siswa */}
           <button
             type="button"
             onClick={() => handleQuickLogin("siswa")}
-            className="brutal-btn-dark p-3 text-xs flex flex-col items-center text-center gap-1 border-2 hover:border-[#facc15]"
+            className="p-3 text-xs bg-white text-black border-2 border-black shadow-[3px_3px_0px_#000000] hover:bg-[#facc15] transition-all flex flex-col items-center text-center gap-1.5 cursor-pointer"
           >
-            <Gamepad2 className="w-5 h-5 text-[#facc15] stroke-[2.5]" />
-            <span className="font-black text-white">[ SISWA ]</span>
-            <span className="text-[10px] text-zinc-400">siswa / siswa123</span>
+            <Gamepad2 className="w-5 h-5 text-black stroke-[2.5]" />
+            <span className="font-black uppercase">[ SISWA ]</span>
+            <span className="text-[10px] text-zinc-600 font-bold">siswa / siswa123</span>
+          </button>
+
+          {/* Guru */}
+          <button
+            type="button"
+            onClick={() => handleQuickLogin("guru")}
+            className="p-3 text-xs bg-white text-black border-2 border-black shadow-[3px_3px_0px_#000000] hover:bg-[#22d3ee] transition-all flex flex-col items-center text-center gap-1.5 cursor-pointer"
+          >
+            <GraduationCap className="w-5 h-5 text-black stroke-[2.5]" />
+            <span className="font-black uppercase">[ GURU ]</span>
+            <span className="text-[10px] text-zinc-600 font-bold">guru / guru123</span>
+          </button>
+
+          {/* Superadmin */}
+          <button
+            type="button"
+            onClick={() => handleQuickLogin("superadmin")}
+            className="p-3 text-xs bg-white text-black border-2 border-black shadow-[3px_3px_0px_#000000] hover:bg-[#ef4444] hover:text-white transition-all flex flex-col items-center text-center gap-1.5 cursor-pointer"
+          >
+            <Shield className="w-5 h-5 stroke-[2.5]" />
+            <span className="font-black uppercase">[ SUPERADMIN ]</span>
+            <span className="text-[10px] text-zinc-600 font-bold">superadmin / admin123</span>
           </button>
         </div>
       </div>
 
-      {/* Standard Form Login */}
-      <div className="border-3 border-black dark:border-white bg-[#111317] p-6 shadow-[5px_5px_0px_#000000] space-y-4">
-        <span className="font-black text-xs text-[#22d3ee] uppercase block border-b-2 border-zinc-800 pb-2">
-          [ATAU MASUKKAN USERNAME & PASSWORD MANUAL]
+      {/* Manual Input Form */}
+      <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+        <span className="font-black text-xs text-black uppercase block border-b-2 border-zinc-200 pb-2">
+          [ FORM LOGIN MANUAL ]
         </span>
 
         {error && (
-          <div className="p-3 bg-red-950 border-2 border-red-700 text-red-200 text-xs font-black flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <div className="p-3 bg-red-50 border-2 border-red-600 text-red-900 text-xs font-black flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
-            <label className="font-black text-zinc-300 block mb-1 uppercase">
+            <label className="font-black text-black block mb-1 uppercase">
               Username atau Email:
             </label>
             <input
@@ -140,13 +160,13 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
-              placeholder="Contoh: superadmin / guru / siswa"
+              className="w-full px-4 py-3 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+              placeholder="Contoh: siswa / guru / superadmin"
             />
           </div>
 
           <div>
-            <label className="font-black text-zinc-300 block mb-1 uppercase">
+            <label className="font-black text-black block mb-1 uppercase">
               Password:
             </label>
             <input
@@ -154,7 +174,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
+              className="w-full px-4 py-3 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
               placeholder="••••••••"
             />
           </div>
@@ -176,18 +196,32 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
         </form>
       </div>
 
-      {/* Credentials Reference Cheat Sheet for Evaluators */}
-      <div className="border-2 border-dashed border-zinc-700 bg-black/60 p-4 text-[11px] text-zinc-400 space-y-2">
-        <span className="font-black uppercase text-[#facc15] block">
-          [PANDUAN KREDENSIAL DEMO UNTUK JURI]:
+      {/* Credentials Reference Card */}
+      <div className="border-2 border-dashed border-zinc-400 bg-zinc-50 p-4 text-[11px] text-zinc-700 space-y-2">
+        <span className="font-black uppercase text-black block">
+          [ DAFTAR KREDENSIAL YANG DAPAT DIGUNAKAN ]:
         </span>
-        <div className="space-y-1 font-mono">
-          <p>• <strong>Superadmin:</strong> username <code>superadmin</code> / password <code>admin123</code> (Manajemen pengguna & telemetri)</p>
-          <p>• <strong>Guru:</strong> username <code>guru</code> / password <code>guru123</code> (RPP Quest Gen, 30-Sec Grader, Misconception Heatmap)</p>
-          <p>• <strong>Siswa:</strong> username <code>siswa</code> / password <code>siswa123</code> (Kamera RPG, Live Speech HUD, CEFR Autopsy)</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[10px]">
+          <div className="p-2 bg-white border border-black">
+            <strong className="block text-black">SISWA:</strong>
+            <code>siswa</code> atau <code>siswa1</code>
+            <br />
+            Password: <code>siswa123</code>
+          </div>
+          <div className="p-2 bg-white border border-black">
+            <strong className="block text-black">GURU:</strong>
+            <code>guru</code> atau <code>guru1</code>
+            <br />
+            Password: <code>guru123</code>
+          </div>
+          <div className="p-2 bg-white border border-black">
+            <strong className="block text-black">SUPERADMIN:</strong>
+            <code>superadmin</code> atau <code>admin</code>
+            <br />
+            Password: <code>admin123</code>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
