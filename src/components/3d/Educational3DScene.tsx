@@ -179,8 +179,10 @@ function SandboxSimulation({
   const blocksRef = useRef<SandboxBlock[]>(blocks);
   blocksRef.current = blocks;
 
-  // Track pointer hover/grab for mouse fallback
+  // Track pointer hover/grab for mouse fallback & hand targeting
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [targetedBlockId, setTargetedBlockId] = useState<string | null>(null);
+  const targetedBlockIdRef = useRef<string | null>(null);
 
   // Main Physics & Hand Interaction Loop (60 FPS)
   useFrame((_, delta) => {
@@ -193,8 +195,8 @@ function SandboxSimulation({
       if (isHandActive && handPos) {
         handSphereRef.current.visible = true;
         handSphereRef.current.position.set(handPos.x, handPos.y, handPos.z);
-        // Animate pulse when grabbing
-        const s = isGrabbing ? 0.28 : 0.2;
+        // Animate pulse when grabbing vs open
+        const s = isGrabbing ? 0.22 : 0.18;
         handSphereRef.current.scale.lerp(new THREE.Vector3(s, s, s), 0.2);
       } else {
         handSphereRef.current.visible = false;
@@ -204,35 +206,48 @@ function SandboxSimulation({
     // ==========================================
     // LOGIKA MEMEGANG & MENUMPUK BALOK DENGAN TANGAN
     // ==========================================
+    let currentTargetId: string | null = null;
+
     if (isHandActive && handPos) {
+      // Cari balok yang berada paling dekat dalam jangkauan tangan (radius presisi 1.05)
+      let minTargetDist = 1.05;
+      blocksRef.current.forEach((block) => {
+        const dist = Math.hypot(
+          block.position[0] - handPos.x,
+          block.position[1] - handPos.y,
+          block.position[2] - handPos.z
+        );
+        if (dist < minTargetDist) {
+          minTargetDist = dist;
+          currentTargetId = block.id;
+        }
+      });
+
       if (isGrabbing) {
-        // Jika belum ada balok yang dipegang, cari balok terdekat dengan tangan
-        if (!grabbedBlockIdRef.current) {
-          let closestId: string | null = null;
-          let minDist = 1.6; // Radius jangkauan tangan meraih balok
-
-          blocksRef.current.forEach((block) => {
-            const dist = Math.hypot(
-              block.position[0] - handPos.x,
-              block.position[1] - handPos.y,
-              block.position[2] - handPos.z
-            );
-            if (dist < minDist) {
-              minDist = dist;
-              closestId = block.id;
-            }
-          });
-
-          if (closestId) {
-            grabbedBlockIdRef.current = closestId;
-          }
+        // TANGAN MENUTUP (Mengepal / Pinch):
+        // Jika belum ada balok yang dipegang, ambil balok yang ditarget
+        if (!grabbedBlockIdRef.current && currentTargetId) {
+          grabbedBlockIdRef.current = currentTargetId;
         }
       } else {
-        // Tangan membuka (lepas cubitan / lepas kepalan) -> Lepaskan balok
+        // TANGAN MEMBUKA:
+        // Lepas balok seketika! Balok TIDAK BOLEH bergerak saat tangan membuka
         if (grabbedBlockIdRef.current) {
           grabbedBlockIdRef.current = null;
         }
       }
+    } else {
+      // Tangan di luar kamera: lepaskan balok
+      if (grabbedBlockIdRef.current) {
+        grabbedBlockIdRef.current = null;
+      }
+    }
+
+    // Update visual target highlight hanya jika berganti balok (hemat re-render)
+    const effectiveTarget = !isGrabbing ? currentTargetId : null;
+    if (targetedBlockIdRef.current !== effectiveTarget) {
+      targetedBlockIdRef.current = effectiveTarget;
+      setTargetedBlockId(effectiveTarget);
     }
 
     // Update posisi semua balok (Gravitasi & Stacking)
@@ -317,13 +332,13 @@ function SandboxSimulation({
     <group>
       {/* Bola Hologram Indikator Posisi Tangan Pengguna di Dunia 3D */}
       <mesh ref={handSphereRef} visible={false}>
-        <sphereGeometry args={[0.2, 24, 24]} />
+        <sphereGeometry args={[0.18, 24, 24]} />
         <meshStandardMaterial
-          color={handTransform?.isGrabbing ? "#f59e0b" : "#38bdf8"}
+          color={handTransform?.isGrabbing ? "#f59e0b" : "#06b6d4"}
           emissive={handTransform?.isGrabbing ? "#f59e0b" : "#0284c7"}
-          emissiveIntensity={1.2}
+          emissiveIntensity={1.4}
           transparent
-          opacity={0.8}
+          opacity={handTransform?.isGrabbing ? 0.9 : 0.6}
           wireframe
         />
       </mesh>
@@ -334,7 +349,7 @@ function SandboxSimulation({
           key={block.id}
           block={block}
           wireframe={wireframe}
-          isHovered={hoveredId === block.id}
+          isHovered={hoveredId === block.id || targetedBlockId === block.id}
           onPointerOver={() => setHoveredId(block.id)}
           onPointerOut={() => setHoveredId(null)}
           onPointerDown={() => {

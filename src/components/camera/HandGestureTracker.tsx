@@ -41,6 +41,7 @@ export default function HandGestureTracker({
   const currentScaleRef = useRef<number>(1);
   const lostRightCounterRef = useRef<number>(0);
   const lostLeftCounterRef = useRef<number>(0);
+  const grabFrameCounterRef = useRef<number>(0);
 
   // 1. Initialize MediaPipe HandLandmarker with 2 Hands Detection
   useEffect(() => {
@@ -155,8 +156,10 @@ export default function HandGestureTracker({
     let rightHandDetected = false;
     let leftHandDetected = false;
     let primaryHand3D: { x: number; y: number; z: number } | undefined = undefined;
-    let isAnyGrabbing = false;
-    let isAnyPinching = false;
+    let isAnyGrabbingCandidate = false;
+    let isAnyPinchingCandidate = false;
+
+    const handCount = results.landmarks?.length || 0;
 
     if (results.landmarks && results.landmarks.length > 0) {
       for (let i = 0; i < results.landmarks.length; i++) {
@@ -174,60 +177,72 @@ export default function HandGestureTracker({
           z: (palm.z || 0) * 5,
         };
 
-        // Pinch & Fist detection (for Grab in 3D Sandbox)
-        const pinchDist = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
-        const pinching = pinchDist < 0.085;
-        const fist = landmarks[8].y > landmarks[6].y && landmarks[12].y > landmarks[10].y && landmarks[16].y > landmarks[14].y;
-        const grabbing = pinching || fist;
+        const wrist = landmarks[0];
+        const middleMcp = landmarks[9];
+        const palmLength = Math.max(dist3D(wrist, middleMcp), 0.08);
 
-        if (grabbing) isAnyGrabbing = true;
-        if (pinching) isAnyPinching = true;
+        // ==========================================
+        // DETEKSI FISIK TANGAN MENUTUP (KEPALAN) & CUBITAN
+        // ==========================================
+        // Cek lekukan 4 jari (Telunjuk, Tengah, Manis, Kelingking)
+        const indexCurled = isFingerCurled(landmarks[8], landmarks[5], wrist, palmLength);
+        const middleCurled = isFingerCurled(landmarks[12], landmarks[9], wrist, palmLength);
+        const ringCurled = isFingerCurled(landmarks[16], landmarks[13], wrist, palmLength);
+        const pinkyCurled = isFingerCurled(landmarks[20], landmarks[17], wrist, palmLength);
 
-        if (isRightHand || !primaryHand3D) {
+        let curledCount = 0;
+        if (indexCurled) curledCount++;
+        if (middleCurled) curledCount++;
+        if (ringCurled) curledCount++;
+        if (pinkyCurled) curledCount++;
+
+        // Tangan MENUTUP (Kepalan): minimal 3 dari 4 jari ditekuk ke dalam telapak
+        const isFist = curledCount >= 3;
+
+        // Cubitan presisi: ujung jempol menyentuh ujung telunjuk secara sengaja
+        const pinchDistance = dist3D(landmarks[4], landmarks[8]);
+        const pinching = pinchDistance < palmLength * 0.28;
+
+        // Grabbing aktif jika tangan menutup (fist) ATAU mencubit erat
+        const isHandGrabbing = isFist || pinching;
+
+        if (isHandGrabbing) isAnyGrabbingCandidate = true;
+        if (pinching) isAnyPinchingCandidate = true;
+
+        // Tentukan tangan utama untuk interaksi 3D (Jika 1 tangan: gunakan tangan tersebut)
+        if (handCount === 1 || isRightHand || !primaryHand3D) {
           primaryHand3D = h3D;
         }
 
-        if (isRightHand) {
+        if (handCount === 1 || isRightHand) {
           // ==========================================
-          // ✋ TANGAN KANAN: MEMUTAR OBJEK 3D (ROTASI) & MEMEGANG OBJEK
+          // ✋ TANGAN UTAMA: INTERAKSI & MEMEGANG BALOK
           // ==========================================
           rightHandDetected = true;
           lostRightCounterRef.current = 0;
 
-          // Gambar tulang tangan kanan (Warna Neon Hijau/Cyan)
-          const rightLabel = grabbing ? "✊ Memegang Objek" : "✋ Kanan: Rotasi";
-          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, grabbing ? "#f59e0b" : "#10b981", grabbing ? "#fbbf24" : "#34d399", rightLabel);
+          const label = isHandGrabbing ? "✊ Tangan Menutup (Pegang)" : "✋ Tangan Terbuka (Arahkan)";
+          const lineColor = isHandGrabbing ? "#f59e0b" : "#06b6d4";
+          const jointColor = isHandGrabbing ? "#fbbf24" : "#22d3ee";
 
-          const palmCenter = landmarks[9]; // Pangkal jari tengah
+          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, lineColor, jointColor, label);
 
-          if (prevRightHandPosRef.current) {
-            const deltaX = (palmCenter.x - prevRightHandPosRef.current.x) * 10;
-            const deltaY = (palmCenter.y - prevRightHandPosRef.current.y) * 10;
-
-            // Deadzone: abaikan getaran mikro < 0.003
-            if (Math.abs(deltaX) > 0.006) {
-              currentRotationRef.current.y -= deltaX;
-            }
-            if (Math.abs(deltaY) > 0.006) {
-              currentRotationRef.current.x += deltaY;
-            }
-          }
-          prevRightHandPosRef.current = { x: palmCenter.x, y: palmCenter.y };
-          setRightHandStatus(grabbing ? "✊ Tangan Kanan: Memegang Objek" : "✋ Tangan Kanan: Siap Memegang / Putar");
+          setRightHandStatus(
+            isHandGrabbing
+              ? "✊ Tangan Menutup: Memegang & Menggerakkan Balok"
+              : "✋ Tangan Terbuka: Arahkan ke balok (tutup untuk ambil)"
+          );
         } else {
           // ==========================================
-          // 🔍 TANGAN KIRI: ZOOM IN / ZOOM OUT (SKALA)
+          // 🔍 TANGAN KEDUA: ZOOM IN / ZOOM OUT (SKALA)
           // ==========================================
           leftHandDetected = true;
           lostLeftCounterRef.current = 0;
 
-          // Gambar tulang tangan kiri (Warna Neon Pink/Ungu)
-          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, "#ec4899", "#f43f5e", "🔍 Kiri: Zoom");
+          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, "#ec4899", "#f43f5e", "🔍 Kiri: Zoom Meja");
 
-          const wrist = landmarks[0];
           const thumbTip = landmarks[4];
           const indexTip = landmarks[8];
-
           const pDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
           const normalizedY = 1 - Math.min(Math.max((wrist.y - 0.15) / 0.65, 0), 1);
           const targetScale = 0.5 + normalizedY * 1.8 + Math.min(pDist * 2, 0.5);
@@ -240,12 +255,20 @@ export default function HandGestureTracker({
       }
     }
 
+    // Konfirmasi grab dengan debounce (butuh 2 frame tangan menutup untuk aktif, rilis instan saat membuka)
+    if (isAnyGrabbingCandidate) {
+      grabFrameCounterRef.current = Math.min(grabFrameCounterRef.current + 1, 5);
+    } else {
+      grabFrameCounterRef.current = 0; // Tangan membuka: rilis seketika tanpa delay
+    }
+    const confirmedGrab = grabFrameCounterRef.current >= 2;
+
     // Grace period tangan kanan
     if (!rightHandDetected) {
       lostRightCounterRef.current += 1;
       if (lostRightCounterRef.current > 12) {
         prevRightHandPosRef.current = null;
-        setRightHandStatus("Tangan Kanan: Tidak terdeteksi");
+        setRightHandStatus("Tangan: Arahkan tangan ke depan kamera");
       }
     }
 
@@ -253,7 +276,7 @@ export default function HandGestureTracker({
     if (!leftHandDetected) {
       lostLeftCounterRef.current += 1;
       if (lostLeftCounterRef.current > 12) {
-        setLeftHandStatus("Tangan Kiri: Tidak terdeteksi");
+        setLeftHandStatus("Tangan Kiri: Tidak aktif");
       }
     }
 
@@ -264,8 +287,8 @@ export default function HandGestureTracker({
       rotationX: currentRotationRef.current.x,
       rotationY: currentRotationRef.current.y,
       scale: currentScaleRef.current,
-      isPinching: isAnyPinching,
-      isGrabbing: isAnyGrabbing,
+      isPinching: isAnyPinchingCandidate,
+      isGrabbing: confirmedGrab,
       handDetected: anyHand,
       activeMode: mode,
       handPosition3D: anyHand ? primaryHand3D : undefined,
@@ -399,9 +422,39 @@ function drawHandSkeleton(
     ctx.stroke();
   }
 
-  // Draw floating label above wrist
+  // Draw floating label badge above wrist
   const wrist = landmarks[0];
-  ctx.font = "bold 12px sans-serif";
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(label, wrist.x * width - 40, wrist.y * height - 15);
+  const px = Math.min(Math.max(wrist.x * width - 60, 10), Math.max(width - 200, 10));
+  const py = Math.max(wrist.y * height - 20, 25);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+  ctx.beginPath();
+  ctx.roundRect(px - 6, py - 14, 185, 20, 6);
+  ctx.fill();
+  ctx.font = "bold 11px sans-serif";
+  ctx.fillStyle = lineColor;
+  ctx.fillText(label, px, py);
+}
+
+// Helper menghitung jarak 3D Euclidean antara dua titik landmark
+function dist3D(
+  a: { x: number; y: number; z?: number },
+  b: { x: number; y: number; z?: number }
+): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dz = (a.z || 0) - (b.z || 0);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+// Helper memeriksa apakah jari menekuk/melipat ke dalam telapak (mengepal/menutup)
+function isFingerCurled(
+  tip: { x: number; y: number; z?: number },
+  mcp: { x: number; y: number; z?: number },
+  wrist: { x: number; y: number; z?: number },
+  palmLength: number
+): boolean {
+  const distToWrist = dist3D(tip, wrist);
+  const distToMcp = dist3D(tip, mcp);
+  // Jari dianggap menekuk jika ujung jari dekat ke pergelangan atau terlipat ke arah pangkal jari
+  return distToWrist < palmLength * 1.15 || distToMcp < palmLength * 0.75;
 }
