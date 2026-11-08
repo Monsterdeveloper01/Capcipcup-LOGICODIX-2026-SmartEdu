@@ -82,9 +82,9 @@ export default function Home() {
     } catch (err) {
       console.warn("Logout error:", err);
     } finally {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("lq_active_classroom");
-      }
+      // Note: Do NOT clear student's enrolled classroom from localStorage on logout.
+      // The classroom stays enrolled with the student's profile so they don't have to re-enter PIN.
+      // If the student wants to switch classes, they can use [ KELUAR KELAS ] inside the game.
       setCurrentUser(null);
       setActiveView("student");
       setShowLoginScreen(false);

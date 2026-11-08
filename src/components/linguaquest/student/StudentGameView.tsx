@@ -158,7 +158,11 @@ export default function StudentGameView({
           return;
         }
 
-        const savedClass = localStorage.getItem("lq_active_classroom");
+        const userKey = currentUser.id || currentUser.username || "student";
+        const savedClass =
+          localStorage.getItem(`lq_classroom_${userKey}`) ||
+          localStorage.getItem("lq_active_classroom");
+
         if (savedClass) {
           const parsed = JSON.parse(savedClass);
           setActiveClassroom(parsed);
@@ -254,6 +258,8 @@ export default function StudentGameView({
 
       setActiveClassroom(classData);
       if (typeof window !== "undefined") {
+        const userKey = currentUser?.id || currentUser?.username || "student";
+        localStorage.setItem(`lq_classroom_${userKey}`, JSON.stringify(classData));
         localStorage.setItem("lq_active_classroom", JSON.stringify(classData));
       }
 
@@ -287,6 +293,8 @@ export default function StudentGameView({
     if (confirm("Apakah kamu yakin ingin keluar dari room kelas ini? Kamu harus memasukkan PIN baru untuk masuk kembali.")) {
       setActiveClassroom(null);
       if (typeof window !== "undefined") {
+        const userKey = currentUser?.id || currentUser?.username || "student";
+        localStorage.removeItem(`lq_classroom_${userKey}`);
         localStorage.removeItem("lq_active_classroom");
       }
       resetAll();
