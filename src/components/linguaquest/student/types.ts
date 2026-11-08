@@ -56,3 +56,4 @@ export interface ClassroomTaskItem {
   targetVocabularies?: any[];
   target_vocabularies?: any;
 }
+

@@ -71,3 +71,4 @@ export default function ProjectorPinModal({ classroom, tasksCount, onClose }: Pr
     </div>
   );
 }
+

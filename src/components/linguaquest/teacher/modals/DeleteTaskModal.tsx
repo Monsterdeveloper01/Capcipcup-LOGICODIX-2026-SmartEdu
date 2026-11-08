@@ -70,3 +70,4 @@ export default function DeleteTaskModal({
     </div>
   );
 }
+

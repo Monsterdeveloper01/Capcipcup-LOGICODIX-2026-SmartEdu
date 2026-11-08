@@ -107,3 +107,4 @@ export default function TranscriptDetailModal({ selectedEvaluation, onClose }: P
     </div>
   );
 }
+
