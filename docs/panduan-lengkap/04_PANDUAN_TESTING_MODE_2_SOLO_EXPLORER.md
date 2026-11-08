@@ -75,3 +75,4 @@ Setelah menekan tombol **`[ SELESAI & RAPOR ]`**:
    - **Native-like Upgrade:** Menampilkan kalimat yang Anda ucapkan vs perbaikan kalimat yang lebih idiomatis dan alami.
    - **Kelebihan & Area Peningkatan:** Rangkuman objektif untuk bahan belajar selanjutnya.
 3. Klik **`[ SELESAI & KEMBALI KE MENU UTAMA ]`** untuk kembali ke beranda.
+

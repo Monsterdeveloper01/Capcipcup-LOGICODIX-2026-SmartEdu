@@ -50,3 +50,4 @@ Silakan buka dokumen panduan sesuai kebutuhan pengujian Anda:
 | **Seeded Superadmin** | 🟢 **ACTIVE** | `superadmin` / `admin123` |
 | **Seeded Guru** | 🟢 **ACTIVE** | `guru` / `guru123` |
 | **Seeded Siswa** | 🟢 **ACTIVE** | `siswa` / `siswa123` |
+

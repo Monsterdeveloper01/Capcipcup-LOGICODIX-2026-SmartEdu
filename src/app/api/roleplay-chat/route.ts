@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAiClient, hasAiKey } from "@/lib/ai/client";
+import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
 
 export async function POST(req: Request) {
   try {
@@ -49,8 +49,8 @@ Return STRICTLY a JSON object matching this schema:
 }`;
 
         try {
-          const response = await aiClient.models.generateContent({
-            model: "gemini-2.5-flash",
+          const ai = getAiClient();
+          const response = await generateContentWithFallback(ai, {
             contents: prompt,
             config: {
               responseMimeType: "application/json",

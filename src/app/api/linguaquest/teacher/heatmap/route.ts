@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAiClient, hasAiKey } from "@/lib/ai/client";
+import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
 import { query } from "@/lib/db";
 import { ClassMisconceptionItem, SpeakingEvaluation } from "@/lib/linguaquest/types";
 
@@ -102,8 +102,7 @@ OUTPUT MUST BE STRICTLY JSON:
 }
 `;
 
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+        const response = await generateContentWithFallback(ai, {
           contents: promptText,
           config: {
             responseMimeType: "application/json",

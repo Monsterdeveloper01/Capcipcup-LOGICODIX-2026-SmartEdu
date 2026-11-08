@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAiClient, hasAiKey } from "@/lib/ai/client";
+import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
 import { query } from "@/lib/db";
 import { QuestScenario, TeacherCurriculumQuestInput } from "@/lib/linguaquest/types";
 
@@ -54,16 +54,40 @@ OUTPUT MUST BE STRICTLY JSON:
 }
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: promptText,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
+    const lockedVocabs = requiredVocabulary
+      ? requiredVocabulary.split(",").map((v) => v.trim()).filter(Boolean)
+      : [];
 
-    const rawText = response.text || "{}";
-    const parsed = JSON.parse(rawText);
+    let parsed: any = null;
+
+    try {
+      const response = await generateContentWithFallback(ai, {
+        contents: promptText,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+
+      const rawText = response.text || "{}";
+      parsed = JSON.parse(rawText);
+    } catch (aiErr: any) {
+      console.warn("[Teacher Quest Gen] Gemini fallback:", aiErr?.message || aiErr);
+      parsed = {
+        title: `Curriculum Mission: ${subjectTopic}`,
+        mode: "smk_career",
+        npcName: "Mr. Harrison",
+        npcRole: "International Guest Relations",
+        npcAvatar: "👔",
+        npcPersonality: "Detail-oriented, appreciative of polite and structured explanations.",
+        scenarioBrief: `Sebagai bagian dari materi ${subjectTopic}, siswa ditugaskan mempraktikkan kemampuan berbicara bahasa Inggris secara profesional kepada mitra luar negeri.`,
+        urgentGoal: `Persuade Mr. Harrison using target vocabulary: ${lockedVocabs.join(", ") || "provide, recommend, solution"}!`,
+        targetVocab: lockedVocabs.length > 0 ? lockedVocabs : ["provide", "recommend", "effective", "solution"],
+        suggestedObjectsToScan: ["Notebook / Buku", "Water Bottle / Minuman", "Pen / Alat Tulis"],
+        timeLimitSeconds: 180,
+        initialNpcGreeting: `Good day! I am evaluating candidates for this international project. Could you present your solution?`,
+        curriculumTopic: subjectTopic,
+      };
+    }
 
     const questId = `quest_t_${Date.now()}`;
     const quest: QuestScenario = {

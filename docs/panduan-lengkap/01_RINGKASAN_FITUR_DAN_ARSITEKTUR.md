@@ -100,3 +100,4 @@ Tabel-tabel berikut telah dibuat dan aktif di MariaDB:
 3. `submissions`: Menyimpan hasil pengerjaan murid (skor kuis, transkrip obrolan, metrik WPM Python, skor speaking, total skor, grade CEFR, feedback AI).
 4. `scanned_items`: Menyimpan riwayat benda fisik yang berhasil di-scan oleh kamera.
 5. `class_misconceptions`: Menyimpan radar agregasi pola kesalahan berbicara sekelas.
+

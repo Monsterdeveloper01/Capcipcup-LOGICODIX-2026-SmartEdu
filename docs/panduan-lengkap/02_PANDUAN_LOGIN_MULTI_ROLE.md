@@ -63,3 +63,4 @@ Fitur ini dirancang untuk mendemokan aplikasi di hadapan dewan juri dengan cepat
    - Cookie sesi `lq_session_user` dihapus.
    - Layar otomatis kembali ke halaman login.
    - Jika halaman di-refresh, status login tidak tersimpan lagi.
+

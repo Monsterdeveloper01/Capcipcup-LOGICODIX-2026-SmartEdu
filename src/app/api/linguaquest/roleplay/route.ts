@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAiClient, hasAiKey } from "@/lib/ai/client";
+import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
 import { QuestScenario, RoleplayTurnMessage } from "@/lib/linguaquest/types";
 
 export async function POST(req: Request) {
@@ -78,16 +78,29 @@ OUTPUT MUST BE STRICTLY JSON:
 }
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: promptText,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
+    let parsed: any = null;
 
-    const rawText = response.text || "{}";
-    const parsed = JSON.parse(rawText);
+    try {
+      const response = await generateContentWithFallback(ai, {
+        contents: promptText,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+
+      const rawText = response.text || "{}";
+      parsed = JSON.parse(rawText);
+    } catch (aiErr: any) {
+      console.warn("[LinguaQuest Roleplay] Gemini fallback:", aiErr?.message || aiErr);
+      parsed = {
+        npcReply: `I hear your explanation clearly! That is indeed an interesting point. How would you convince others to agree with your method?`,
+        usedItems: [],
+        rapportChange: 15,
+        hint: "Try saying: 'Furthermore, this item provides great reliability for our journey.'",
+        upgrade: `I believe this tool is indispensable because it offers both reliability and efficiency.`,
+        isQuestCompleted: currentRapport >= 70,
+      };
+    }
 
     const rapportChange = typeof parsed.rapportChange === "number" ? parsed.rapportChange : 15;
     const newRapport = Math.min(Math.max(currentRapport + rapportChange, 0), 100);

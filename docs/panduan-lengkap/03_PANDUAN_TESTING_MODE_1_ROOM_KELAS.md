@@ -97,3 +97,4 @@ Setelah murid masuk, murid akan melewati 3 tahap:
    - Kotak **Native-like Upgrade** yang menunjukkan kalimat murid vs versi penutur asli yang lebih natural.
 2. **Cek Kembali Layar Proyektor Guru (`/teacher/room/[PIN]`):**
    - Buka kembali tab Guru: Nama murid (`Faiz Ramadhan`) beserta nilai `88` dan Grade `B1` **sudah otomatis tercatat di papan leaderboard kelas**!
+

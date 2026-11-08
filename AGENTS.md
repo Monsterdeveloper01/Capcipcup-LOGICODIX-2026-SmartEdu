@@ -60,10 +60,10 @@ Kapan pun tim ingin membuat endpoint atau fitur AI baru, gunakan fondasi dari `s
 
 ```ts
 import { NextResponse } from "next/server";
-import { aiClient, hasAiKey } from "@/lib/ai/client";
+import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
 
 export async function POST(req: Request) {
-  if (!hasAiKey() || !aiClient) {
+  if (!hasAiKey()) {
     return NextResponse.json(
       { error: "GEMINI_API_KEY belum disetel di .env.local" },
       { status: 500 }
@@ -71,9 +71,9 @@ export async function POST(req: Request) {
   }
 
   const { prompt } = await req.json();
+  const ai = getAiClient();
 
-  const response = await aiClient.models.generateContent({
-    model: "gemini-2.5-flash",
+  const response = await generateContentWithFallback(ai, {
     contents: prompt,
   });
 

@@ -100,3 +100,4 @@ GEMINI_API_KEY=masukkan_token_api_di_sini
 - **Gejala:** Kamera menyala tetapi kotak kuning deteksi belum tampak.
 - **Penyebab:** Benda terlalu dekat atau pencahayaan kurang.
 - **Solusi:** Arahkan kamera ke benda yang kontras (misal: botol minum di atas meja kayu atau buku di samping laptop). Model YOLO Nano dioptimalkan untuk mendeteksi 80 kelas benda sehari-hari COCO dataset.
+
