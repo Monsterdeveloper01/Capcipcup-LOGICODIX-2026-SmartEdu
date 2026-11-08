@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mic, Volume2, Sparkles, Send, Flame, Shield, Award, Users } from "lucide-react";
+import { Mic, Volume2, Sparkles, Send, Flame, Shield, Award, Users, Terminal } from "lucide-react";
 import confetti from "canvas-confetti";
 
 export default function ClassroomBossRaidView() {
@@ -58,30 +58,34 @@ export default function ClassroomBossRaidView() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
-      {/* Projector Header */}
-      <div className="p-4 rounded-3xl glass-panel flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-zinc-300">
-        <span className="flex items-center gap-2 text-rose-400">
-          <Flame className="w-4 h-4 fill-rose-500" /> Mode Proyektor: 1 Laptop Guru di Depan Kelas
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Projector Header Bar */}
+      <div className="border-3 border-black dark:border-white bg-[#111317] p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-3 font-mono text-xs font-black">
+        <span className="flex items-center gap-2 text-[#ef4444] uppercase">
+          <Terminal className="w-4 h-4 stroke-[2.5]" />
+          [MODE PROYEKTOR KELAS: 1 LAPTOP GURU DI DEPAN PAPAN TULIS]
         </span>
-        <span className="px-3.5 py-1 rounded-full bg-rose-950/80 border border-rose-700/60 text-rose-300 text-[11px] font-extrabold uppercase tracking-wider">
-          Target: Berbicara Kolaboratif Seluruh Kelas (Co-op Speaking)
+        <span className="px-3 py-1 bg-[#ef4444] text-white border-2 border-black shadow-[2px_2px_0px_#000000] uppercase">
+          [TARGET: CO-OP SPEAKING SELURUH SISWA KELAS]
         </span>
       </div>
 
       {/* Main Boss Raid Arena */}
-      <div className="rounded-3xl p-8 bg-gradient-to-b from-rose-950/50 via-[#10121a] to-[#090a0f] border border-rose-800/60 shadow-2xl relative overflow-hidden space-y-7">
-        {/* Boss HP Bar */}
+      <div className="border-4 border-black dark:border-[#ef4444] bg-[#0c0d10] p-6 sm:p-8 shadow-[8px_8px_0px_#000000] dark:shadow-[8px_8px_0px_#ef4444] space-y-6 font-mono">
+        {/* Boss HP Health Bar (Chunky Arcade Blocks) */}
         <div className="space-y-2 max-w-2xl mx-auto text-center">
-          <div className="flex items-center justify-between text-sm font-black">
-            <span className="text-rose-400 flex items-center gap-2 tracking-wide">
-              🌋 TITAN SMOG (Boss Monster Polusi)
+          <div className="flex items-center justify-between text-xs sm:text-sm font-black">
+            <span className="text-[#ef4444] uppercase tracking-wide">
+              🌋 TITAN SMOG [BOSS MONSTER POLUSI]
             </span>
-            <span className="text-white font-mono text-base">{bossHp} / 100 HP</span>
+            <span className="text-white text-base font-black">{bossHp} / 100 HP</span>
           </div>
-          <div className="w-full h-5 rounded-full bg-black/60 border border-white/[0.08] overflow-hidden p-0.5">
+
+          <div className="w-full h-6 bg-black border-3 border-white p-0.5">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-rose-600 via-orange-500 to-amber-400 transition-all duration-500"
+              className={`h-full transition-all duration-300 ${
+                bossHp > 40 ? "bg-[#ef4444]" : "bg-[#facc15]"
+              }`}
               style={{ width: `${bossHp}%` }}
             />
           </div>
@@ -89,60 +93,70 @@ export default function ClassroomBossRaidView() {
 
         {/* Boss Visual & Dialogue */}
         <div className="flex flex-col items-center text-center space-y-4 py-2">
-          <div className="text-8xl animate-pulse drop-shadow-[0_0_40px_rgba(244,63,94,0.35)]">
+          <div className="text-7xl select-none">
             {bossHp > 0 ? "🌋" : "🌱"}
           </div>
 
-          <div className="max-w-xl p-5 rounded-2xl glass-panel text-sm text-zinc-200 leading-relaxed shadow-xl border border-white/[0.08]">
-            <p className="font-serif italic font-medium">"{bossDialogue}"</p>
+          <div className="max-w-xl p-5 bg-black border-2 border-white shadow-[4px_4px_0px_#000000] text-sm text-zinc-100 leading-relaxed">
+            <p className="font-bold uppercase text-[#facc15] mb-1 text-xs">[TITAN SMOG SAYS]:</p>
+            <p className="italic">"{bossDialogue}"</p>
           </div>
         </div>
 
-        {/* Speaker Turn & Voice Assault Controller */}
-        <div className="p-6 rounded-3xl glass-panel max-w-2xl mx-auto space-y-4 shadow-xl border border-white/[0.08]">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-extrabold text-indigo-300 flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-indigo-400" /> Giliran Bicara: <strong>{currentSpeaker}</strong>
+        {/* Turn Indicator & Attack Form */}
+        <div className="p-5 bg-[#12141a] border-3 border-black dark:border-white space-y-4">
+          <div className="flex items-center justify-between border-b-2 border-zinc-800 pb-2">
+            <span className="font-black text-xs text-[#22d3ee] uppercase">
+              [GILIRAN BICARA]: {currentSpeaker.toUpperCase()}
             </span>
-            <span className="text-zinc-400 font-semibold">
-              Total Skor Kelas: <strong className="text-amber-400 font-black">{classScore} Pts</strong>
+            <span className="font-black text-xs text-[#facc15] uppercase">
+              [TOTAL SKOR KELAS]: {classScore} PTS
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <p className="text-xs text-zinc-300 leading-relaxed">
+            Siswa yang memegang benda (misal: botol reusable atau tas kain) berdiri dan ucapkan argumen dalam Bahasa Inggris untuk menyerang monster:
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3">
             <input
               type="text"
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
-              placeholder="Siswa maju, pegang mic, dan sampaikan argumen ramah lingkungan..."
+              placeholder="Contoh: 'We use reusable water bottles instead of single-use plastic!'"
               onKeyDown={(e) => e.key === "Enter" && handleAttackBoss()}
-              className="flex-1 px-4 py-3 rounded-xl bg-black/40 border border-white/[0.08] text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500"
+              className="flex-1 w-full px-4 py-3 bg-black border-2 border-white text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#facc15]"
             />
 
             <button
               onClick={handleAttackBoss}
               disabled={!transcript.trim() || bossHp === 0}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 disabled:opacity-50 text-white font-black text-xs flex items-center gap-2 shadow-lg shadow-rose-600/30 transition-all flex-shrink-0 active:scale-95"
+              className="w-full sm:w-auto brutal-btn-red px-6 py-3 text-xs sm:text-sm font-mono flex items-center justify-center gap-2"
             >
-              <Send className="w-4 h-4" />
-              <span>Serang Boss!</span>
+              <span>⚔️ SERANG BOSS DENGAN SUARA</span>
             </button>
           </div>
         </div>
 
-        {/* Live Attack Logs */}
+        {/* Attack Damage Log */}
         {raidLogs.length > 0 && (
-          <div className="max-w-2xl mx-auto space-y-2">
-            <span className="text-[10px] font-extrabold text-zinc-500 uppercase tracking-widest block">
-              Log Serangan Argumen Siswa:
+          <div className="space-y-2">
+            <span className="text-xs font-black text-zinc-400 uppercase block">
+              [CATATAN SERANGAN SUARA SISWA KELAS]:
             </span>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {raidLogs.map((log, idx) => (
-                <div key={idx} className="p-3 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between text-xs">
-                  <span className="text-zinc-300">
-                    <strong className="text-indigo-400">{log.student}:</strong> "{log.text}"
+                <div
+                  key={idx}
+                  className="p-3 bg-black border-2 border-zinc-800 flex items-center justify-between text-xs"
+                >
+                  <div>
+                    <span className="font-black text-[#22d3ee] block">{log.student}:</span>
+                    <p className="text-zinc-300 italic">"{log.text}"</p>
+                  </div>
+                  <span className="font-black text-[#ef4444] text-sm flex-shrink-0">
+                    -{log.damage} HP CRITICAL!
                   </span>
-                  <span className="font-mono font-bold text-rose-400 flex-shrink-0 ml-2">-{log.damage} HP</span>
                 </div>
               ))}
             </div>

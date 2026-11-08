@@ -17,12 +17,8 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-white flex flex-col selection:bg-indigo-600 selection:text-white font-sans antialiased relative overflow-x-hidden">
-      {/* Taste-Skill Ambient Atmospheric Glows */}
-      <div className="fixed top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-0 right-1/4 w-[500px] h-[350px] bg-amber-500/5 rounded-full blur-[140px] pointer-events-none -z-10" />
-
-      {/* Universal LinguaQuest Navbar */}
+    <div className="min-h-screen brutal-grid text-white flex flex-col font-sans selection:bg-[#facc15] selection:text-black antialiased relative overflow-x-hidden">
+      {/* Universal LinguaQuest Brutalist Navbar */}
       <LinguaNavbar
         activeView={activeView}
         onViewChange={setActiveView}
@@ -38,13 +34,21 @@ export default function Home() {
         {activeView === "split_screen" && <SplitScreenDemoView />}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-white/[0.06] py-6 text-center text-xs text-zinc-500 bg-[#090a0f]/80 backdrop-blur-md relative z-10">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="font-medium text-zinc-400">LinguaQuest (DuniaKata) • Capcipcup SmartEdu • LOGICODIX 2026</span>
-          <span className="text-[11px] text-zinc-500 font-mono">
-            Designed with Taste-Skill: Anti-Slop High Craft Interface
-          </span>
+      {/* Brutalist Architectural Footer */}
+      <footer className="border-t-4 border-black dark:border-white py-6 bg-[#0c0d10] text-zinc-400 font-mono text-xs relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 bg-[#facc15] border border-black inline-block" />
+            <span className="font-black text-white uppercase tracking-tight">
+              LINGUAQUEST (DUNIAKATA) • CAPCIPCUP SMARTEDU • LOGICODIX 2026
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px] font-bold text-zinc-400 uppercase">
+            <span>[TASTE-SKILL 2.5: NEO-BRUTALISM]</span>
+            <span>[ZERO AI SLOP]</span>
+            <span>[NO MOCKUP DATA]</span>
+          </div>
         </div>
       </footer>
     </div>

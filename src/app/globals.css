@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #090a0f;
-  --foreground: #f3f4f6;
-  --surface: #12141c;
-  --surface-border: rgba(255, 255, 255, 0.08);
-  --accent-gold: #f59e0b;
-  --accent-cyan: #06b6d4;
-  --accent-indigo: #6366f1;
+  --background: #08090b;
+  --foreground: #f4f4f5;
+  --surface-dark: #121418;
+  --surface-light: #ffffff;
+  --border-stark: #ffffff;
+  --accent-yellow: #facc15;
+  --accent-cyan: #22d3ee;
+  --accent-red: #ef4444;
+  --accent-green: #4ade80;
 }
 
 @theme inline {
@@ -22,99 +24,242 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
-  selection-background-color: #4f46e5;
-  selection-color: #ffffff;
+  selection-background-color: #facc15;
+  selection-color: #000000;
 }
 
-/* Background Subtle Mesh Grid (Anti-Slop Texture) */
-.bg-mesh-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 24px 24px;
+/* ============================================================================
+   NEO-BRUTALIST ARCHITECTURAL GRID BACKGROUND
+   ============================================================================ */
+.brutal-grid {
+  background-color: #08090b;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
-/* High-craft Glass Card */
-.glass-panel {
-  background: rgba(18, 20, 28, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+.brutal-grid-dense {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 16px 16px;
 }
 
-.glass-panel:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+/* ============================================================================
+   NEO-BRUTALIST HARD CARDS & SURFACES (ANTI-SLOP)
+   ============================================================================ */
+.brutal-card {
+  background: #111317;
+  border: 2px solid #ffffff;
+  box-shadow: 5px 5px 0px 0px #000000;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Glowing Border for Active Items */
-.glow-gold {
-  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.4), inset 0 0 15px -3px rgba(245, 158, 11, 0.2);
-  border-color: rgba(245, 158, 11, 0.7) !important;
+.brutal-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px 0px #facc15;
 }
 
-.glow-cyan {
-  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.4), inset 0 0 15px -3px rgba(6, 182, 212, 0.2);
-  border-color: rgba(6, 182, 212, 0.7) !important;
+.brutal-card-white {
+  background: #ffffff;
+  color: #000000;
+  border: 3px solid #000000;
+  box-shadow: 5px 5px 0px 0px #000000;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Smooth Taste Micro-animations */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.brutal-card-white:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px 0px #facc15;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.brutal-card-yellow {
+  background: #facc15;
+  color: #000000;
+  border: 3px solid #000000;
+  box-shadow: 5px 5px 0px 0px #000000;
 }
 
-@keyframes pulseSoft {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.02);
-  }
+.brutal-card-cyan {
+  background: #06b6d4;
+  color: #000000;
+  border: 3px solid #000000;
+  box-shadow: 5px 5px 0px 0px #000000;
 }
 
-.animate-slideUp {
-  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* ============================================================================
+   NEO-BRUTALIST TACTILE BUTTONS (MECHANICAL CRUNCH FEEDBACK)
+   ============================================================================ */
+.brutal-btn-yellow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #facc15;
+  color: #000000;
+  border: 2px solid #000000;
+  font-family: var(--font-mono);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: all 0.1s ease;
+  cursor: pointer;
+  user-select: none;
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-out forwards;
+.brutal-btn-yellow:hover:not(:disabled) {
+  background-color: #fde047;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #000000;
 }
 
-.animate-pulseSoft {
-  animation: pulseSoft 2.5s ease-in-out infinite;
+.brutal-btn-yellow:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
 }
 
-/* Custom Scrollbar */
+.brutal-btn-yellow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 2px 2px 0px 0px #000000;
+}
+
+.brutal-btn-cyan {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #22d3ee;
+  color: #000000;
+  border: 2px solid #000000;
+  font-family: var(--font-mono);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: all 0.1s ease;
+  cursor: pointer;
+}
+
+.brutal-btn-cyan:hover:not(:disabled) {
+  background-color: #67e8f9;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #000000;
+}
+
+.brutal-btn-cyan:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
+.brutal-btn-red {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ef4444;
+  color: #ffffff;
+  border: 2px solid #000000;
+  font-family: var(--font-mono);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: all 0.1s ease;
+  cursor: pointer;
+}
+
+.brutal-btn-red:hover:not(:disabled) {
+  background-color: #f87171;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #000000;
+}
+
+.brutal-btn-red:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
+.brutal-btn-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #17191e;
+  color: #f4f4f5;
+  border: 2px solid #ffffff;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 4px 4px 0px 0px #000000;
+  transition: all 0.1s ease;
+  cursor: pointer;
+}
+
+.brutal-btn-dark:hover:not(:disabled) {
+  background-color: #242730;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #facc15;
+}
+
+.brutal-btn-dark:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #000000;
+}
+
+/* ============================================================================
+   HAZARD WARNING STRIPES (BRUTALIST TAPE)
+   ============================================================================ */
+.hazard-stripes {
+  background: repeating-linear-gradient(
+    -45deg,
+    #facc15,
+    #facc15 12px,
+    #000000 12px,
+    #000000 24px
+  );
+}
+
+.hazard-stripes-subtle {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(250, 204, 21, 0.15),
+    rgba(250, 204, 21, 0.15) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+/* Glowing Border for Spoken Item in Brutal Style */
+.brutal-glow-active {
+  border-color: #facc15 !important;
+  box-shadow: 0 0 0 3px #facc15, 6px 6px 0px 0px #000000 !important;
+  transform: translate(-3px, -3px) !important;
+}
+
+/* Crosshair indicator */
+.crosshair-reticle {
+  background: 
+    linear-gradient(to right, #facc15 2px, transparent 2px) 50% 50% / 40px 40px no-repeat,
+    linear-gradient(to bottom, #facc15 2px, transparent 2px) 50% 50% / 40px 40px no-repeat;
+}
+
+/* Custom Brutalist Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090a0f;
+  background: #08090b;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 9999px;
+  background: #facc15;
+  border: 1px solid #000000;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #fde047;
 }
