@@ -134,198 +134,98 @@ export default function Home() {
           <LoginView onLoginSuccess={handleLoginSuccess} />
         ) : (
           <>
-            {/* Mode Banners (Only visible to Teacher/Superadmin to prevent student clutter) */}
-            {isTeacherOrAdmin && activeView !== "student" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Mode 1: Classroom Room Mode */}
-                <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-black text-xs text-cyan-800 uppercase tracking-wider">
-                        [MODE 1 // CLASSROOM ROOM MODE]
-                      </span>
-                      <span className="text-[10px] font-mono bg-cyan-100 text-cyan-900 px-2 py-0.5 border border-cyan-800 font-black uppercase">
-                        GURU & MURID
-                      </span>
-                    </div>
-                    <h2 className="text-xl font-black text-black uppercase tracking-tight">
-                      ROOM KELAS DENGAN PIN 6-DIGIT
-                    </h2>
-                    <p className="text-xs font-mono text-zinc-600 leading-relaxed">
-                      Guru membuat room studi kasus & kuis terstruktur, lalu 35 murid gabung menggunakan PIN untuk memindai benda nyata dan berbicara. Hasil nilai langsung muncul real-time di layar guru.
-                    </p>
-                  </div>
-
-                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5 font-mono">
-                    <Link
-                      href="/teacher/create"
-                      className="flex-1 brutal-btn-cyan py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                    >
-                      <GraduationCap className="w-4 h-4" />
-                      <span>[ BUAT ROOM GURU ]</span>
-                    </Link>
-                    <Link
-                      href="/room/join"
-                      className="flex-1 brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                    >
-                      <Key className="w-4 h-4" />
-                      <span>[ GABUNG PIN KELAS ]</span>
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Mode 2: Solo Explorer Mode */}
-                <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-black text-xs text-amber-800 uppercase tracking-wider">
-                        [MODE 2 // SOLO EXPLORER MODE]
-                      </span>
-                      <span className="text-[10px] font-mono bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-800 font-black uppercase">
-                        MANDIRI / PERSEORANGAN
-                      </span>
-                    </div>
-                    <h2 className="text-xl font-black text-black uppercase tracking-tight">
-                      SCAN BENDA & BUAT SOAL SENDIRI
-                    </h2>
-                    <p className="text-xs font-mono text-zinc-600 leading-relaxed">
-                      Pemain mandiri membuat kuis & misi studi kasus instan: cukup arahkan kamera ke benda di mejamu (YOLO 0-Token) atau ketik topik latihan untuk menantang NPC AI dan dapatkan evaluasi CEFR.
-                    </p>
-                  </div>
-
-                  <div className="pt-2 font-mono">
-                    <Link
-                      href="/solo/create"
-                      className="w-full brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>[ MULAI SOLO EXPLORER INSTAN ]</span>
-                      <ArrowRight className="w-4 h-4 stroke-[3]" />
-                    </Link>
-                  </div>
-                </div>
+            {/* 1. ROLE: SISWA (STUDENT) ONLY */}
+            {currentUser.role === "student" && (
+              <div className="space-y-4">
+                <StudentGameView onXpEarned={handleXpEarned} currentUser={currentUser} />
               </div>
             )}
 
-            {/* Active Role Dashboard View with Strict Role Guard */}
-            <div className="space-y-4">
-              {/* STUDENT VIEW (Locked if not in class) */}
-              {activeView === "student" && (
-                <StudentGameView onXpEarned={handleXpEarned} currentUser={currentUser} />
-              )}
-
-              {/* TEACHER VIEW (Protected: Guru & Superadmin Only) */}
-              {activeView === "teacher" && (
-                isTeacherOrAdmin ? (
-                  <TeacherDashboardView />
-                ) : (
-                  <div className="border-2 border-black bg-white p-8 shadow-[4px_4px_0px_#000000] text-center max-w-xl mx-auto space-y-4 my-8 font-mono">
-                    <div className="w-12 h-12 bg-cyan-100 border-2 border-black rounded-full flex items-center justify-center mx-auto shadow-[2px_2px_0px_#000000]">
-                      <GraduationCap className="w-6 h-6 text-cyan-800" />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase bg-cyan-100 text-cyan-900 px-2 py-0.5 border border-cyan-800">
-                        [ AREA TERPROTEKSI // KHUSUS GURU ]
-                      </span>
-                      <h2 className="text-xl font-black text-black uppercase">
-                        Dashboard Guru & Kurikulum Merdeka
+            {/* 2. ROLE: GURU (TEACHER) ONLY */}
+            {currentUser.role === "teacher" && (
+              <div className="space-y-6">
+                {/* Mode Banners (Khusus Guru untuk Membuat Room Kelas / Kurikulum) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Mode 1: Classroom Room Mode */}
+                  <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-black text-xs text-cyan-800 uppercase tracking-wider">
+                          [MODE 1 // CLASSROOM ROOM MODE]
+                        </span>
+                        <span className="text-[10px] font-mono bg-cyan-100 text-cyan-900 px-2 py-0.5 border border-cyan-800 font-black uppercase">
+                          GURU & MURID
+                        </span>
+                      </div>
+                      <h2 className="text-xl font-black text-black uppercase tracking-tight">
+                        ROOM KELAS DENGAN PIN 6-DIGIT
                       </h2>
-                      <p className="text-xs text-zinc-600 leading-relaxed">
-                        {currentUser
-                          ? `Akun Anda saat ini terdaftar sebagai [${currentUser.role.toUpperCase()}]. Fitur Curriculum-to-Quest Generator dan Heatmap Kelas memerlukan akun Guru.`
-                          : "Silakan login menggunakan akun Guru (contoh: guru / guru123) untuk membuat misi kelas dan memantau evaluasi bicara siswa."}
+                      <p className="text-xs font-mono text-zinc-600 leading-relaxed">
+                        Guru membuat room studi kasus & kuis terstruktur, lalu 35 murid gabung menggunakan PIN untuk memindai benda nyata dan berbicara. Hasil nilai langsung muncul real-time di layar guru.
                       </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                      <button
-                        onClick={() => setShowLoginScreen(true)}
-                        className="brutal-btn-yellow px-5 py-2.5 text-xs font-black uppercase"
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2.5 font-mono">
+                      <Link
+                        href="/teacher/create"
+                        className="flex-1 brutal-btn-cyan py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
                       >
-                        [ MASUK SEBAGAI GURU ]
-                      </button>
-                      <button
-                        onClick={() => setActiveView("student")}
-                        className="brutal-btn-white px-5 py-2.5 text-xs font-black uppercase"
+                        <GraduationCap className="w-4 h-4" />
+                        <span>[ BUAT ROOM GURU ]</span>
+                      </Link>
+                      <Link
+                        href="/room/join"
+                        className="flex-1 brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
                       >
-                        [ KEMBALI KE GAME SISWA ]
-                      </button>
+                        <Key className="w-4 h-4" />
+                        <span>[ GABUNG PIN KELAS ]</span>
+                      </Link>
                     </div>
                   </div>
-                )
-              )}
 
-              {/* SUPERADMIN VIEW (Protected: Superadmin Only) */}
-              {activeView === "superadmin" && (
-                isSuperadmin ? (
-                  <SuperadminDashboardView />
-                ) : (
-                  <div className="border-2 border-black bg-white p-8 shadow-[4px_4px_0px_#000000] text-center max-w-xl mx-auto space-y-4 my-8 font-mono">
-                    <div className="w-12 h-12 bg-red-100 border-2 border-black rounded-full flex items-center justify-center mx-auto shadow-[2px_2px_0px_#000000]">
-                      <Shield className="w-6 h-6 text-red-600" />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase bg-red-100 text-red-900 px-2 py-0.5 border border-red-800">
-                        [ AREA TERPROTEKSI // ROOT ACCESS ]
-                      </span>
-                      <h2 className="text-xl font-black text-black uppercase">
-                        Superadmin Control Tower
+                  {/* Mode 2: Solo Explorer Mode */}
+                  <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-black text-xs text-amber-800 uppercase tracking-wider">
+                          [MODE 2 // SOLO EXPLORER MODE]
+                        </span>
+                        <span className="text-[10px] font-mono bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-800 font-black uppercase">
+                          MANDIRI / PERSEORANGAN
+                        </span>
+                      </div>
+                      <h2 className="text-xl font-black text-black uppercase tracking-tight">
+                        SCAN BENDA & BUAT SOAL SENDIRI
                       </h2>
-                      <p className="text-xs text-zinc-600 leading-relaxed">
-                        {currentUser
-                          ? `Akun Anda saat ini terdaftar sebagai [${currentUser.role.toUpperCase()}]. Manajemen akun pengguna dan audit sistem memerlukan hak akses Superadmin.`
-                          : "Silakan login menggunakan akun Superadmin (contoh: superadmin / admin123) untuk mengelola pengguna dan memeriksa konfigurasi AI."}
+                      <p className="text-xs font-mono text-zinc-600 leading-relaxed">
+                        Pemain mandiri membuat kuis & misi studi kasus instan: cukup arahkan kamera ke benda di mejamu (YOLO 0-Token) atau ketik topik latihan untuk menantang NPC AI dan dapatkan evaluasi CEFR.
                       </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                      <button
-                        onClick={() => setShowLoginScreen(true)}
-                        className="brutal-btn-yellow px-5 py-2.5 text-xs font-black uppercase"
+                    <div className="pt-2 font-mono">
+                      <Link
+                        href="/solo/create"
+                        className="w-full brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
                       >
-                        [ MASUK SEBAGAI SUPERADMIN ]
-                      </button>
-                      <button
-                        onClick={() => setActiveView("student")}
-                        className="brutal-btn-white px-5 py-2.5 text-xs font-black uppercase"
-                      >
-                        [ KEMBALI KE GAME SISWA ]
-                      </button>
+                        <Camera className="w-4 h-4" />
+                        <span>[ MULAI SOLO EXPLORER INSTAN ]</span>
+                        <ArrowRight className="w-4 h-4 stroke-[3]" />
+                      </Link>
                     </div>
                   </div>
-                )
-              )}
+                </div>
 
-              {/* CLASSROOM BOSS RAID (Siswa & Superadmin Only; Guru dialihkan ke dashboard guru) */}
-              {activeView === "boss_raid" && (
-                (isSuperadmin || currentUser?.role === "student") ? (
-                  <ClassroomBossRaidView />
-                ) : (
-                  <div className="border-2 border-black bg-white p-8 shadow-[4px_4px_0px_#000000] text-center max-w-xl mx-auto space-y-4 my-8 font-mono">
-                    <span className="text-[10px] font-black uppercase bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-800">
-                      [ MODE KHUSUS SISWA ]
-                    </span>
-                    <h2 className="text-xl font-black text-black uppercase">
-                      Classroom Boss Raid
-                    </h2>
-                    <p className="text-xs text-zinc-600 leading-relaxed">
-                      Mode Boss Raid dirancang khusus sebagai arena bermain kolaboratif siswa. Akun Guru menggunakan Dashboard Guru untuk administrasi kelas dan evaluasi.
-                    </p>
-                    <div className="pt-2">
-                      <button
-                        onClick={() => setActiveView("teacher")}
-                        className="brutal-btn-cyan px-5 py-2.5 text-xs font-black uppercase"
-                      >
-                        [ KEMBALI KE DASHBOARD GURU ]
-                      </button>
-                    </div>
-                  </div>
-                )
-              )}
+                {/* Dashboard Guru */}
+                <TeacherDashboardView />
+              </div>
+            )}
 
-              {/* SPLIT SCREEN DEMO (Available to teachers and admins) */}
-              {activeView === "split_screen" && <SplitScreenDemoView />}
-            </div>
+            {/* 3. ROLE: SUPERADMIN ONLY (Root Infrastructure & User Management Only) */}
+            {currentUser.role === "superadmin" && (
+              <div className="space-y-4">
+                <SuperadminDashboardView />
+              </div>
+            )}
           </>
         )}
       </main>

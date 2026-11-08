@@ -87,82 +87,31 @@ export default function LinguaNavbar({
           </div>
         </div>
 
-        {/* Role-Protected View Navigation Bar */}
+        {/* Role-Protected View Navigation Bar: STRICT ROLE ISOLATION */}
         {currentUser ? (
           <nav className="flex items-center gap-1.5 p-1 bg-zinc-100 border-2 border-black shadow-[3px_3px_0px_#000000]">
-            {/* Siswa Tab: Visible to students or superadmin */}
-            {(isStudent || isSuperadmin) && (
-              <button
-                onClick={() => onViewChange("student")}
-                className={`px-3 py-1 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 border-2 ${
-                  activeView === "student"
-                    ? "bg-[#facc15] text-black border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
-                    : "bg-transparent text-zinc-700 border-transparent hover:border-black hover:bg-white"
-                }`}
-              >
+            {/* Siswa: Strictly for logged-in Student */}
+            {isStudent && (
+              <div className="px-3 py-1 font-mono text-xs font-black uppercase flex items-center gap-1.5 border-2 bg-[#facc15] text-black border-black shadow-[2px_2px_0px_#000000]">
                 <Gamepad2 className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden md:inline">Siswa</span>
-              </button>
+                <span>Dashboard Siswa</span>
+              </div>
             )}
 
-            {/* Guru Tab: ONLY visible to logged-in teachers or superadmin */}
-            {(isTeacher || isSuperadmin) && (
-              <button
-                onClick={() => onViewChange("teacher")}
-                className={`px-3 py-1 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 border-2 ${
-                  activeView === "teacher"
-                    ? "bg-[#22d3ee] text-black border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
-                    : "bg-transparent text-zinc-700 border-transparent hover:border-black hover:bg-white"
-                }`}
-              >
+            {/* Guru: Strictly for logged-in Teacher */}
+            {isTeacher && (
+              <div className="px-3 py-1 font-mono text-xs font-black uppercase flex items-center gap-1.5 border-2 bg-[#22d3ee] text-black border-black shadow-[2px_2px_0px_#000000]">
                 <GraduationCap className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden md:inline">Guru</span>
-              </button>
+                <span>Dashboard Guru</span>
+              </div>
             )}
 
-            {/* Superadmin Tab: ONLY visible to logged-in superadmin */}
+            {/* Superadmin: Strictly for logged-in Superadmin */}
             {isSuperadmin && (
-              <button
-                onClick={() => onViewChange("superadmin")}
-                className={`px-3 py-1 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 border-2 ${
-                  activeView === "superadmin"
-                    ? "bg-[#ef4444] text-white border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
-                    : "bg-transparent text-zinc-700 border-transparent hover:border-black hover:bg-white"
-                }`}
-              >
+              <div className="px-3 py-1 font-mono text-xs font-black uppercase flex items-center gap-1.5 border-2 bg-[#ef4444] text-white border-black shadow-[2px_2px_0px_#000000]">
                 <Shield className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden md:inline">Superadmin</span>
-              </button>
-            )}
-
-            {/* Boss Raid Tab: Khusus Siswa & Superadmin (Guru TIDAK bisa akses) */}
-            {(isStudent || isSuperadmin) && (
-              <button
-                onClick={() => onViewChange("boss_raid")}
-                className={`px-3 py-1 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 border-2 ${
-                  activeView === "boss_raid"
-                    ? "bg-[#f97316] text-white border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
-                    : "bg-transparent text-zinc-700 border-transparent hover:border-black hover:bg-white"
-                }`}
-              >
-                <MonitorPlay className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden md:inline">Boss Raid</span>
-              </button>
-            )}
-
-            {/* Split Screen Demo Tab (For Presentation/Hackathon Demo) */}
-            {(isTeacher || isSuperadmin) && (
-              <button
-                onClick={() => onViewChange("split_screen")}
-                className={`px-3 py-1 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 border-2 ${
-                  activeView === "split_screen"
-                    ? "bg-[#10b981] text-white border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
-                    : "bg-transparent text-zinc-700 border-transparent hover:border-black hover:bg-white"
-                }`}
-              >
-                <Columns className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden md:inline">Split Demo</span>
-              </button>
+                <span>Control Tower Superadmin</span>
+              </div>
             )}
           </nav>
         ) : (
