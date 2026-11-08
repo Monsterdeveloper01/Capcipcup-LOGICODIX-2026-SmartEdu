@@ -4,12 +4,14 @@
 -- Dialek: MariaDB / MySQL 8.x
 -- ==============================================================================
 
--- 1. Tabel Pengguna (Pelajar & Pengajar)
+-- 1. Tabel Pengguna (Pelajar, Pengajar, & Superadmin)
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
-    role ENUM('student', 'teacher', 'admin') DEFAULT 'student',
+    password VARCHAR(100) NOT NULL,
+    role ENUM('student', 'teacher', 'admin', 'superadmin') DEFAULT 'student',
     avatar_url VARCHAR(255),
     xp INT DEFAULT 0,
     level INT DEFAULT 1,

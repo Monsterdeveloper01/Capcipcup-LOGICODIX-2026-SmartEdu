@@ -1,14 +1,29 @@
 "use client";
 
-import { Sparkles, Gamepad2, GraduationCap, MonitorPlay, Columns, Flame, ShieldAlert, Terminal } from "lucide-react";
+import { AuthUser } from "@/lib/auth/types";
+import {
+  Gamepad2,
+  GraduationCap,
+  Shield,
+  MonitorPlay,
+  Columns,
+  Flame,
+  Terminal,
+  LogOut,
+  LogIn,
+  User,
+} from "lucide-react";
 
-export type ActiveView = "student" | "teacher" | "boss_raid" | "split_screen";
+export type ActiveView = "student" | "teacher" | "superadmin" | "boss_raid" | "split_screen";
 
 interface LinguaNavbarProps {
   activeView: ActiveView;
   onViewChange: (view: ActiveView) => void;
   userXp: number;
   streak: number;
+  currentUser: AuthUser | null;
+  onLogout: () => void;
+  onOpenLogin: () => void;
 }
 
 export default function LinguaNavbar({
@@ -16,19 +31,30 @@ export default function LinguaNavbar({
   onViewChange,
   userXp,
   streak,
+  currentUser,
+  onLogout,
+  onOpenLogin,
 }: LinguaNavbarProps) {
+  const isSuperadmin = currentUser?.role === "superadmin";
+  const isTeacher = currentUser?.role === "teacher";
+  const isStudent = currentUser?.role === "student";
+
   return (
     <header className="sticky top-0 z-50 w-full bg-[#0c0d10] border-b-4 border-black dark:border-white/90 shadow-[0_4px_0_0_#000000]">
       {/* Top Warning/Status Bar */}
       <div className="bg-[#facc15] text-black px-4 py-1 text-[11px] font-mono font-black uppercase tracking-wider flex items-center justify-between border-b-2 border-black">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-red-600 border border-black animate-ping" />
-          <span>[SYS_STATUS: LIVE VISION + SPEECH ENGAGED]</span>
-          <span className="hidden md:inline">• [LOCALE: 100% ENGLISH ONLY]</span>
+          <span>[SYS_STATUS: MULTI_ROLE ACCESS ENGAGED]</span>
+          {currentUser && (
+            <span className="hidden md:inline">
+              • [LOGGED_AS: {currentUser.name.toUpperCase()} // ROLE: {currentUser.role.toUpperCase()}]
+            </span>
+          )}
         </div>
         <div className="hidden sm:flex items-center gap-4 text-[10px]">
+          <span>[MARIADB: CONNECTED]</span>
           <span>[CEFR_STANDARD: ACTIVE]</span>
-          <span>[KURIKULUM_MERDEKA: VERIFIED]</span>
           <span>[LATENCY: 85MS]</span>
         </div>
       </div>
@@ -51,13 +77,14 @@ export default function LinguaNavbar({
               </span>
             </div>
             <p className="text-[11px] font-mono text-zinc-400 hidden sm:block uppercase tracking-tight">
-              Real-World English RPG • Anti-Passive Fluency
+              Real-World English RPG • Role-Based Dashboards
             </p>
           </div>
         </div>
 
-        {/* View Switcher Segmented Control (Stark Neo-Brutalist Buttons) */}
+        {/* View Switcher Segmented Control */}
         <nav className="flex items-center gap-1.5 p-1 bg-black border-2 border-white/80 shadow-[3px_3px_0px_#000000]">
+          {/* Siswa Tab (Always available to students, superadmins, or preview) */}
           <button
             onClick={() => onViewChange("student")}
             className={`px-3 py-1.5 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 ${
@@ -67,33 +94,53 @@ export default function LinguaNavbar({
             }`}
           >
             <Gamepad2 className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span className="hidden md:inline">[01] Siswa</span>
+            <span className="hidden md:inline">Siswa</span>
           </button>
 
-          <button
-            onClick={() => onViewChange("teacher")}
-            className={`px-3 py-1.5 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 ${
-              activeView === "teacher"
-                ? "bg-[#22d3ee] text-black border-2 border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
-                : "text-zinc-300 hover:text-white hover:bg-neutral-800"
-            }`}
-          >
-            <GraduationCap className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span className="hidden md:inline">[02] Guru</span>
-          </button>
+          {/* Guru Tab (Available to teachers & superadmins) */}
+          {(isTeacher || isSuperadmin || !currentUser) && (
+            <button
+              onClick={() => onViewChange("teacher")}
+              className={`px-3 py-1.5 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 ${
+                activeView === "teacher"
+                  ? "bg-[#22d3ee] text-black border-2 border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
+                  : "text-zinc-300 hover:text-white hover:bg-neutral-800"
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden md:inline">Guru</span>
+            </button>
+          )}
 
+          {/* Superadmin Tab (Available to superadmins or preview) */}
+          {(isSuperadmin || !currentUser) && (
+            <button
+              onClick={() => onViewChange("superadmin")}
+              className={`px-3 py-1.5 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 ${
+                activeView === "superadmin"
+                  ? "bg-[#ef4444] text-white border-2 border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
+                  : "text-zinc-300 hover:text-white hover:bg-neutral-800"
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden md:inline">Superadmin</span>
+            </button>
+          )}
+
+          {/* Boss Raid Tab */}
           <button
             onClick={() => onViewChange("boss_raid")}
             className={`px-3 py-1.5 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 ${
               activeView === "boss_raid"
-                ? "bg-[#ef4444] text-white border-2 border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
+                ? "bg-[#f97316] text-white border-2 border-black shadow-[2px_2px_0px_#000000] translate-x-[-1px] translate-y-[-1px]"
                 : "text-zinc-300 hover:text-white hover:bg-neutral-800"
             }`}
           >
             <MonitorPlay className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span className="hidden md:inline">[03] Boss Raid</span>
+            <span className="hidden md:inline">Boss Raid</span>
           </button>
 
+          {/* Split Screen Demo Tab */}
           <button
             onClick={() => onViewChange("split_screen")}
             className={`px-3 py-1.5 font-mono text-xs font-black uppercase transition-all flex items-center gap-1.5 ${
@@ -103,20 +150,46 @@ export default function LinguaNavbar({
             }`}
           >
             <Columns className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span className="hidden md:inline">[04] Split Demo</span>
+            <span className="hidden md:inline">Split Demo</span>
           </button>
         </nav>
 
-        {/* Brutalist Telemetry Badges */}
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-black border-2 border-[#facc15] text-[#facc15] font-mono text-xs font-black shadow-[2px_2px_0px_#000000]">
-            <Flame className="w-3.5 h-3.5 fill-[#facc15] animate-pulse" />
-            <span>STREAK: {streak}D</span>
-          </div>
+        {/* User Profile & Logout / Login Actions */}
+        <div className="flex items-center gap-2 font-mono">
+          {currentUser ? (
+            <div className="flex items-center gap-2">
+              {/* Profile Pill */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-black border-2 border-white shadow-[2px_2px_0px_#000000]">
+                <span>{currentUser.avatarUrl || "👤"}</span>
+                <div className="text-left">
+                  <span className="font-black text-xs text-white block leading-tight truncate max-w-[120px]">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-[10px] font-black uppercase text-[#facc15] block leading-tight">
+                    [{currentUser.role}]
+                  </span>
+                </div>
+              </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#ffffff] text-black border-2 border-black font-mono text-xs font-black shadow-[2px_2px_0px_#000000]">
-            <span>XP: {userXp}</span>
-          </div>
+              {/* Logout Button */}
+              <button
+                onClick={onLogout}
+                className="brutal-btn-red px-3 py-1.5 text-xs font-black flex items-center gap-1"
+                title="Keluar dari akun (Logout)"
+              >
+                <LogOut className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="hidden sm:inline">[LOGOUT]</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenLogin}
+              className="brutal-btn-yellow px-4 py-1.5 text-xs font-black flex items-center gap-1.5"
+            >
+              <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>[ LOGIN ]</span>
+            </button>
+          )}
         </div>
       </div>
     </header>
