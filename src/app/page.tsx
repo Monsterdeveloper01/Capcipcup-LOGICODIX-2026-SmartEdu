@@ -82,6 +82,9 @@ export default function Home() {
     } catch (err) {
       console.warn("Logout error:", err);
     } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("lq_active_classroom");
+      }
       setCurrentUser(null);
       setActiveView("student");
       setShowLoginScreen(false);
@@ -94,6 +97,19 @@ export default function Home() {
 
   const isTeacherOrAdmin = currentUser?.role === "teacher" || currentUser?.role === "superadmin";
   const isSuperadmin = currentUser?.role === "superadmin";
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen brutal-grid flex items-center justify-center p-4 font-mono text-black">
+        <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] text-center space-y-3 max-w-sm w-full">
+          <div className="w-8 h-8 border-4 border-[#facc15] border-t-black rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-black uppercase tracking-tight">
+            [ MEMERIKSA STATUS AUTENTIKASI... ]
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen brutal-grid text-slate-900 flex flex-col font-sans selection:bg-[#facc15] selection:text-black antialiased relative overflow-x-hidden">
@@ -113,12 +129,9 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8 relative z-10">
-        {/* If user explicitly opens login screen */}
-        {showLoginScreen ? (
-          <LoginView
-            onLoginSuccess={handleLoginSuccess}
-            onCancel={() => setShowLoginScreen(false)}
-          />
+        {/* Strictly gate: Unauthenticated users must log in first! */}
+        {!currentUser ? (
+          <LoginView onLoginSuccess={handleLoginSuccess} />
         ) : (
           <>
             {/* Mode Banners (Only visible to Teacher/Superadmin to prevent student clutter) */}

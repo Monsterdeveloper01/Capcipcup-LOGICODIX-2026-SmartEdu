@@ -149,10 +149,15 @@ export default function StudentGameView({
   // Speech Recognition Ref
   const recognitionRef = useRef<any>(null);
 
-  // Load Active Classroom from localStorage
+  // Load Active Classroom from localStorage ONLY IF authenticated user is present
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
+        if (!currentUser) {
+          setActiveClassroom(null);
+          return;
+        }
+
         const savedClass = localStorage.getItem("lq_active_classroom");
         if (savedClass) {
           const parsed = JSON.parse(savedClass);
@@ -175,6 +180,8 @@ export default function StudentGameView({
             targetItems: [],
           };
           setCurrentQuest(teacherQuest);
+        } else {
+          setActiveClassroom(null);
         }
       } catch (e) {
         console.warn("Classroom load error:", e);
@@ -184,7 +191,7 @@ export default function StudentGameView({
     } else {
       setIsClassroomChecking(false);
     }
-  }, []);
+  }, [currentUser]);
 
   // Sync student name when currentUser changes
   useEffect(() => {
@@ -196,7 +203,7 @@ export default function StudentGameView({
   // Handle joining classroom via PIN
   const handleJoinClassroom = async (overridePin?: string) => {
     const pinToUse = (overridePin || inputPin).trim().toUpperCase();
-    const nameToUse = inputStudentName.trim() || currentUser?.name || "Ahmad Faiz";
+    const nameToUse = currentUser?.name || inputStudentName.trim() || "Ahmad Faiz";
 
     if (!pinToUse) {
       setJoinError("Masukkan 6-digit PIN room kelas yang diberikan gurumu.");
@@ -645,7 +652,7 @@ export default function StudentGameView({
           durationSeconds: duration,
           hesitationSeconds: hesitationCounter,
           codeSwitchingCount: 0,
-          studentName: inputStudentName || "Siswa Petualang",
+          studentName: currentUser?.name || inputStudentName || "Ahmad Faiz",
           roomCode: activeClassroom?.roomCode || "CLASS-10A",
         }),
       });
@@ -924,17 +931,21 @@ export default function StudentGameView({
   );
 
   // ============================================================================
-  // RENDER: STEP 0 - GERBANG KELAS (SISWA TERKUNCI JIKA BELUM GABUNG KELAS)
+  // RENDER: STEP 0 - GERBANG KELAS (SISWA WAJIB GABUNG KELAS GURU)
+  // Alur: userlogin -> nama kebaca otomatis -> masukan kode kelas
   // ============================================================================
   if (!activeClassroom) {
+    const verifiedStudentName = currentUser?.name || inputStudentName || "Ahmad Faiz";
+    const verifiedUsername = currentUser?.username || "siswa";
+
     return (
       <>
         <div className="max-w-2xl mx-auto space-y-6 font-mono text-black">
           {/* Status Alert Bar */}
           <div className="border-2 border-black bg-[#facc15] p-3 text-xs font-black uppercase flex items-center justify-between shadow-[3px_3px_0px_#000000]">
             <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 stroke-[2.5]" />
-              <span>[ 🔒 AKSES SISWA TERKUNCI // WAJIB GABUNG KELAS GURU ]</span>
+              <Key className="w-4 h-4 stroke-[2.5]" />
+              <span>[ 🔐 GERBANG KELAS // WAJIB GABUNG PIN KELAS GURU ]</span>
             </div>
             <span className="hidden sm:inline bg-black text-white px-2 py-0.5 text-[10px]">
               KURIKULUM MERDEKA
@@ -951,8 +962,33 @@ export default function StudentGameView({
                 MASUKKAN PIN KELAS DARI GURUMU
               </h1>
               <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
-                Sebagai siswa, kamu <strong>tidak dapat memulai misi atau memindai benda</strong> sebelum terdaftar di kelas guru. Mintalah 6-digit PIN kepada gurumu agar hasil latihan bicaramu tersinkronisasi otomatis ke dashboard guru.
+                Sebagai siswa, kamu <strong>tidak dapat memulai misi atau memindai benda</strong> sebelum terdaftar di kelas guru. Masukkan 6-digit PIN dari gurumu agar hasil latihan bicaramu tersinkronisasi otomatis ke dashboard guru.
               </p>
+            </div>
+
+            {/* TAHAP 1: NAMA KEBACA OTOMATIS DARI SISTEM LOGIN */}
+            <div className="p-4 bg-emerald-50 border-2 border-emerald-600 shadow-[3px_3px_0px_#000000] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-emerald-800">
+                  [ TAHAP 01 // IDENTITAS SISWA TERVERIFIKASI ]
+                </span>
+                <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2 py-0.5 border border-black">
+                  ✓ NAMA KEBACA OTOMATIS
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-200 border-2 border-black flex items-center justify-center text-lg font-black shadow-[1px_1px_0px_#000000]">
+                  👤
+                </div>
+                <div>
+                  <div className="text-base font-black text-black tracking-tight">
+                    {verifiedStudentName}
+                  </div>
+                  <div className="text-xs text-zinc-600 font-bold">
+                    Username: <span className="text-black font-black">@{verifiedUsername}</span> • Role: <span className="uppercase text-emerald-800 font-black">Siswa Kelas Terdaftar</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {joinError && (
@@ -962,12 +998,17 @@ export default function StudentGameView({
               </div>
             )}
 
-            {/* Form Input PIN */}
+            {/* TAHAP 2: FORM MASUKAN KODE PIN KELAS (HANYA PIN KELAS) */}
             <form onSubmit={(e) => { e.preventDefault(); handleJoinClassroom(); }} className="space-y-4 text-xs">
               <div>
-                <label className="font-black text-black block mb-1 uppercase">
-                  6-Digit PIN Room Guru:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-black text-black uppercase">
+                    TAHAP 02 // MASUKKAN 6-DIGIT PIN ROOM GURU:
+                  </label>
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase">
+                    DARI LAYAR GURU
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
@@ -976,21 +1017,7 @@ export default function StudentGameView({
                   value={inputPin}
                   onChange={(e) => setInputPin(e.target.value.toUpperCase())}
                   placeholder="CONTOH: EDU889"
-                  className="w-full px-4 py-3.5 bg-zinc-50 border-2 border-black text-xl font-black tracking-widest text-black placeholder-zinc-400 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-black text-black block mb-1 uppercase">
-                  Nama Lengkap Siswa:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={inputStudentName}
-                  onChange={(e) => setInputStudentName(e.target.value)}
-                  placeholder="Masukkan nama lengkapmu..."
-                  className="w-full px-4 py-3 bg-zinc-50 border-2 border-black text-sm font-bold text-black focus:bg-white focus:outline-none"
+                  className="w-full px-4 py-3.5 bg-zinc-50 border-2 border-black text-2xl font-black tracking-widest text-black placeholder-zinc-400 focus:bg-white focus:outline-none"
                 />
               </div>
 
