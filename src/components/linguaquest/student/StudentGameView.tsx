@@ -15,6 +15,7 @@ import StudentAutopsyStep from "./steps/StudentAutopsyStep";
 import StudentPokedexModal from "./modals/StudentPokedexModal";
 import StudentSafetyModal from "./modals/StudentSafetyModal";
 import StudentSosModal from "./modals/StudentSosModal";
+import BrutalAlertModal, { ModalConfig } from "../common/BrutalAlertModal";
 
 export default function StudentGameView({
   onXpEarned,
@@ -25,6 +26,47 @@ export default function StudentGameView({
 }) {
   const [selectedMode] = useState<GameMode>("survival");
   const [step, setStep] = useState<StudentStep>("select_mode");
+
+  // Brutal Alert & Confirm Modal (replaces browser native alerts)
+  const [alertModal, setAlertModal] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+
+  const showAlert = (title: string, message: string, type: ModalConfig["type"] = "warning") => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText: "[ OKE / MENGERTI ]",
+      onConfirm: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
+
+  const showConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    confirmText = "[ YA, LANJUTKAN ]",
+    type: ModalConfig["type"] = "confirm"
+  ) => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText: "[ BATAL ]",
+      onConfirm: () => {
+        setAlertModal((prev) => ({ ...prev, isOpen: false }));
+        onConfirm();
+      },
+      onCancel: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
 
   // Classroom Gate State
   const [activeClassroom, setActiveClassroom] = useState<ActiveClassroom | null>(null);
@@ -271,17 +313,23 @@ export default function StudentGameView({
   };
 
   const handleLeaveClassroom = () => {
-    if (confirm("Apakah kamu yakin ingin keluar dari rombongan kelas ini? Kamu harus memasukkan PIN baru untuk masuk kembali.")) {
-      setActiveClassroom(null);
-      setClassTasks([]);
-      setSelectedTask(null);
-      if (typeof window !== "undefined") {
-        const userKey = currentUser?.id || currentUser?.username || "student";
-        localStorage.removeItem(`lq_classroom_${userKey}`);
-        localStorage.removeItem("lq_active_classroom");
-      }
-      resetAll();
-    }
+    showConfirm(
+      "Konfirmasi Keluar Kelas",
+      "Apakah kamu yakin ingin keluar dari rombongan kelas ini? Kamu harus memasukkan PIN baru untuk masuk kembali.",
+      () => {
+        setActiveClassroom(null);
+        setClassTasks([]);
+        setSelectedTask(null);
+        if (typeof window !== "undefined") {
+          const userKey = currentUser?.id || currentUser?.username || "student";
+          localStorage.removeItem(`lq_classroom_${userKey}`);
+          localStorage.removeItem("lq_active_classroom");
+        }
+        resetAll();
+      },
+      "[ YA, KELUAR KELAS ]",
+      "danger"
+    );
   };
 
   // Load Vocab Pokedex from localStorage
@@ -435,7 +483,11 @@ export default function StudentGameView({
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
-      alert("Browser Anda belum mendukung Web Speech API. Silakan gunakan Chrome/Edge atau ketik kalimat di kolom teks.");
+      showAlert(
+        "Mikrofon Tidak Didukung",
+        "Browser Anda belum mendukung Web Speech API. Silakan gunakan Google Chrome, Microsoft Edge, atau ketik kalimat di kolom input teks.",
+        "warning"
+      );
       return;
     }
 
@@ -812,6 +864,9 @@ export default function StudentGameView({
         setSosInput={setSosInput}
         onSubmit={handleSendSosQuery}
       />
+
+      {/* Global Neo-Brutalist Alert/Confirm Modal */}
+      <BrutalAlertModal {...alertModal} />
     </>
   );
 }

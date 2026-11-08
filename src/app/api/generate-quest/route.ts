@@ -176,6 +176,7 @@ Return STRICTLY a JSON object matching this schema:
       return NextResponse.json({
         success: true,
         draft: generatedQuestData,
+        quest: generatedQuestData,
       });
     }
 

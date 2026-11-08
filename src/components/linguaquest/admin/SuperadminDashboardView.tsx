@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import BrutalAlertModal, { ModalConfig } from "../common/BrutalAlertModal";
 import {
   ShieldAlert,
   Users,
@@ -22,6 +23,47 @@ export default function SuperadminDashboardView() {
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Brutal Alert & Confirm Modal (replaces browser native alerts)
+  const [alertModal, setAlertModal] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+
+  const showAlert = (title: string, message: string, type: ModalConfig["type"] = "warning") => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText: "[ OKE / MENGERTI ]",
+      onConfirm: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
+
+  const showConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    confirmText = "[ YA, LANJUTKAN ]",
+    type: ModalConfig["type"] = "confirm"
+  ) => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText: "[ BATAL ]",
+      onConfirm: () => {
+        setAlertModal((prev) => ({ ...prev, isOpen: false }));
+        onConfirm();
+      },
+      onCancel: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
 
   // Form State
   const [newName, setNewName] = useState("");
@@ -88,7 +130,7 @@ export default function SuperadminDashboardView() {
       setNewPassword("");
       fetchData();
     } catch (err: any) {
-      alert(err.message);
+      showAlert("Gagal Membuat Pengguna", err.message || "Terjadi kesalahan saat membuat pengguna baru.", "danger");
     } finally {
       setIsSubmitting(false);
     }
@@ -115,24 +157,30 @@ export default function SuperadminDashboardView() {
   };
 
   const handleDeleteUser = async (userId: string, usernameTarget: string) => {
-    if (!confirm(`Yakin ingin menghapus pengguna '${usernameTarget}'?`)) return;
+    showConfirm(
+      "Konfirmasi Hapus Pengguna",
+      `Apakah Anda yakin ingin menghapus akun '${usernameTarget}'? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.`,
+      async () => {
+        try {
+          const res = await fetch("/api/admin/users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "delete",
+              id: userId,
+            }),
+          });
 
-    try {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "delete",
-          id: userId,
-        }),
-      });
-
-      if (res.ok) {
-        fetchData();
-      }
-    } catch (err) {
-      console.warn("Gagal hapus user:", err);
-    }
+          if (res.ok) {
+            fetchData();
+          }
+        } catch (err) {
+          console.warn("Gagal hapus user:", err);
+        }
+      },
+      "[ YA, HAPUS AKUN ]",
+      "danger"
+    );
   };
 
   return (
@@ -401,6 +449,9 @@ export default function SuperadminDashboardView() {
           </div>
         </div>
       )}
+
+      {/* Global Neo-Brutalist Alert/Confirm Modal */}
+      <BrutalAlertModal {...alertModal} />
     </div>
   );
 }

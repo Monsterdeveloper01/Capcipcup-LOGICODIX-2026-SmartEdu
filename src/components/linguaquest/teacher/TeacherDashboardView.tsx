@@ -36,9 +36,51 @@ import CreateClassModal from "./modals/CreateClassModal";
 import EditTaskModal from "./modals/EditTaskModal";
 import DeleteTaskModal from "./modals/DeleteTaskModal";
 import TranscriptDetailModal from "./modals/TranscriptDetailModal";
+import BrutalAlertModal, { ModalConfig } from "../common/BrutalAlertModal";
 
 export default function TeacherDashboardView() {
   const [activeTab, setActiveTab] = useState<TeacherTab>("classes");
+
+  // Brutal Alert & Confirm Modal (replaces browser native alerts)
+  const [alertModal, setAlertModal] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+
+  const showAlert = (title: string, message: string, type: ModalConfig["type"] = "warning") => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText: "[ OKE / MENGERTI ]",
+      onConfirm: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
+
+  const showConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    confirmText = "[ YA, LANJUTKAN ]",
+    type: ModalConfig["type"] = "confirm"
+  ) => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText: "[ BATAL ]",
+      onConfirm: () => {
+        setAlertModal((prev) => ({ ...prev, isOpen: false }));
+        onConfirm();
+      },
+      onCancel: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
 
   // Classroom & Roster State
   const [classes, setClasses] = useState<ClassroomItem[]>([]);
@@ -230,7 +272,7 @@ export default function TeacherDashboardView() {
       await fetchClasses();
       setMemberToKick(null);
     } catch (err: any) {
-      alert(err.message || "Gagal mengeluarkan siswa.");
+      showAlert("Gagal Mengeluarkan Siswa", err.message || "Terjadi kesalahan saat mengeluarkan siswa.", "danger");
     } finally {
       setIsKicking(false);
     }
@@ -253,7 +295,7 @@ export default function TeacherDashboardView() {
       await fetchMembers(selectedClass.id);
       await fetchClasses();
     } catch (err: any) {
-      alert(err.message || "Gagal menambahkan siswa.");
+      showAlert("Gagal Menambahkan Siswa", err.message || "Terjadi kesalahan saat menambahkan siswa.", "danger");
     } finally {
       setIsAddingMember(false);
     }
@@ -263,7 +305,7 @@ export default function TeacherDashboardView() {
   const handleCreateNewClassroom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClassName.trim()) {
-      alert("Nama kelas wajib diisi.");
+      showAlert("Nama Kelas Wajib Diisi", "Silakan masukkan nama rombongan belajar / kelas terlebih dahulu.", "warning");
       return;
     }
 
@@ -288,7 +330,7 @@ export default function TeacherDashboardView() {
       setNewClassName("");
       setNewClassPin("");
     } catch (err: any) {
-      alert(err.message || "Gagal membuat kelas.");
+      showAlert("Gagal Membuat Kelas", err.message || "Terjadi kesalahan saat membuat kelas.", "danger");
     } finally {
       setIsCreatingClass(false);
     }
@@ -297,7 +339,7 @@ export default function TeacherDashboardView() {
   // AI Auto-Generate Case & Quiz Draft
   const handleAutoGenerateAi = async () => {
     if (!newTopic.trim()) {
-      alert("Masukkan topik materi pelajaran terlebih dahulu.");
+      showAlert("Topik Materi Kosong", "Silakan masukkan topik materi pelajaran terlebih dahulu sebelum men-generate draf dengan AI.", "warning");
       return;
     }
 
@@ -319,19 +361,24 @@ export default function TeacherDashboardView() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal membuat draf dengan AI.");
 
-      const q = data.quest;
-      setNewCaseStory(q.scenario || q.urgent_goal || newCaseStory);
-      setNewNpcName(q.npc_name || newNpcName);
-      setNewNpcPersona(q.npc_persona || newNpcPersona);
-      if (q.target_vocabularies) {
-        const vocabStr = Array.isArray(q.target_vocabularies) ? q.target_vocabularies.join(", ") : q.target_vocabularies;
+      const q = data.draft || data.quest || data;
+      if (!q) throw new Error("Format respons draf AI tidak valid.");
+
+      const scenarioText = q.case_study_story || q.scenario || q.scenarioBrief || q.urgent_goal || newCaseStory;
+      setNewCaseStory(scenarioText);
+      setNewNpcName(q.npc_name || q.npcName || newNpcName);
+      setNewNpcPersona(q.npc_persona || q.npcPersona || newNpcPersona);
+      if (q.target_vocabularies || q.targetVocab) {
+        const vocab = q.target_vocabularies || q.targetVocab;
+        const vocabStr = Array.isArray(vocab) ? vocab.join(", ") : vocab;
         setNewTargetVocab(vocabStr);
       }
       if (q.quiz_questions && Array.isArray(q.quiz_questions) && q.quiz_questions.length > 0) {
         setNewQuizQuestions(q.quiz_questions);
       }
+      setCreateSuccessMsg("Draf kuis dan skenario berhasil dibuat otomatis oleh AI Gemini!");
     } catch (err: any) {
-      alert(err.message || "Gagal membuat draf kuis dengan AI.");
+      showAlert("Gagal Membuat Draf AI", err.message || "Terjadi kesalahan saat membuat draf kuis dengan AI.", "danger");
     } finally {
       setIsGeneratingAi(false);
     }
@@ -341,11 +388,11 @@ export default function TeacherDashboardView() {
   const handleSaveNewTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClass) {
-      alert("Pilih kelas terlebih dahulu.");
+      showAlert("Kelas Belum Dipilih", "Pilih rombongan kelas terlebih dahulu sebelum menyimpan tugas.", "warning");
       return;
     }
     if (!newTopic.trim() || !newCaseStory.trim()) {
-      alert("Judul materi dan skenario kasus wajib diisi.");
+      showAlert("Form Belum Lengkap", "Judul materi dan skenario kasus wajib diisi.", "warning");
       return;
     }
 
@@ -384,7 +431,7 @@ export default function TeacherDashboardView() {
       await fetchClasses();
       setActiveTab("tasks");
     } catch (err: any) {
-      alert(err.message || "Gagal menyimpan tugas.");
+      showAlert("Gagal Menyimpan Tugas", err.message || "Terjadi kesalahan saat menyimpan tugas.", "danger");
     } finally {
       setIsSavingTask(false);
     }
@@ -433,7 +480,7 @@ export default function TeacherDashboardView() {
     e.preventDefault();
     if (!editingRoom || !selectedClass) return;
     if (!editTitle.trim() || !editCaseStory.trim()) {
-      alert("Judul materi dan skenario studi kasus wajib diisi.");
+      showAlert("Form Belum Lengkap", "Judul materi dan skenario studi kasus wajib diisi.", "warning");
       return;
     }
 
@@ -468,7 +515,7 @@ export default function TeacherDashboardView() {
       await fetchTasks(selectedClass.id, selectedClass.classCode);
       setEditingRoom(null);
     } catch (err: any) {
-      alert(err.message || "Gagal memperbarui tugas.");
+      showAlert("Gagal Memperbarui Tugas", err.message || "Terjadi kesalahan saat memperbarui tugas.", "danger");
     } finally {
       setIsUpdatingRoom(false);
     }
@@ -490,7 +537,7 @@ export default function TeacherDashboardView() {
       await fetchClasses();
       setRoomToDelete(null);
     } catch (err: any) {
-      alert(err.message || "Gagal menghapus tugas.");
+      showAlert("Gagal Menghapus Tugas", err.message || "Terjadi kesalahan saat menghapus tugas.", "danger");
     } finally {
       setIsDeletingRoom(false);
     }
@@ -499,7 +546,7 @@ export default function TeacherDashboardView() {
   // Export e-Rapor CSV
   const handleExportCsv = () => {
     if (evaluations.length === 0) {
-      alert("Belum ada data evaluasi speaking untuk diunduh.");
+      showAlert("Data Rapor Kosong", "Belum ada data evaluasi speaking siswa untuk diunduh.", "info");
       return;
     }
     const filtered = filterRoomCode === "ALL" ? evaluations : evaluations.filter((ev) => (ev as any).roomCode === filterRoomCode || ev.questTitle.includes(filterRoomCode));
@@ -802,6 +849,9 @@ export default function TeacherDashboardView() {
         selectedEvaluation={selectedEvaluation}
         onClose={() => setSelectedEvaluation(null)}
       />
+
+      {/* Global Neo-Brutalist Alert/Confirm Modal */}
+      <BrutalAlertModal {...alertModal} />
     </div>
   );
 }
