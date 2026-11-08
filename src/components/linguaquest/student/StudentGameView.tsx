@@ -73,18 +73,22 @@ const GAME_MODES = [
 ];
 
 export interface ActiveClassroom {
+  id?: string;
   roomCode: string;
+  name?: string;
   creatorName: string;
-  topic: string;
-  questTitle: string;
-  questId: string;
-  difficultyLevel: string;
+  topic?: string;
+  questTitle?: string;
+  questId?: string;
+  difficultyLevel?: string;
   quizQuestions?: any[];
   scenarioStory?: string;
   npcName?: string;
   npcRole?: string;
   targetVocab?: string[];
   requiredHint?: string;
+  gradeLevel?: string;
+  description?: string;
 }
 
 export default function StudentGameView({
@@ -99,6 +103,9 @@ export default function StudentGameView({
 
   // Classroom Gate State (Murid Wajib Terhubung ke Kelas Guru)
   const [activeClassroom, setActiveClassroom] = useState<ActiveClassroom | null>(null);
+  const [classTasks, setClassTasks] = useState<any[]>([]);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [isLoadingTasks, setIsLoadingTasks] = useState<boolean>(false);
   const [isClassroomChecking, setIsClassroomChecking] = useState<boolean>(true);
   const [inputPin, setInputPin] = useState<string>("");
   const [inputStudentName, setInputStudentName] = useState<string>(currentUser?.name || "Ahmad Faiz");
@@ -176,7 +183,7 @@ export default function StudentGameView({
   // Speech Recognition Ref
   const recognitionRef = useRef<any>(null);
 
-  // Load Active Classroom from localStorage ONLY IF authenticated user is present
+  // Load Active Classroom and its tasks from localStorage & database
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -193,24 +200,7 @@ export default function StudentGameView({
         if (savedClass) {
           const parsed = JSON.parse(savedClass);
           setActiveClassroom(parsed);
-          // Set teacher quest directly so student is locked to teacher's mission
-          const teacherQuest: QuestScenario = {
-            id: parsed.questId || `quest_${Date.now()}`,
-            title: parsed.questTitle || parsed.topic,
-            mode: "smk_career",
-            npcName: parsed.npcName || "Mr. Arthur",
-            npcRole: parsed.npcRole || "Examiner & Evaluator",
-            npcAvatar: "🧑‍🏫",
-            npcPersonality: parsed.npcRole || "Profesional dan membimbing",
-            scenarioBrief: parsed.scenarioStory || "Skenario studi kasus kelas bahasa Inggris.",
-            urgentGoal: parsed.scenarioStory || "Jelaskan solusi ide utamamu kepada NPC menggunakan bahasa Inggris.",
-            targetVocab: parsed.targetVocab && parsed.targetVocab.length > 0 ? parsed.targetVocab : ["sustainable", "solution", "durable"],
-            timeLimitSeconds: 180,
-            initialNpcGreeting: `Hello! I'm ${parsed.npcName || "your examiner"}. I am reviewing your project today for "${parsed.questTitle || parsed.topic}". Could you present your idea and explain the items you brought?`,
-            curriculumTopic: parsed.topic || "Kurikulum Merdeka English",
-            targetItems: [],
-          };
-          setCurrentQuest(teacherQuest);
+          fetchClassTasks(parsed.roomCode || "EDU889");
         } else {
           setActiveClassroom(null);
         }
@@ -223,6 +213,33 @@ export default function StudentGameView({
       setIsClassroomChecking(false);
     }
   }, [currentUser]);
+
+  const fetchClassTasks = async (pin: string) => {
+    setIsLoadingTasks(true);
+    try {
+      const res = await fetch(`/api/student/classroom?pin=${pin}&userId=${currentUser?.id || ""}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.classroom) {
+          setActiveClassroom((prev) => ({
+            ...prev,
+            id: data.classroom.id,
+            roomCode: data.classroom.classCode,
+            name: data.classroom.name,
+            creatorName: data.classroom.teacherName,
+            gradeLevel: data.classroom.gradeLevel,
+          }));
+        }
+        if (data.tasks) {
+          setClassTasks(data.tasks);
+        }
+      }
+    } catch (err) {
+      console.warn("Fetch class tasks error:", err);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
 
   // Sync student name when currentUser changes
   useEffect(() => {
@@ -245,70 +262,40 @@ export default function StudentGameView({
     setJoinError(null);
 
     try {
-      const res = await fetch(`/api/teacher/room/${pinToUse}`);
+      const res = await fetch("/api/student/classroom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pin: pinToUse,
+          userId: currentUser?.id,
+          studentName: nameToUse,
+          studentUsername: currentUser?.username,
+        }),
+      });
       const data = await res.json();
 
-      if (!res.ok || !data.quest) {
-        throw new Error(data.error || `Room kelas dengan PIN [${pinToUse}] tidak ditemukan. Pastikan gurumu sudah membuat room di menu Guru.`);
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Kelas dengan PIN [${pinToUse}] tidak ditemukan. Pastikan gurumu sudah membuat kelas di dashboard Guru.`);
       }
 
-      const q = data.quest;
-      let parsedQuiz = [];
-      try {
-        parsedQuiz = typeof q.quiz_questions === "string" ? JSON.parse(q.quiz_questions) : q.quiz_questions || [];
-      } catch (e) {}
-
-      let parsedObjectives = [];
-      try {
-        parsedObjectives = typeof q.mission_objectives === "string" ? JSON.parse(q.mission_objectives) : q.mission_objectives || [];
-      } catch (e) {}
-
-      let parsedVocab: string[] = [];
-      try {
-        parsedVocab = typeof q.target_vocabularies === "string" ? JSON.parse(q.target_vocabularies) : q.target_vocabularies || [];
-      } catch (e) {}
-
+      const cls = data.classroom;
       const classData: ActiveClassroom = {
-        roomCode: pinToUse,
-        creatorName: q.creator_name || "Budi Santoso, S.Pd",
-        topic: q.title || "Misi Kelas Bahasa Inggris",
-        questTitle: q.title,
-        questId: q.id,
-        difficultyLevel: q.difficulty_level || "B1",
-        quizQuestions: parsedQuiz,
-        scenarioStory: q.case_study_story,
-        npcName: q.npc_name || "Mr. Arthur",
-        npcRole: q.npc_persona || "Examiner & Evaluator",
-        targetVocab: parsedVocab.length > 0 ? parsedVocab : ["sustainable", "solution", "durable"],
-        requiredHint: q.required_object_hint || "Benda fisik di meja",
+        id: cls.id,
+        roomCode: cls.classCode,
+        name: cls.name,
+        creatorName: cls.teacherName || "Budi Santoso, S.Pd",
+        topic: cls.name,
+        gradeLevel: cls.gradeLevel,
+        description: cls.description,
       };
 
       setActiveClassroom(classData);
+      setClassTasks(data.tasks || []);
       if (typeof window !== "undefined") {
         const userKey = currentUser?.id || currentUser?.username || "student";
         localStorage.setItem(`lq_classroom_${userKey}`, JSON.stringify(classData));
         localStorage.setItem("lq_active_classroom", JSON.stringify(classData));
       }
-
-      const teacherQuest: QuestScenario = {
-        id: q.id,
-        title: q.title,
-        mode: "smk_career",
-        npcName: q.npc_name || "Mr. Arthur",
-        npcRole: q.npc_persona || "Examiner & Evaluator",
-        npcAvatar: "🧑‍🏫",
-        npcPersonality: q.npc_persona || "Kritis dan apresiatif",
-        scenarioBrief: q.case_study_story || "Skenario studi kasus kelas bahasa Inggris.",
-        urgentGoal: parsedObjectives[0] || "Jelaskan ide dan solusi utamamu kepada NPC menggunakan bahasa Inggris.",
-        targetVocab: parsedVocab.length > 0 ? parsedVocab : ["sustainable", "solution", "durable"],
-        timeLimitSeconds: 180,
-        initialNpcGreeting: `Hello! I'm ${q.npc_name || "your examiner"}. I am reviewing your class project today regarding "${q.title}". Could you introduce yourself and show the items you brought?`,
-        curriculumTopic: q.title,
-        targetItems: [],
-      };
-      setCurrentQuest(teacherQuest);
-      setStep("scanning");
-      setIsCameraActive(true);
     } catch (err: any) {
       setJoinError(err.message || "Gagal masuk ke kelas.");
     } finally {
@@ -316,9 +303,59 @@ export default function StudentGameView({
     }
   };
 
+  // Select a task and launch camera & roleplay
+  const handleSelectAndStartTask = (task: any) => {
+    let parsedQuiz = [];
+    try {
+      parsedQuiz = typeof task.quiz_questions === "string" ? JSON.parse(task.quiz_questions) : task.quiz_questions || task.quizQuestions || [];
+    } catch (e) {}
+
+    let parsedObjectives = [];
+    try {
+      parsedObjectives = typeof task.mission_objectives === "string" ? JSON.parse(task.mission_objectives) : task.mission_objectives || task.missionObjectives || [];
+    } catch (e) {}
+
+    let parsedVocab: string[] = [];
+    try {
+      parsedVocab = typeof task.target_vocabularies === "string" ? JSON.parse(task.target_vocabularies) : task.target_vocabularies || task.targetVocabularies || [];
+    } catch (e) {}
+
+    setSelectedTask(task);
+    const teacherQuest: QuestScenario = {
+      id: task.id,
+      title: task.title,
+      mode: "smk_career",
+      npcName: task.npc_name || task.npcName || "Mr. Arthur",
+      npcRole: task.npc_persona || task.npcPersona || "Examiner & Evaluator",
+      npcAvatar: "🧑‍🏫",
+      npcPersonality: task.npc_persona || task.npcPersona || "Kritis dan apresiatif",
+      scenarioBrief: task.case_study_story || task.caseStudyStory || "Skenario studi kasus kelas bahasa Inggris.",
+      urgentGoal: parsedObjectives[0] || "Jelaskan ide dan solusi utamamu kepada NPC menggunakan bahasa Inggris.",
+      targetVocab: parsedVocab.length > 0 ? parsedVocab : ["sustainable", "solution", "durable"],
+      timeLimitSeconds: 180,
+      initialNpcGreeting: `Hello! I'm ${task.npc_name || task.npcName || "your examiner"}. I am reviewing your class project today regarding "${task.title}". Could you introduce yourself and show the items you brought?`,
+      curriculumTopic: task.title,
+      targetItems: [],
+    };
+    setCurrentQuest(teacherQuest);
+    setStep("scanning");
+    setIsCameraActive(true);
+  };
+
+  const handleReturnToClassCatalog = () => {
+    stopCameraStream();
+    setSelectedTask(null);
+    setStep("select_mode");
+    if (activeClassroom?.roomCode) {
+      fetchClassTasks(activeClassroom.roomCode);
+    }
+  };
+
   const handleLeaveClassroom = () => {
-    if (confirm("Apakah kamu yakin ingin keluar dari room kelas ini? Kamu harus memasukkan PIN baru untuk masuk kembali.")) {
+    if (confirm("Apakah kamu yakin ingin keluar dari rombongan kelas ini? Kamu harus memasukkan PIN baru untuk masuk kembali.")) {
       setActiveClassroom(null);
+      setClassTasks([]);
+      setSelectedTask(null);
       if (typeof window !== "undefined") {
         const userKey = currentUser?.id || currentUser?.username || "student";
         localStorage.removeItem(`lq_classroom_${userKey}`);
@@ -1171,76 +1208,107 @@ export default function StudentGameView({
             </div>
           </div>
 
-          {/* Teacher's Mission Memorandum Card */}
-          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#000000] space-y-5">
+          {/* Classroom Tasks Catalog */}
+          <div className="border-2 border-black bg-white p-6 shadow-[6px_6px_0px_#000000] space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-4">
               <div>
-                <span className="text-xs font-black uppercase text-zinc-600 block">
-                  [TUGAS DARI GURU UNTUKMU]:
+                <span className="text-xs font-black uppercase text-amber-800 block">
+                  [KATALOG TUGAS KELAS // KURIKULUM MERDEKA]
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-black uppercase tracking-tight">
-                  {activeClassroom.questTitle}
+                <h2 className="text-xl sm:text-2xl font-black text-black uppercase tracking-tight">
+                  Tugas & Misi Speaking ({classTasks.length} Misi Aktif)
                 </h2>
-              </div>
-              <span className="font-mono text-xs font-black bg-[#facc15] text-black px-3.5 py-1.5 border-2 border-black shadow-[2px_2px_0px_#000000]">
-                ⏱️ WAKTU MISI: 180 DETIK
-              </span>
-            </div>
-
-            <div className="p-4 bg-zinc-50 border-2 border-black space-y-2 text-xs sm:text-sm text-zinc-800 leading-relaxed">
-              <span className="font-black text-black block uppercase">
-                [SKENARIO KASUS NYATA]:
-              </span>
-              <p>{activeClassroom.scenarioStory}</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-4 bg-zinc-50 border border-black space-y-1">
-                <span className="font-black text-black block uppercase text-[11px]">
-                  [NPC PENGUJI / MITRA BICARA]:
-                </span>
-                <p className="font-bold text-black">{activeClassroom.npcName}</p>
-                <p className="text-zinc-600 italic text-[11px]">{activeClassroom.npcRole}</p>
+                <p className="text-xs text-zinc-600 mt-0.5">
+                  Pilih salah satu misi di bawah ini untuk memulai latihan percakapan dengan penguji AI.
+                </p>
               </div>
 
-              <div className="p-4 bg-zinc-50 border border-black space-y-1">
-                <span className="font-black text-black block uppercase text-[11px]">
-                  [BENDA NYATA YANG HARUS DISCAN DI MEJAMU]:
-                </span>
-                <p className="font-bold text-cyan-800">{activeClassroom.requiredHint}</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => fetchClassTasks(activeClassroom.roomCode)}
+                className="brutal-btn-white px-3 py-1.5 text-xs font-black uppercase flex items-center gap-1.5"
+                title="Muat ulang daftar tugas"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${isLoadingTasks ? "animate-spin" : ""}`} />
+                <span>[ REFRESH TUGAS ]</span>
+              </button>
             </div>
 
-            {activeClassroom.targetVocab && activeClassroom.targetVocab.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-black text-black uppercase">
-                  KOSAKATA WAJIB DIUCAPKAN:
-                </span>
-                {activeClassroom.targetVocab.map((w, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2.5 py-1 bg-[#facc15] text-black font-black uppercase border border-black shadow-[2px_2px_0px_#000000]"
+            {isLoadingTasks ? (
+              <div className="py-12 text-center text-xs font-black uppercase">
+                [ MEMUAT DAFTAR TUGAS DARI GURU... ]
+              </div>
+            ) : classTasks.length === 0 ? (
+              <div className="py-12 text-center border-2 border-dashed border-zinc-300 p-6 space-y-2">
+                <BookOpen className="w-8 h-8 mx-auto text-zinc-400" />
+                <p className="text-xs font-bold text-zinc-600">
+                  Guru belum menugaskan misi speaking di kelas ini.
+                </p>
+                <p className="text-[11px] text-zinc-500">
+                  Silakan tunggu atau minta gurumu untuk menerbitkan tugas di kelas ini.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {classTasks.map((task, idx) => (
+                  <div
+                    key={task.id}
+                    className="border-2 border-black bg-white p-5 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4 hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
                   >
-                    {w}
-                  </span>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#facc15] border border-black">
+                          TUGAS #{idx + 1} • CEFR: {task.difficultyLevel || task.difficulty_level || "B1"}
+                        </span>
+                        {task.isCompleted ? (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-700">
+                            ✅ SELESAI ({task.studentScore}/100)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-700">
+                            ⏳ BELUM DIKERJAKAN
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3 className="text-base font-black text-black uppercase leading-tight line-clamp-2">
+                          {task.title}
+                        </h3>
+                        {(task.caseStudyStory || task.case_study_story) && (
+                          <p className="text-xs text-zinc-600 line-clamp-2 mt-1 leading-relaxed">
+                            {task.caseStudyStory || task.case_study_story}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="p-2.5 bg-zinc-50 border border-black text-xs space-y-1">
+                        <div className="text-zinc-700 font-bold">
+                          NPC: <span className="text-black font-black">{task.npcName || task.npc_name || "Mr. Arthur"}</span>
+                        </div>
+                        <div className="text-cyan-800 font-bold truncate">
+                          Scan: {task.requiredObjectHint || task.required_object_hint || "Benda fisik di meja"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectAndStartTask(task)}
+                        className={`w-full py-3 text-xs font-black uppercase flex items-center justify-center gap-2 shadow-[2px_2px_0px_#000000] ${
+                          task.isCompleted ? "brutal-btn-cyan" : "brutal-btn-yellow"
+                        }`}
+                      >
+                        <Camera className="w-4 h-4 stroke-[2.5]" />
+                        <span>{task.isCompleted ? "[ 🔄 KERJAKAN ULANG MISI ]" : "[ 🚀 KERJAKAN MISI INI ]"}</span>
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
-
-            <div className="pt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("scanning");
-                  setIsCameraActive(true);
-                }}
-                className="brutal-btn-yellow px-8 py-4 text-sm sm:text-base font-black uppercase flex items-center gap-2 shadow-[4px_4px_0px_#000000]"
-              >
-                <Camera className="w-5 h-5 stroke-[2.5]" />
-                <span>[ 📸 NYALAKAN KAMERA & KERJAKAN MISI KELAS ]</span>
-                <ArrowRight className="w-5 h-5 stroke-[3]" />
-              </button>
-            </div>
           </div>
         </div>
         {renderSharedModals()}
@@ -1268,10 +1336,10 @@ export default function StudentGameView({
 
           <div className="flex items-center justify-between">
             <button
-              onClick={() => setStep("select_mode")}
-              className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
+              onClick={handleReturnToClassCatalog}
+              className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono font-black uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
             >
-              ← KEMBALI KE MISI KELAS
+              <span>[ 📋 KEMBALI KE DAFTAR TUGAS ]</span>
             </button>
             <div className="flex items-center gap-2">
               <button
@@ -1870,11 +1938,11 @@ export default function StudentGameView({
                 <span>🎒 BUKU KOLEKSI ({pokedexDeck.length})</span>
               </button>
               <button
-                onClick={resetAll}
-                className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5"
+                onClick={handleReturnToClassCatalog}
+                className="brutal-btn-yellow px-4 py-1.5 text-xs font-mono font-black uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
               >
-                <RotateCcw className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>MAIN MISI BARU</span>
+                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>[ 📋 DAFTAR TUGAS KELAS ]</span>
               </button>
             </div>
           </div>

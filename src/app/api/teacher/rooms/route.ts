@@ -1,21 +1,39 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // Ambil semua room kelas dari tabel quests
-    const rooms = await query<any[]>(
-      `SELECT q.id, q.room_code as roomCode, q.creator_name as creatorName, q.title, 
-              q.difficulty_level as difficultyLevel, q.case_study_story as caseStudyStory,
-              q.npc_name as npcName, q.npc_persona as npcPersona, q.required_object_hint as requiredObjectHint,
-              q.mission_objectives as missionObjectives, q.target_vocabularies as targetVocabularies,
-              q.quiz_questions as quizQuestions, q.created_at as createdAt,
-              (SELECT COUNT(*) FROM submissions s WHERE s.quest_id = q.id) as submissionsCount,
-              (SELECT COUNT(*) FROM speaking_sessions sp WHERE sp.class_code = q.room_code) as speakingCount
-       FROM quests q
-       WHERE q.room_code IS NOT NULL
-       ORDER BY q.created_at DESC`
-    );
+    const { searchParams } = new URL(req.url);
+    const classCode = searchParams.get("classCode");
+    const classroomId = searchParams.get("classroomId");
+
+    let sql = `
+      SELECT q.id, q.classroom_id as classroomId, q.room_code as roomCode, q.creator_name as creatorName, q.title, 
+             q.difficulty_level as difficultyLevel, q.case_study_story as caseStudyStory,
+             q.npc_name as npcName, q.npc_persona as npcPersona, q.required_object_hint as requiredObjectHint,
+             q.mission_objectives as missionObjectives, q.target_vocabularies as targetVocabularies,
+             q.quiz_questions as quizQuestions, q.created_at as createdAt,
+             (SELECT COUNT(*) FROM submissions s WHERE s.quest_id = q.id) as submissionsCount,
+             (SELECT COUNT(*) FROM speaking_sessions sp WHERE sp.class_code = q.room_code) as speakingCount
+      FROM quests q
+      WHERE q.room_code IS NOT NULL
+    `;
+    const params: any[] = [];
+
+    if (classroomId && classCode) {
+      sql += ` AND (q.classroom_id = ? OR q.room_code = ?)`;
+      params.push(classroomId, classCode);
+    } else if (classroomId) {
+      sql += ` AND q.classroom_id = ?`;
+      params.push(classroomId);
+    } else if (classCode) {
+      sql += ` AND q.room_code = ?`;
+      params.push(classCode);
+    }
+
+    sql += ` ORDER BY q.created_at DESC`;
+
+    const rooms = await query<any[]>(sql, params);
 
     return NextResponse.json({
       success: true,
@@ -33,6 +51,8 @@ export async function POST(req: Request) {
     const {
       title,
       creatorName = "Budi Santoso, S.Pd",
+      classroomId = "cls_demo_edu889",
+      customPin,
       caseStudyStory,
       npcName = "Mr. Arthur",
       npcPersona = "Examiner & Evaluator",
@@ -41,7 +61,6 @@ export async function POST(req: Request) {
       targetVocabularies = [],
       quizQuestions = [],
       difficultyLevel = "B1",
-      customPin,
     } = body;
 
     if (!title || !caseStudyStory) {
@@ -51,19 +70,30 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate unique 6-digit PIN if not provided
-    const roomCode = customPin?.trim().toUpperCase() || `EDU${Math.floor(100 + Math.random() * 900)}`;
+    // Ambil PIN dari classroom jika ada, atau gunakan customPin
+    let finalRoomCode = customPin?.trim().toUpperCase();
+    if (!finalRoomCode && classroomId) {
+      const cls = await query<any[]>("SELECT class_code FROM classrooms WHERE id = ? LIMIT 1", [classroomId]);
+      if (cls && cls.length > 0) {
+        finalRoomCode = cls[0].class_code;
+      }
+    }
+    if (!finalRoomCode) {
+      finalRoomCode = `EDU${Math.floor(100 + Math.random() * 900)}`;
+    }
+
     const newId = `quest_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
     await query(
       `INSERT INTO quests (
-        id, mode, room_code, creator_name, title, target_language, difficulty_level,
+        id, mode, classroom_id, room_code, creator_name, title, target_language, difficulty_level,
         case_study_story, npc_name, npc_persona, required_object_hint,
         mission_objectives, target_vocabularies, quiz_questions
-      ) VALUES (?, 'ROOM', ?, ?, ?, 'English', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, 'ROOM', ?, ?, ?, ?, 'English', ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         newId,
-        roomCode,
+        classroomId,
+        finalRoomCode,
         creatorName,
         title,
         difficultyLevel,
@@ -79,10 +109,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Room kelas berhasil dibuat dengan PIN ${roomCode}`,
+      message: `Tugas kelas [${title}] berhasil ditambahkan ke kelas dengan PIN ${finalRoomCode}`,
       room: {
         id: newId,
-        roomCode,
+        classroomId,
+        roomCode: finalRoomCode,
         title,
         creatorName,
         difficultyLevel,
