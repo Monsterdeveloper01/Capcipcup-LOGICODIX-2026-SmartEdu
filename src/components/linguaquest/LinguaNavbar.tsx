@@ -6,7 +6,6 @@ import {
   GraduationCap,
   Shield,
   MonitorPlay,
-  Columns,
   Flame,
   Terminal,
   LogOut,
@@ -15,7 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 
-export type ActiveView = "student" | "teacher" | "superadmin" | "boss_raid" | "split_screen";
+export type ActiveView = "student" | "teacher" | "superadmin" | "boss_raid";
 
 interface LinguaNavbarProps {
   activeView: ActiveView;

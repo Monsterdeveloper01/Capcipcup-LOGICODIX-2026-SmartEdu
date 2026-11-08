@@ -6,7 +6,6 @@ import StudentGameView from "@/components/linguaquest/student/StudentGameView";
 import TeacherDashboardView from "@/components/linguaquest/teacher/TeacherDashboardView";
 import SuperadminDashboardView from "@/components/linguaquest/admin/SuperadminDashboardView";
 import ClassroomBossRaidView from "@/components/linguaquest/ClassroomBossRaidView";
-import SplitScreenDemoView from "@/components/linguaquest/SplitScreenDemoView";
 import LoginView from "@/components/linguaquest/auth/LoginView";
 import { AuthUser } from "@/lib/auth/types";
 import {
