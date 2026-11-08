@@ -121,81 +121,85 @@ export default function Home() {
           />
         ) : (
           <>
-            {/* Mode 1 & Mode 2 Quick Action Banners (Crisp Light Theme) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Mode 1: Classroom Room Mode */}
-              <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-black text-xs text-cyan-800 uppercase tracking-wider">
-                      [MODE 1 // CLASSROOM ROOM MODE]
-                    </span>
-                    <span className="text-[10px] font-mono bg-cyan-100 text-cyan-900 px-2 py-0.5 border border-cyan-800 font-black uppercase">
-                      GURU & MURID
-                    </span>
+            {/* Mode Banners (Only visible to Teacher/Superadmin to prevent student clutter) */}
+            {isTeacherOrAdmin && activeView !== "student" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Mode 1: Classroom Room Mode */}
+                <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-black text-xs text-cyan-800 uppercase tracking-wider">
+                        [MODE 1 // CLASSROOM ROOM MODE]
+                      </span>
+                      <span className="text-[10px] font-mono bg-cyan-100 text-cyan-900 px-2 py-0.5 border border-cyan-800 font-black uppercase">
+                        GURU & MURID
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-black text-black uppercase tracking-tight">
+                      ROOM KELAS DENGAN PIN 6-DIGIT
+                    </h2>
+                    <p className="text-xs font-mono text-zinc-600 leading-relaxed">
+                      Guru membuat room studi kasus & kuis terstruktur, lalu 35 murid gabung menggunakan PIN untuk memindai benda nyata dan berbicara. Hasil nilai langsung muncul real-time di layar guru.
+                    </p>
                   </div>
-                  <h2 className="text-xl font-black text-black uppercase tracking-tight">
-                    ROOM KELAS DENGAN PIN 6-DIGIT
-                  </h2>
-                  <p className="text-xs font-mono text-zinc-600 leading-relaxed">
-                    Guru membuat room studi kasus & kuis terstruktur, lalu 35 murid gabung menggunakan PIN untuk memindai benda nyata dan berbicara. Hasil nilai langsung muncul real-time di layar guru.
-                  </p>
+
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2.5 font-mono">
+                    <Link
+                      href="/teacher/create"
+                      className="flex-1 brutal-btn-cyan py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
+                    >
+                      <GraduationCap className="w-4 h-4" />
+                      <span>[ BUAT ROOM GURU ]</span>
+                    </Link>
+                    <Link
+                      href="/room/join"
+                      className="flex-1 brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
+                    >
+                      <Key className="w-4 h-4" />
+                      <span>[ GABUNG PIN KELAS ]</span>
+                    </Link>
+                  </div>
                 </div>
 
-                <div className="pt-2 flex flex-col sm:flex-row gap-2.5 font-mono">
-                  <Link
-                    href="/teacher/create"
-                    className="flex-1 brutal-btn-cyan py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                  >
-                    <GraduationCap className="w-4 h-4" />
-                    <span>[ BUAT ROOM GURU ]</span>
-                  </Link>
-                  <Link
-                    href="/room/join"
-                    className="flex-1 brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                  >
-                    <Key className="w-4 h-4" />
-                    <span>[ GABUNG PIN KELAS ]</span>
-                  </Link>
+                {/* Mode 2: Solo Explorer Mode */}
+                <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-black text-xs text-amber-800 uppercase tracking-wider">
+                        [MODE 2 // SOLO EXPLORER MODE]
+                      </span>
+                      <span className="text-[10px] font-mono bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-800 font-black uppercase">
+                        MANDIRI / PERSEORANGAN
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-black text-black uppercase tracking-tight">
+                      SCAN BENDA & BUAT SOAL SENDIRI
+                    </h2>
+                    <p className="text-xs font-mono text-zinc-600 leading-relaxed">
+                      Pemain mandiri membuat kuis & misi studi kasus instan: cukup arahkan kamera ke benda di mejamu (YOLO 0-Token) atau ketik topik latihan untuk menantang NPC AI dan dapatkan evaluasi CEFR.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 font-mono">
+                    <Link
+                      href="/solo/create"
+                      className="w-full brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>[ MULAI SOLO EXPLORER INSTAN ]</span>
+                      <ArrowRight className="w-4 h-4 stroke-[3]" />
+                    </Link>
+                  </div>
                 </div>
               </div>
-
-              {/* Mode 2: Solo Explorer Mode */}
-              <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-black text-xs text-amber-800 uppercase tracking-wider">
-                      [MODE 2 // SOLO EXPLORER MODE]
-                    </span>
-                    <span className="text-[10px] font-mono bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-800 font-black uppercase">
-                      MANDIRI / PERSEORANGAN
-                    </span>
-                  </div>
-                  <h2 className="text-xl font-black text-black uppercase tracking-tight">
-                    SCAN BENDA & BUAT SOAL SENDIRI
-                  </h2>
-                  <p className="text-xs font-mono text-zinc-600 leading-relaxed">
-                    Pemain mandiri membuat kuis & misi studi kasus instan: cukup arahkan kamera ke benda di mejamu (YOLO 0-Token) atau ketik topik latihan untuk menantang NPC AI dan dapatkan evaluasi CEFR.
-                  </p>
-                </div>
-
-                <div className="pt-2 font-mono">
-                  <Link
-                    href="/solo/create"
-                    className="w-full brutal-btn-yellow py-2.5 text-xs font-black uppercase flex items-center justify-center gap-1.5"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>[ MULAI SOLO EXPLORER INSTAN ]</span>
-                    <ArrowRight className="w-4 h-4 stroke-[3]" />
-                  </Link>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* Active Role Dashboard View with Strict Role Guard */}
             <div className="space-y-4">
-              {/* STUDENT VIEW */}
-              {activeView === "student" && <StudentGameView onXpEarned={handleXpEarned} />}
+              {/* STUDENT VIEW (Locked if not in class) */}
+              {activeView === "student" && (
+                <StudentGameView onXpEarned={handleXpEarned} currentUser={currentUser} />
+              )}
 
               {/* TEACHER VIEW (Protected: Guru & Superadmin Only) */}
               {activeView === "teacher" && (

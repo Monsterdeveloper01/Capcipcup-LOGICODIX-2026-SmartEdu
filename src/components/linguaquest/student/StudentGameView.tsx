@@ -23,6 +23,10 @@ import {
   Search,
   X,
   Lightbulb,
+  Lock,
+  Key,
+  GraduationCap,
+  LogOut,
 } from "lucide-react";
 
 const GAME_MODES = [
@@ -68,13 +72,38 @@ const GAME_MODES = [
   },
 ];
 
+export interface ActiveClassroom {
+  roomCode: string;
+  creatorName: string;
+  topic: string;
+  questTitle: string;
+  questId: string;
+  difficultyLevel: string;
+  quizQuestions?: any[];
+  scenarioStory?: string;
+  npcName?: string;
+  npcRole?: string;
+  targetVocab?: string[];
+  requiredHint?: string;
+}
+
 export default function StudentGameView({
   onXpEarned,
+  currentUser,
 }: {
   onXpEarned?: (xp: number) => void;
+  currentUser?: any;
 }) {
   const [selectedMode, setSelectedMode] = useState<GameMode>("survival");
   const [step, setStep] = useState<"select_mode" | "scanning" | "inventory" | "hud" | "autopsy">("select_mode");
+
+  // Classroom Gate State (Murid Wajib Terhubung ke Kelas Guru)
+  const [activeClassroom, setActiveClassroom] = useState<ActiveClassroom | null>(null);
+  const [isClassroomChecking, setIsClassroomChecking] = useState<boolean>(true);
+  const [inputPin, setInputPin] = useState<string>("");
+  const [inputStudentName, setInputStudentName] = useState<string>(currentUser?.name || "Ahmad Faiz");
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [isJoining, setIsJoining] = useState<boolean>(false);
 
   // Camera & Image State
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -119,6 +148,143 @@ export default function StudentGameView({
 
   // Speech Recognition Ref
   const recognitionRef = useRef<any>(null);
+
+  // Load Active Classroom from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedClass = localStorage.getItem("lq_active_classroom");
+        if (savedClass) {
+          const parsed = JSON.parse(savedClass);
+          setActiveClassroom(parsed);
+          // Set teacher quest directly so student is locked to teacher's mission
+          const teacherQuest: QuestScenario = {
+            id: parsed.questId || `quest_${Date.now()}`,
+            title: parsed.questTitle || parsed.topic,
+            mode: "smk_career",
+            npcName: parsed.npcName || "Mr. Arthur",
+            npcRole: parsed.npcRole || "Examiner & Evaluator",
+            npcAvatar: "🧑‍🏫",
+            npcPersonality: parsed.npcRole || "Profesional dan membimbing",
+            scenarioBrief: parsed.scenarioStory || "Skenario studi kasus kelas bahasa Inggris.",
+            urgentGoal: parsed.scenarioStory || "Jelaskan solusi ide utamamu kepada NPC menggunakan bahasa Inggris.",
+            targetVocab: parsed.targetVocab && parsed.targetVocab.length > 0 ? parsed.targetVocab : ["sustainable", "solution", "durable"],
+            timeLimitSeconds: 180,
+            initialNpcGreeting: `Hello! I'm ${parsed.npcName || "your examiner"}. I am reviewing your project today for "${parsed.questTitle || parsed.topic}". Could you present your idea and explain the items you brought?`,
+            curriculumTopic: parsed.topic || "Kurikulum Merdeka English",
+            targetItems: [],
+          };
+          setCurrentQuest(teacherQuest);
+        }
+      } catch (e) {
+        console.warn("Classroom load error:", e);
+      } finally {
+        setIsClassroomChecking(false);
+      }
+    } else {
+      setIsClassroomChecking(false);
+    }
+  }, []);
+
+  // Sync student name when currentUser changes
+  useEffect(() => {
+    if (currentUser?.name) {
+      setInputStudentName(currentUser.name);
+    }
+  }, [currentUser]);
+
+  // Handle joining classroom via PIN
+  const handleJoinClassroom = async (overridePin?: string) => {
+    const pinToUse = (overridePin || inputPin).trim().toUpperCase();
+    const nameToUse = inputStudentName.trim() || currentUser?.name || "Ahmad Faiz";
+
+    if (!pinToUse) {
+      setJoinError("Masukkan 6-digit PIN room kelas yang diberikan gurumu.");
+      return;
+    }
+
+    setIsJoining(true);
+    setJoinError(null);
+
+    try {
+      const res = await fetch(`/api/teacher/room/${pinToUse}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.quest) {
+        throw new Error(data.error || `Room kelas dengan PIN [${pinToUse}] tidak ditemukan. Pastikan gurumu sudah membuat room di menu Guru.`);
+      }
+
+      const q = data.quest;
+      let parsedQuiz = [];
+      try {
+        parsedQuiz = typeof q.quiz_questions === "string" ? JSON.parse(q.quiz_questions) : q.quiz_questions || [];
+      } catch (e) {}
+
+      let parsedObjectives = [];
+      try {
+        parsedObjectives = typeof q.mission_objectives === "string" ? JSON.parse(q.mission_objectives) : q.mission_objectives || [];
+      } catch (e) {}
+
+      let parsedVocab: string[] = [];
+      try {
+        parsedVocab = typeof q.target_vocabularies === "string" ? JSON.parse(q.target_vocabularies) : q.target_vocabularies || [];
+      } catch (e) {}
+
+      const classData: ActiveClassroom = {
+        roomCode: pinToUse,
+        creatorName: q.creator_name || "Budi Santoso, S.Pd",
+        topic: q.title || "Misi Kelas Bahasa Inggris",
+        questTitle: q.title,
+        questId: q.id,
+        difficultyLevel: q.difficulty_level || "B1",
+        quizQuestions: parsedQuiz,
+        scenarioStory: q.case_study_story,
+        npcName: q.npc_name || "Mr. Arthur",
+        npcRole: q.npc_persona || "Examiner & Evaluator",
+        targetVocab: parsedVocab.length > 0 ? parsedVocab : ["sustainable", "solution", "durable"],
+        requiredHint: q.required_object_hint || "Benda fisik di meja",
+      };
+
+      setActiveClassroom(classData);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("lq_active_classroom", JSON.stringify(classData));
+      }
+
+      const teacherQuest: QuestScenario = {
+        id: q.id,
+        title: q.title,
+        mode: "smk_career",
+        npcName: q.npc_name || "Mr. Arthur",
+        npcRole: q.npc_persona || "Examiner & Evaluator",
+        npcAvatar: "🧑‍🏫",
+        npcPersonality: q.npc_persona || "Kritis dan apresiatif",
+        scenarioBrief: q.case_study_story || "Skenario studi kasus kelas bahasa Inggris.",
+        urgentGoal: parsedObjectives[0] || "Jelaskan ide dan solusi utamamu kepada NPC menggunakan bahasa Inggris.",
+        targetVocab: parsedVocab.length > 0 ? parsedVocab : ["sustainable", "solution", "durable"],
+        timeLimitSeconds: 180,
+        initialNpcGreeting: `Hello! I'm ${q.npc_name || "your examiner"}. I am reviewing your class project today regarding "${q.title}". Could you introduce yourself and show the items you brought?`,
+        curriculumTopic: q.title,
+        targetItems: [],
+      };
+      setCurrentQuest(teacherQuest);
+      setStep("scanning");
+      setIsCameraActive(true);
+    } catch (err: any) {
+      setJoinError(err.message || "Gagal masuk ke kelas.");
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleLeaveClassroom = () => {
+    if (confirm("Apakah kamu yakin ingin keluar dari room kelas ini? Kamu harus memasukkan PIN baru untuk masuk kembali.")) {
+      setActiveClassroom(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("lq_active_classroom");
+      }
+      resetAll();
+    }
+  };
 
   // Load / Seed Vocab Pokedex from localStorage
   useEffect(() => {
@@ -479,7 +645,8 @@ export default function StudentGameView({
           durationSeconds: duration,
           hesitationSeconds: hesitationCounter,
           codeSwitchingCount: 0,
-          studentName: "Siswa Petualang",
+          studentName: inputStudentName || "Siswa Petualang",
+          roomCode: activeClassroom?.roomCode || "CLASS-10A",
         }),
       });
 
@@ -757,100 +924,239 @@ export default function StudentGameView({
   );
 
   // ============================================================================
-  // RENDER: STEP 1 - SELECT GAME MODE (NEO-BRUTALIST CARTRIDGES)
+  // RENDER: STEP 0 - GERBANG KELAS (SISWA TERKUNCI JIKA BELUM GABUNG KELAS)
   // ============================================================================
-  if (step === "select_mode") {
+  if (!activeClassroom) {
     return (
       <>
-        <div className="space-y-8 font-mono">
-          {/* Anti-slop Stark Brutalist Hero (Clean Light) */}
-          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] relative">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-4 mb-5">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 bg-[#facc15] border border-black inline-block" />
-                <span className="font-mono text-xs font-black uppercase tracking-widest text-black">
-                  [PROTOCOL: LIVE_VISION_ENGLISH_RPG]
-                </span>
+        <div className="max-w-2xl mx-auto space-y-6 font-mono text-black">
+          {/* Status Alert Bar */}
+          <div className="border-2 border-black bg-[#facc15] p-3 text-xs font-black uppercase flex items-center justify-between shadow-[3px_3px_0px_#000000]">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 stroke-[2.5]" />
+              <span>[ 🔒 AKSES SISWA TERKUNCI // WAJIB GABUNG KELAS GURU ]</span>
+            </div>
+            <span className="hidden sm:inline bg-black text-white px-2 py-0.5 text-[10px]">
+              KURIKULUM MERDEKA
+            </span>
+          </div>
+
+          {/* Main Classroom Gate Card */}
+          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#000000] space-y-6">
+            <div className="border-b-2 border-zinc-200 pb-4 space-y-3">
+              <div className="w-12 h-12 bg-amber-100 border-2 border-black flex items-center justify-center shadow-[3px_3px_0px_#000000]">
+                <Key className="w-6 h-6 text-black stroke-[2.5]" />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPokedexModal(true)}
-                  className="brutal-btn-yellow px-3.5 py-1.5 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-                >
-                  <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>🎒 BUKU KOLEKSI KATA ({pokedexDeck.length})</span>
-                </button>
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-black uppercase tracking-tight">
+                MASUKKAN PIN KELAS DARI GURUMU
+              </h1>
+              <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                Sebagai siswa, kamu <strong>tidak dapat memulai misi atau memindai benda</strong> sebelum terdaftar di kelas guru. Mintalah 6-digit PIN kepada gurumu agar hasil latihan bicaramu tersinkronisasi otomatis ke dashboard guru.
+              </p>
             </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black text-black uppercase tracking-tight leading-none mb-4">
-            SCAN BENDA NYATA. HADAPI NPC. <br />
-            <span className="text-black bg-[#facc15] px-2.5 py-0.5 inline-block border-2 border-black shadow-[2px_2px_0px_#000000] mt-1.5">
-              BICARA BAHASA INGGRIS SEKARANG.
-            </span>
-          </h1>
+            {joinError && (
+              <div className="p-3 bg-red-100 border-2 border-red-600 text-red-900 text-xs font-bold flex items-center gap-2 shadow-[2px_2px_0px_#000000]">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                <span>{joinError}</span>
+              </div>
+            )}
 
-          <p className="text-xs sm:text-sm font-mono text-zinc-700 max-w-2xl leading-relaxed">
-            Hentikan menghafal rumus di atas kertas. Arahkan kamera ke meja juri atau ruanganmu. AI Vision mendeteksi objek nyata, mengubahnya menjadi Kartu Item RPG, dan mengunci kamu dalam misi darurat berbicara spontan selama 3 menit.
-          </p>
+            {/* Form Input PIN */}
+            <form onSubmit={(e) => { e.preventDefault(); handleJoinClassroom(); }} className="space-y-4 text-xs">
+              <div>
+                <label className="font-black text-black block mb-1 uppercase">
+                  6-Digit PIN Room Guru:
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={8}
+                  autoFocus
+                  value={inputPin}
+                  onChange={(e) => setInputPin(e.target.value.toUpperCase())}
+                  placeholder="CONTOH: EDU889"
+                  className="w-full px-4 py-3.5 bg-zinc-50 border-2 border-black text-xl font-black tracking-widest text-black placeholder-zinc-400 focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-black text-black block mb-1 uppercase">
+                  Nama Lengkap Siswa:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={inputStudentName}
+                  onChange={(e) => setInputStudentName(e.target.value)}
+                  placeholder="Masukkan nama lengkapmu..."
+                  className="w-full px-4 py-3 bg-zinc-50 border-2 border-black text-sm font-bold text-black focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isJoining}
+                className="w-full brutal-btn-yellow py-4 text-sm font-black uppercase flex items-center justify-center gap-2 shadow-[4px_4px_0px_#000000]"
+              >
+                {isJoining ? (
+                  <span>[ MENYAMBUNGKAN KE ROOM GURU... ]</span>
+                ) : (
+                  <>
+                    <Key className="w-4 h-4 stroke-[2.5]" />
+                    <span>[ 🚀 GABUNG KELAS & BUKA MISI ]</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* 1-Click Demo Shortcut */}
+            <div className="pt-2 border-t-2 border-zinc-200 space-y-2">
+              <span className="text-[10px] font-black uppercase text-zinc-500 block">
+                AKSES CEPAT PENGUJIAN JURI / EVALUATOR:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setInputPin("EDU889");
+                  handleJoinClassroom("EDU889");
+                }}
+                disabled={isJoining}
+                className="w-full brutal-btn-white py-2.5 text-xs font-mono font-black uppercase flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 stroke-[2.5]" />
+                <span>[ ⚡ 1-KLIK GABUNG KELAS DEMO: EDU889 (PAK BUDI) ]</span>
+              </button>
+            </div>
+          </div>
         </div>
+        {renderSharedModals()}
+      </>
+    );
+  }
 
-        {/* 4 Neo-Brutalist Game Cartridges (Light Cards) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {GAME_MODES.map((mode) => (
-            <div
-              key={mode.id}
-              onClick={() => {
-                setSelectedMode(mode.id);
-                setStep("scanning");
-                setIsCameraActive(true);
-              }}
-              className="group cursor-pointer bg-white border-2 border-black p-6 shadow-[4px_4px_0px_#000000] transition-all hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[6px_6px_0px_#facc15] flex flex-col justify-between"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b-2 border-zinc-200 pb-3">
-                  <span className="font-mono text-xs font-black bg-[#facc15] text-black px-2.5 py-1 border border-black shadow-[2px_2px_0px_#000000]">
-                    [{mode.code}]
-                  </span>
-                  <span className="font-mono text-[11px] font-bold uppercase text-zinc-600">
-                    {mode.badge}
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="text-4xl p-2.5 bg-zinc-50 border-2 border-black shadow-[2px_2px_0px_#000000] group-hover:scale-105 transition-transform">
-                    {mode.icon}
-                  </div>
-                  <div>
-                    <h3 className="font-black text-xl text-black uppercase tracking-tight group-hover:text-amber-600 transition-colors">
-                      {mode.title}
-                    </h3>
-                    <span className="font-mono text-xs font-bold text-cyan-700 block mt-0.5">
-                      TARGET: {mode.target}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-xs font-mono text-zinc-700 leading-relaxed bg-zinc-50 p-3.5 border border-black">
-                  {mode.description}
+  // ============================================================================
+  // RENDER: STEP 1 - KELAS TERHUBUNG // MISI KHUSUS KELAS GURU
+  // ============================================================================
+  if (step === "select_mode" && activeClassroom) {
+    return (
+      <>
+        <div className="max-w-4xl mx-auto space-y-6 font-mono text-black">
+          {/* Active Class Header */}
+          <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-[#facc15] border-2 border-black shadow-[2px_2px_0px_#000000]">
+                <GraduationCap className="w-6 h-6 text-black stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-800 block">
+                  [ 🎓 KELAS AKTIF TERHUBUNG ]
+                </span>
+                <h3 className="font-black text-lg text-black uppercase">
+                  PIN: [{activeClassroom.roomCode}] • GURU: {activeClassroom.creatorName}
+                </h3>
+                <p className="text-xs text-cyan-800 font-bold">
+                  Target CEFR: {activeClassroom.difficultyLevel}
                 </p>
               </div>
+            </div>
 
-              <div className="mt-5 pt-4 border-t-2 border-zinc-200 flex items-center justify-between">
-                <span className="font-mono text-xs font-black uppercase text-black group-hover:text-amber-600">
-                  [ AKTIFKAN KAMERA ]
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPokedexModal(true)}
+                className="brutal-btn-yellow px-3.5 py-2 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>🎒 BUKU KOLEKSI ({pokedexDeck.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleLeaveClassroom}
+                className="brutal-btn-white px-3.5 py-2 text-xs font-mono text-red-600 hover:text-red-800 font-black flex items-center gap-1"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>[ KELUAR KELAS ]</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Teacher's Mission Memorandum Card */}
+          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#000000] space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-4">
+              <div>
+                <span className="text-xs font-black uppercase text-zinc-600 block">
+                  [TUGAS DARI GURU UNTUKMU]:
                 </span>
-                <ArrowRight className="w-4 h-4 text-black group-hover:translate-x-1.5 transition-transform stroke-[3]" />
+                <h2 className="text-2xl sm:text-3xl font-black text-black uppercase tracking-tight">
+                  {activeClassroom.questTitle}
+                </h2>
+              </div>
+              <span className="font-mono text-xs font-black bg-[#facc15] text-black px-3.5 py-1.5 border-2 border-black shadow-[2px_2px_0px_#000000]">
+                ⏱️ WAKTU MISI: 180 DETIK
+              </span>
+            </div>
+
+            <div className="p-4 bg-zinc-50 border-2 border-black space-y-2 text-xs sm:text-sm text-zinc-800 leading-relaxed">
+              <span className="font-black text-black block uppercase">
+                [SKENARIO KASUS NYATA]:
+              </span>
+              <p>{activeClassroom.scenarioStory}</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 bg-zinc-50 border border-black space-y-1">
+                <span className="font-black text-black block uppercase text-[11px]">
+                  [NPC PENGUJI / MITRA BICARA]:
+                </span>
+                <p className="font-bold text-black">{activeClassroom.npcName}</p>
+                <p className="text-zinc-600 italic text-[11px]">{activeClassroom.npcRole}</p>
+              </div>
+
+              <div className="p-4 bg-zinc-50 border border-black space-y-1">
+                <span className="font-black text-black block uppercase text-[11px]">
+                  [BENDA NYATA YANG HARUS DISCAN DI MEJAMU]:
+                </span>
+                <p className="font-bold text-cyan-800">{activeClassroom.requiredHint}</p>
               </div>
             </div>
-          ))}
+
+            {activeClassroom.targetVocab && activeClassroom.targetVocab.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-black text-black uppercase">
+                  KOSAKATA WAJIB DIUCAPKAN:
+                </span>
+                {activeClassroom.targetVocab.map((w, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 bg-[#facc15] text-black font-black uppercase border border-black shadow-[2px_2px_0px_#000000]"
+                  >
+                    {w}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("scanning");
+                  setIsCameraActive(true);
+                }}
+                className="brutal-btn-yellow px-8 py-4 text-sm sm:text-base font-black uppercase flex items-center gap-2 shadow-[4px_4px_0px_#000000]"
+              >
+                <Camera className="w-5 h-5 stroke-[2.5]" />
+                <span>[ 📸 NYALAKAN KAMERA & KERJAKAN MISI KELAS ]</span>
+                <ArrowRight className="w-5 h-5 stroke-[3]" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-      {renderSharedModals()}
-    </>
-  );
-}
+        {renderSharedModals()}
+      </>
+    );
+  }
 
   // ============================================================================
   // RENDER: STEP 2 - SCANNING REAL OBJECTS (INDUSTRIAL APERTURE VIEWFINDER)
@@ -858,13 +1164,24 @@ export default function StudentGameView({
   if (step === "scanning") {
     return (
       <>
-        <div className="max-w-3xl mx-auto space-y-5 font-mono">
+        <div className="max-w-3xl mx-auto space-y-4 font-mono">
+          {/* Active Class Indicator */}
+          {activeClassroom && (
+            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
+                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
+              </div>
+              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <button
               onClick={() => setStep("select_mode")}
               className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
             >
-              ← KEMBALI KE PILIHAN MODE
+              ← KEMBALI KE MISI KELAS
             </button>
             <div className="flex items-center gap-2">
               <button
@@ -1006,7 +1323,18 @@ export default function StudentGameView({
   if (step === "inventory") {
     return (
       <>
-        <div className="max-w-4xl mx-auto space-y-6 font-mono">
+        <div className="max-w-4xl mx-auto space-y-4 font-mono">
+          {/* Active Class Indicator */}
+          {activeClassroom && (
+            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
+                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
+              </div>
+              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <button
               onClick={() => setStep("scanning")}
@@ -1147,6 +1475,17 @@ export default function StudentGameView({
     return (
       <>
         <div className="max-w-4xl mx-auto space-y-4 font-mono">
+          {/* Active Class Indicator */}
+          {activeClassroom && (
+            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
+                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
+              </div>
+              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
+            </div>
+          )}
+
           {/* Top Bar: NPC Identity & Arcade Rapport Meter */}
           <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1415,7 +1754,18 @@ export default function StudentGameView({
   if (step === "autopsy") {
     return (
       <>
-        <div className="max-w-4xl mx-auto space-y-6 font-mono">
+        <div className="max-w-4xl mx-auto space-y-4 font-mono">
+          {/* Active Class Indicator */}
+          {activeClassroom && (
+            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
+                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
+              </div>
+              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3.5 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
               [POST-GAME CEFR REPLAY & AUTOPSY]

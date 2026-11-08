@@ -20,6 +20,7 @@ export async function POST(req: Request) {
       hesitationSeconds = 2.5,
       codeSwitchingCount = 0,
       studentName = "Siswa LinguaQuest",
+      roomCode = "CLASS-10A",
     }: {
       quest: QuestScenario;
       messages: RoleplayTurnMessage[];
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
       hesitationSeconds: number;
       codeSwitchingCount: number;
       studentName: string;
+      roomCode?: string;
     } = body;
 
     const studentLines = messages
@@ -168,10 +170,12 @@ OUTPUT MUST BE STRICTLY JSON:
       await query(
         `INSERT INTO speaking_sessions 
          (id, user_id, quest_id, class_code, duration_seconds, cefr_level, overall_score, fluency_score, pronunciation_score, vocabulary_score, grammar_score, hesitation_seconds, code_switching_count, transcript_json, feedback_json, native_upgrades_json, xp_earned)
-         VALUES (?, 'student_demo', ?, 'CLASS-10A', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           evaluation.id,
+          studentName || 'student_demo',
           quest.id,
+          roomCode || 'CLASS-10A',
           durationSeconds,
           evaluation.cefrLevel,
           evaluation.overallScore,
