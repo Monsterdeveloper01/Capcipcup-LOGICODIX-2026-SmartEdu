@@ -69,6 +69,7 @@ export interface SpeakingEvaluation {
   areasToImprove: string[];
   nativeUpgrades: NativeUpgrade[];
   xpEarned: number;
+  transcriptMessages?: Array<{ sender: "student" | "npc"; text: string; upgrade?: string; timestamp?: number }>;
   badgeUnlocked?: {
     title: string;
     icon: string;

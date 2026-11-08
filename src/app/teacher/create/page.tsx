@@ -2,25 +2,167 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { GraduationCap, ArrowLeft, Sparkles, Terminal, Key } from "lucide-react";
+import { GraduationCap, ArrowLeft, Sparkles, Plus, Trash2, CheckCircle2, BookOpen, Layers } from "lucide-react";
 import Link from "next/link";
+
+interface QuizQuestionItem {
+  question: string;
+  options: [string, string, string, string];
+  correctIndex: number;
+  explanation: string;
+}
 
 export default function TeacherCreateRoomPage() {
   const router = useRouter();
 
+  // Basic Info
   const [creatorName, setCreatorName] = useState("Budi Santoso, S.Pd");
-  const [topic, setTopic] = useState("Eco-Friendly Packaging & Youth Innovation");
-  const [gradeLevel, setGradeLevel] = useState("SMK Kelas 11 (Perhotelan & Bisnis)");
+  const [topic, setTopic] = useState("Eco-Friendly Hospitality & Sustainable Living");
+  const [gradeLevel, setGradeLevel] = useState("SMK Kelas 11 (Perhotelan & Pariwisata)");
   const [difficultyLevel, setDifficultyLevel] = useState("B1");
   const [roomCode, setRoomCode] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
+
+  // Builder Mode: "ai_assisted" or "manual"
+  const [builderMode, setBuilderMode] = useState<"ai_assisted" | "manual">("ai_assisted");
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleCreateRoom = async (e: React.FormEvent) => {
+  // Case Study Details
+  const [caseTitle, setCaseTitle] = useState("Misi Studi Kasus: Eco-Friendly Hospitality");
+  const [caseStory, setCaseStory] = useState(
+    "Hotel tempatmu bertugas sedang meluncurkan program ramah lingkungan. Hadapi tamu VIP asing yang menanyakan detail fasilitas bebas plastik dan tawarkan alternatif fasilitas ramah lingkungan."
+  );
+  const [npcName, setNpcName] = useState("Mr. Arthur (VIP Foreign Guest)");
+  const [npcPersona, setNpcPersona] = useState("Kritis, teliti tentang kebersihan dan kelestarian alam, ramah jika dilayani profesional.");
+  const [targetVocab, setTargetVocab] = useState("sustainable, biodegradable, hospitality, amenity, alternative");
+  const [requiredHint, setRequiredHint] = useState("Gunakan botol minum atau wadah reusable di sekitarmu!");
+
+  // Pre-Quiz Questions (3 to 5 questions)
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestionItem[]>([
+    {
+      question: "Which term best describes hotel amenities that degrade naturally without polluting?",
+      options: ["Biodegradable", "Disposable", "Hazardous", "Permanent"],
+      correctIndex: 0,
+      explanation: "'Biodegradable' means capable of being decomposed by bacteria or other living organisms.",
+    },
+    {
+      question: "What is the most polite phrase to offer an alternative amenity to a VIP guest?",
+      options: [
+        "Take it or leave it, sir.",
+        "May I recommend our eco-friendly wooden kit instead?",
+        "We don't care about plastic here.",
+        "You should bring your own stuff."
+      ],
+      correctIndex: 1,
+      explanation: "'May I recommend...' is a polite standard formula in international hospitality.",
+    },
+    {
+      question: "When a guest is dissatisfied, what is the best first reaction in professional English?",
+      options: [
+        "I apologize for the inconvenience and I will resolve it immediately.",
+        "It's not my fault, go talk to the manager.",
+        "Why are you so picky today?",
+        "Please remain silent."
+      ],
+      correctIndex: 0,
+      explanation: "Apologizing empathetically and taking immediate ownership is the golden rule of hospitality.",
+    },
+  ]);
+
+  // AI Draft Generator Handler
+  const handleGenerateAiDraft = async () => {
+    setIsGeneratingDraft(true);
+    try {
+      const res = await fetch("/api/generate-quest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "ROOM",
+          creatorName,
+          topic,
+          difficultyLevel,
+          detected_labels: ["bottle", "book", "cup"],
+          generateOnly: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal membuat draf dengan AI.");
+
+      if (data.draft) {
+        setCaseTitle(data.draft.title || caseTitle);
+        setCaseStory(data.draft.case_study_story || caseStory);
+        setNpcName(data.draft.npc_name || npcName);
+        setNpcPersona(data.draft.npc_persona || npcPersona);
+        setRequiredHint(data.draft.required_object_hint || requiredHint);
+        if (data.draft.target_vocabularies) {
+          setTargetVocab(data.draft.target_vocabularies.join(", "));
+        }
+        if (data.draft.quiz_questions && data.draft.quiz_questions.length > 0) {
+          setQuizQuestions(data.draft.quiz_questions);
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || "Gagal menghubungi AI. Draf bawaan tetap digunakan.");
+    } finally {
+      setIsGeneratingDraft(false);
+    }
+  };
+
+  // Question editing helpers
+  const handleAddQuestion = () => {
+    setQuizQuestions([
+      ...quizQuestions,
+      {
+        question: "Pertanyaan kuis baru...",
+        options: ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
+        correctIndex: 0,
+        explanation: "Penjelasan mengapa jawaban ini benar.",
+      },
+    ]);
+  };
+
+  const handleRemoveQuestion = (idx: number) => {
+    if (quizQuestions.length <= 1) {
+      alert("Minimal harus ada 1 butir soal kuis.");
+      return;
+    }
+    setQuizQuestions(quizQuestions.filter((_, i) => i !== idx));
+  };
+
+  const handleUpdateQuestionText = (idx: number, text: string) => {
+    const updated = [...quizQuestions];
+    updated[idx].question = text;
+    setQuizQuestions(updated);
+  };
+
+  const handleUpdateOption = (qIdx: number, optIdx: number, val: string) => {
+    const updated = [...quizQuestions];
+    updated[qIdx].options[optIdx] = val;
+    setQuizQuestions(updated);
+  };
+
+  const handleSetCorrectIndex = (qIdx: number, correctIdx: number) => {
+    const updated = [...quizQuestions];
+    updated[qIdx].correctIndex = correctIdx;
+    setQuizQuestions(updated);
+  };
+
+  const handleUpdateExplanation = (qIdx: number, text: string) => {
+    const updated = [...quizQuestions];
+    updated[qIdx].explanation = text;
+    setQuizQuestions(updated);
+  };
+
+  // Submit Final Room & Case Study
+  const handleSaveAndCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic || !creatorName) return;
 
     setIsSubmitting(true);
     try {
+      const vocabList = targetVocab.split(",").map((v) => v.trim()).filter(Boolean);
+
       const res = await fetch("/api/generate-quest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -31,11 +173,25 @@ export default function TeacherCreateRoomPage() {
           topic,
           difficultyLevel,
           detected_labels: ["bottle", "book", "cup"],
+          customCase: {
+            title: caseTitle,
+            case_study_story: caseStory,
+            npc_name: npcName,
+            npc_persona: npcPersona,
+            required_object_hint: requiredHint,
+            mission_objectives: [
+              `Gunakan minimal 2 kosakata target (${vocabList.slice(0, 2).join(", ")})`,
+              "Jawab keluhan atau pertanyaan NPC dengan sopan dan lugas",
+              "Selesaikan misi sebelum batas waktu berakhir",
+            ],
+            target_vocabularies: vocabList,
+          },
+          customQuiz: quizQuestions,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal membuat room.");
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan room.");
 
       router.push(`/teacher/room/${data.quest.room_code || roomCode}`);
     } catch (err: any) {
@@ -46,126 +202,346 @@ export default function TeacherCreateRoomPage() {
   };
 
   return (
-    <div className="min-h-screen brutal-grid text-white font-mono p-4 sm:p-6 lg:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <Link
-          href="/"
-          className="brutal-btn-dark px-3.5 py-1.5 text-xs font-black inline-flex items-center gap-1.5"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>[ KEMBALI KE HOME ]</span>
-        </Link>
+    <div className="min-h-screen bg-[#f8fafc] text-black font-mono p-4 sm:p-6 lg:p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Navigation & Header */}
+        <div className="flex items-center justify-between">
+          <Link
+            href="/"
+            className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono inline-flex items-center gap-1.5"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>[ KEMBALI KE BERANDA ]</span>
+          </Link>
+          <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
+            [TEACHER STUDIO // ROOM & CASE BUILDER]
+          </span>
+        </div>
 
-        {/* Header */}
-        <div className="border-4 border-black dark:border-white bg-[#111317] p-6 shadow-[6px_6px_0px_#000000] dark:shadow-[6px_6px_0px_#22d3ee] space-y-2">
-          <div className="flex items-center gap-2 text-[#22d3ee] text-xs font-black uppercase">
-            <GraduationCap className="w-4 h-4 stroke-[2.5]" />
-            <span>[TEACHER STUDIO // ROOM & CASE-STUDY CREATOR]</span>
+        {/* Hero Banner */}
+        <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] space-y-3">
+          <div className="flex items-center gap-2 text-cyan-700 text-xs font-black uppercase">
+            <GraduationCap className="w-5 h-5 stroke-[2.5]" />
+            <span>[FEATURE 1: CUSTOM CASE & PRE-QUIZ BUILDER]</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">
-            BUAT ROOM KELAS & MISI STUDI KASUS
+          <h1 className="text-2xl sm:text-4xl font-black text-black uppercase tracking-tight">
+            RANCANG STUDI KASUS & BUTIR SOAL KUIS MANDIRI
           </h1>
-          <p className="text-xs text-zinc-300 leading-relaxed">
-            Sistem akan men-generate skenario roleplay, target kosakata, dan kuis otomatis menggunakan Gemini AI dalam hitungan detik. Murid dapat bergabung menggunakan PIN 6-digit.
+          <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed max-w-2xl">
+            Sebagai guru, Anda bebas memilih: gunakan <strong>AI Auto-Generate</strong> untuk draf instan atau susun <strong>soal kuis pilihan ganda dan skenario studi kasus sendiri secara manual</strong>. Seluruh data tersimpan otomatis di MariaDB.
           </p>
         </div>
 
-        {/* Creation Form */}
-        <div className="border-3 border-black dark:border-white bg-[#111317] p-6 sm:p-7 shadow-[5px_5px_0px_#000000] space-y-5">
-          <form onSubmit={handleCreateRoom} className="space-y-4 text-xs">
-            <div>
-              <label className="font-black text-zinc-300 block mb-1 uppercase">
-                Nama Pengajar / Guru:
-              </label>
-              <input
-                type="text"
-                required
-                value={creatorName}
-                onChange={(e) => setCreatorName(e.target.value)}
-                className="w-full px-4 py-3 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
-              />
+        {/* Builder Mode Selector */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setBuilderMode("ai_assisted")}
+            className={`px-4 py-2.5 text-xs font-mono font-black uppercase border-2 border-black shadow-[3px_3px_0px_#000000] flex items-center gap-2 ${
+              builderMode === "ai_assisted" ? "bg-[#facc15] text-black" : "bg-white text-zinc-700 hover:bg-zinc-100"
+            }`}
+          >
+            <Sparkles className="w-4 h-4 stroke-[2.5]" />
+            <span>MODE A: ⚡ AI AUTO-GENERATE DRAF (BISA DIEDIT)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBuilderMode("manual")}
+            className={`px-4 py-2.5 text-xs font-mono font-black uppercase border-2 border-black shadow-[3px_3px_0px_#000000] flex items-center gap-2 ${
+              builderMode === "manual" ? "bg-[#22d3ee] text-black" : "bg-white text-zinc-700 hover:bg-zinc-100"
+            }`}
+          >
+            <Layers className="w-4 h-4 stroke-[2.5]" />
+            <span>MODE B: ✍️ MANUAL BUILDER (KONTROL PENUH GURU)</span>
+          </button>
+        </div>
+
+        {/* Main Form */}
+        <form onSubmit={handleSaveAndCreateRoom} className="space-y-6">
+          {/* Section 1: Room & Metadata */}
+          <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+            <div className="border-b-2 border-zinc-200 pb-3 flex items-center justify-between">
+              <span className="text-xs font-black uppercase text-black">[01. METADATA ROOM & KELAS]</span>
+              <span className="text-xs font-bold text-zinc-500">PIN 6-DIGIT OTOMATIS</span>
             </div>
 
-            <div>
-              <label className="font-black text-zinc-300 block mb-1 uppercase">
-                Topik Studi Kasus / Materi Pembelajaran (RPP):
-              </label>
-              <input
-                type="text"
-                required
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="Contoh: Handling Guest Complaints / Sustainable Tourism"
-                className="w-full px-4 py-3 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
               <div>
-                <label className="font-black text-zinc-300 block mb-1 uppercase">
-                  Tingkat Kelas:
-                </label>
+                <label className="font-black text-black block mb-1 uppercase">Nama Guru / Pengajar:</label>
                 <input
                   type="text"
-                  value={gradeLevel}
-                  onChange={(e) => setGradeLevel(e.target.value)}
-                  className="w-full px-4 py-3 bg-black border-2 border-white text-white font-mono focus:border-[#facc15] focus:outline-none"
+                  required
+                  value={creatorName}
+                  onChange={(e) => setCreatorName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="font-black text-zinc-300 block mb-1 uppercase">
-                  Target CEFR Difficulty:
-                </label>
+                <label className="font-black text-black block mb-1 uppercase">Tingkat Kelas / RPP:</label>
+                <input
+                  type="text"
+                  value={gradeLevel}
+                  onChange={(e) => setGradeLevel(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-black text-black block mb-1 uppercase">Topik Utama / Unit Materi:</label>
+                <input
+                  type="text"
+                  required
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="Contoh: Sustainable Hospitality / Job Interview Prep"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-black text-black block mb-1 uppercase">Target Standar CEFR:</label>
                 <select
                   value={difficultyLevel}
                   onChange={(e) => setDifficultyLevel(e.target.value)}
-                  className="w-full px-4 py-3 bg-black border-2 border-white text-white font-black"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-black focus:outline-none"
                 >
                   <option value="A2">A2 (Elementary)</option>
-                  <option value="B1">B1 (Intermediate - Recommended)</option>
+                  <option value="B1">B1 (Intermediate - Direkomendasikan)</option>
                   <option value="B2">B2 (Vantage / Upper Intermediate)</option>
                   <option value="C1">C1 (Effective Operational Proficiency)</option>
                 </select>
               </div>
             </div>
 
-            <div className="p-4 bg-black border-2 border-[#facc15] flex items-center justify-between">
+            <div className="p-4 bg-zinc-50 border-2 border-black flex flex-wrap items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] font-black uppercase text-zinc-400 block">
-                  PIN ROOM GENERATED UNTUK SISWA:
+                <span className="text-[10px] font-black uppercase text-zinc-600 block">
+                  PIN ROOM UNTUK 35 SISWA:
                 </span>
-                <span className="text-2xl font-black text-[#facc15] tracking-widest">
+                <span className="text-3xl font-black text-black tracking-widest bg-[#facc15] px-3 py-0.5 border border-black inline-block mt-1">
                   {roomCode}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setRoomCode(Math.random().toString(36).substring(2, 8).toUpperCase())}
-                className="brutal-btn-dark px-3 py-1.5 text-xs font-black uppercase"
+                className="brutal-btn-white px-3.5 py-2 text-xs font-mono font-black uppercase"
               >
-                [ ACAK PIN ]
+                [ REGENERATE PIN ]
               </button>
+            </div>
+          </div>
+
+          {/* Section 2: Case Study & NPC Persona */}
+          <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+            <div className="border-b-2 border-zinc-200 pb-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-black uppercase text-black">[02. SKENARIO STUDI KASUS & KARAKTER NPC]</span>
+              {builderMode === "ai_assisted" && (
+                <button
+                  type="button"
+                  onClick={handleGenerateAiDraft}
+                  disabled={isGeneratingDraft}
+                  className="brutal-btn-yellow px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{isGeneratingDraft ? "[ AI MERANCANG DRAF... ]" : "[ ⚡ AUTO-GENERATE DRAF AI ]"}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="font-black text-black block mb-1 uppercase">Judul Misi Studi Kasus:</label>
+                <input
+                  type="text"
+                  required
+                  value={caseTitle}
+                  onChange={(e) => setCaseTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-black text-black block mb-1 uppercase">Narasi Kasus / Skenario Darurat:</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={caseStory}
+                  onChange={(e) => setCaseStory(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-black text-black block mb-1 uppercase">Nama & Peran NPC:</label>
+                  <input
+                    type="text"
+                    required
+                    value={npcName}
+                    onChange={(e) => setNpcName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-black text-black block mb-1 uppercase">Persona / Karakteristik Berbicara NPC:</label>
+                  <input
+                    type="text"
+                    required
+                    value={npcPersona}
+                    onChange={(e) => setNpcPersona(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-black text-black block mb-1 uppercase">Kosakata Wajib (Pisahkan dengan koma):</label>
+                  <input
+                    type="text"
+                    required
+                    value={targetVocab}
+                    onChange={(e) => setTargetVocab(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-black text-black block mb-1 uppercase">Petunjuk Objek Nyata Kamera:</label>
+                  <input
+                    type="text"
+                    required
+                    value={requiredHint}
+                    onChange={(e) => setRequiredHint(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-black font-mono focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Pre-Quiz Questions Editor */}
+          <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
+            <div className="border-b-2 border-zinc-200 pb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-black uppercase text-black block">
+                  [03. BUTIR SOAL PRE-QUIZ ({quizQuestions.length} SOAL TERSEDIA)]
+                </span>
+                <span className="text-[11px] text-zinc-600">
+                  Dikerjakan murid sebagai pengantar sebelum berbicara ke NPC.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddQuestion}
+                className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>+ TAMBAH SOAL KUIS</span>
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {quizQuestions.map((q, qIdx) => (
+                <div key={qIdx} className="p-4 bg-zinc-50 border-2 border-black space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black uppercase bg-[#facc15] px-2 py-0.5 border border-black">
+                      BUTIR SOAL #{qIdx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveQuestion(qIdx)}
+                      title="Hapus Soal Ini"
+                      className="text-red-600 hover:text-red-800 font-bold flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>HAPUS</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-black block mb-1">Pertanyaan:</label>
+                    <input
+                      type="text"
+                      required
+                      value={q.question}
+                      onChange={(e) => handleUpdateQuestionText(qIdx, e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-black font-mono focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="font-bold text-black block">Pilihan Jawaban (Pilih radio untuk Kunci Jawaban):</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {q.options.map((opt, optIdx) => (
+                        <div
+                          key={optIdx}
+                          className={`flex items-center gap-2 p-2 border ${
+                            q.correctIndex === optIdx ? "bg-emerald-50 border-emerald-600" : "bg-white border-zinc-300"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`correct_${qIdx}`}
+                            checked={q.correctIndex === optIdx}
+                            onChange={() => handleSetCorrectIndex(qIdx, optIdx)}
+                            className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                          />
+                          <span className="font-bold text-black w-4">{String.fromCharCode(65 + optIdx)}.</span>
+                          <input
+                            type="text"
+                            required
+                            value={opt}
+                            onChange={(e) => handleUpdateOption(qIdx, optIdx, e.target.value)}
+                            className="flex-1 px-2 py-1 bg-transparent border-b border-zinc-400 focus:outline-none text-xs"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-black block mb-1">Penjelasan Kunci Jawaban (Edukasi):</label>
+                    <input
+                      type="text"
+                      required
+                      value={q.explanation}
+                      onChange={(e) => handleUpdateExplanation(qIdx, e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-black font-mono text-xs focus:outline-none text-zinc-700"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit Action Button */}
+          <div className="border-2 border-black bg-white p-5 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
+            <div className="text-xs font-mono text-zinc-700">
+              <span className="font-black text-black block uppercase">STATUS ROOM KELAS:</span>
+              PIN [{roomCode}] Siap dipublikasikan ke siswa
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full brutal-btn-yellow py-4 text-xs sm:text-sm font-black uppercase flex items-center justify-center gap-2"
+              className="brutal-btn-yellow px-8 py-3.5 text-xs sm:text-sm font-mono font-black uppercase flex items-center gap-2 shadow-[4px_4px_0px_#000000]"
             >
               {isSubmitting ? (
-                <span>[ AI SEDANG MERANCANG STUDI KASUS & SOAL KUIS... ]</span>
+                <span>[ MENYIMPAN ROOM & KUIS KE MARIADB... ]</span>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                  <span>[ BUAT ROOM & BUKA DASHBOARD KELAS ]</span>
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                  <span>[ SIMPAN ROOM & BUKA DASHBOARD KELAS ]</span>
                 </>
               )}
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
-

@@ -19,6 +19,10 @@ import {
   ShieldAlert,
   Radio,
   Sparkles,
+  BookOpen,
+  Search,
+  X,
+  Lightbulb,
 } from "lucide-react";
 
 const GAME_MODES = [
@@ -83,6 +87,21 @@ export default function StudentGameView({
   const [currentQuest, setCurrentQuest] = useState<QuestScenario | null>(null);
   const [inventoryItems, setInventoryItems] = useState<ScannedItem[]>([]);
 
+  // Feature 3: Buku Koleksi Kartu / Vocab Pokedex ("My Inventory Deck")
+  const [showPokedexModal, setShowPokedexModal] = useState<boolean>(false);
+  const [pokedexDeck, setPokedexDeck] = useState<ScannedItem[]>([]);
+  const [pokedexSearch, setPokedexSearch] = useState<string>("");
+
+  // Feature 5: AI Child-Safety & Hazard Guardrail ("Safe-School Shield")
+  const [safetyAlert, setSafetyAlert] = useState<{ isHazard: boolean; hazardName: string; warningMessage: string } | null>(null);
+  const [showSafetyModal, setShowSafetyModal] = useState<boolean>(false);
+  const [safetyViolationNotice, setSafetyViolationNotice] = useState<string | null>(null);
+
+  // Feature 6: Lupa Kosakata / Code-Switching Rescue (ID -> EN)
+  const [codeSwitchRescue, setCodeSwitchRescue] = useState<{ detectedIndonesianWord: string; englishEquivalent: string; explanation: string } | null>(null);
+  const [showSosModal, setShowSosModal] = useState<boolean>(false);
+  const [sosInput, setSosInput] = useState<string>("");
+
   // HUD & Speaking State
   const [messages, setMessages] = useState<RoleplayTurnMessage[]>([]);
   const [rapport, setRapport] = useState<number>(20);
@@ -100,6 +119,71 @@ export default function StudentGameView({
 
   // Speech Recognition Ref
   const recognitionRef = useRef<any>(null);
+
+  // Load / Seed Vocab Pokedex from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("lq_inventory_deck");
+        if (saved) {
+          setPokedexDeck(JSON.parse(saved));
+        } else {
+          const defaultDeck: ScannedItem[] = [
+            {
+              id: "dex_seed_1",
+              objectName: "Botol Minum",
+              englishWord: "Tumbler / Water Bottle",
+              phonetics: "/ˈtʌm.blər/",
+              meaningId: "Botol wadah minuman praktis tahan lama",
+              rpgAttribute: "+15 Hydration Endurance",
+              idiom: "Pour oil on troubled waters (Menenangkan suasana tegang)",
+              iconName: "Droplet",
+              usedInSpeech: false,
+            },
+            {
+              id: "dex_seed_2",
+              objectName: "Buku Catatan",
+              englishWord: "Notebook",
+              phonetics: "/ˈnoʊt.bʊk/",
+              meaningId: "Buku catatan untuk menulis ide dan materi",
+              rpgAttribute: "+20 Arcane Knowledge",
+              idiom: "Read between the lines (Menangkap makna tersirat)",
+              iconName: "BookOpen",
+              usedInSpeech: false,
+            },
+            {
+              id: "dex_seed_3",
+              objectName: "Cangkir Kopi",
+              englishWord: "Coffee Mug",
+              phonetics: "/ˈkɔː.fi mʌɡ/",
+              meaningId: "Cangkir tempat minum kopi atau teh",
+              rpgAttribute: "+25 Focus & Energy",
+              idiom: "Not my cup of tea (Bukan hal yang saya sukai)",
+              iconName: "Coffee",
+              usedInSpeech: false,
+            },
+          ];
+          localStorage.setItem("lq_inventory_deck", JSON.stringify(defaultDeck));
+          setPokedexDeck(defaultDeck);
+        }
+      } catch (e) {
+        console.warn("Pokedex load error:", e);
+      }
+    }
+  }, []);
+
+  const saveItemsToPokedex = (newItems: ScannedItem[]) => {
+    if (typeof window === "undefined" || !newItems || newItems.length === 0) return;
+    setPokedexDeck((prev) => {
+      const existing = new Set(prev.map((i) => i.englishWord.toLowerCase()));
+      const filtered = newItems.filter((i) => !existing.has(i.englishWord.toLowerCase()));
+      const updated = [...filtered, ...prev];
+      try {
+        localStorage.setItem("lq_inventory_deck", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
 
   // ============================================================================
   // CAMERA STREAM HANDLER
@@ -242,6 +326,20 @@ export default function StudentGameView({
         throw new Error(data.error || "Gagal memproses gambar.");
       }
 
+      // Feature 5: Safe-School Shield Check
+      if (data.safetyAlert && data.safetyAlert.isHazard) {
+        setSafetyAlert(data.safetyAlert);
+        setShowSafetyModal(true);
+        setIsCameraActive(false);
+        setCapturedImage(null);
+        return;
+      }
+
+      // Feature 3: Save detected items to Vocab Pokedex
+      if (data.scannedItems && data.scannedItems.length > 0) {
+        saveItemsToPokedex(data.scannedItems);
+      }
+
       setCurrentQuest(data.quest);
       setInventoryItems(data.scannedItems);
       setStep("inventory");
@@ -324,6 +422,22 @@ export default function StudentGameView({
       setMessages((prev) => [...prev, npcMsg]);
       setRapport(data.newRapport);
 
+      // Feature 5 check: Safety violation during spoken dialogue
+      if (data.isSafetyViolation) {
+        setSafetyViolationNotice(
+          "⚠️ Safe-School Shield: Ujaran mengandung kata kasar atau tidak pantas. Poin Rapport berkurang -20. Silakan gunakan bahasa yang sopan dan santun."
+        );
+      } else {
+        setSafetyViolationNotice(null);
+      }
+
+      // Feature 6: Code-Switching Rescue (ID -> EN)
+      if (data.codeSwitchRescue && data.codeSwitchRescue.detectedIndonesianWord) {
+        setCodeSwitchRescue(data.codeSwitchRescue);
+      } else {
+        setCodeSwitchRescue(null);
+      }
+
       if (npcMsg.hint) setActiveHint(npcMsg.hint);
       speakText(npcMsg.text);
 
@@ -335,6 +449,14 @@ export default function StudentGameView({
     } finally {
       setIsAiThinking(false);
     }
+  };
+
+  const handleSendSosQuery = () => {
+    if (!sosInput.trim()) return;
+    const term = sosInput.trim();
+    setShowSosModal(false);
+    setSosInput("");
+    handleSendSpokenLine(`Excuse me, what is the English word for "${term}"?`);
   };
 
   // ============================================================================
@@ -387,27 +509,280 @@ export default function StudentGameView({
     setMessages([]);
     setEvaluation(null);
     setActiveHint(null);
+    setCodeSwitchRescue(null);
+    setSafetyViolationNotice(null);
   };
+
+  const filteredPokedexDeck = pokedexDeck.filter((item) => {
+    if (!pokedexSearch.trim()) return true;
+    const q = pokedexSearch.toLowerCase();
+    return (
+      item.englishWord.toLowerCase().includes(q) ||
+      item.objectName.toLowerCase().includes(q) ||
+      (item.idiom && item.idiom.toLowerCase().includes(q))
+    );
+  });
+
+  const renderSharedModals = () => (
+    <>
+      {/* Feature 3: Vocab Pokedex / My Inventory Deck Modal */}
+      {showPokedexModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-black w-full max-w-3xl shadow-[8px_8px_0px_#000000] p-6 space-y-5 font-mono text-black max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b-2 border-black pb-4">
+              <div className="flex items-center gap-3">
+                <span className="p-2 bg-[#facc15] border-2 border-black shadow-[2px_2px_0px_#000000]">
+                  <BookOpen className="w-6 h-6 text-black stroke-[2.5]" />
+                </span>
+                <div>
+                  <span className="text-[10px] font-black uppercase text-zinc-600 block">
+                    [FEATURE 3 // PERSISTENT INVENTORY DECK]
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
+                    BUKU KOLEKSI KATA (VOCAB POKEDEX)
+                  </h3>
+                  <p className="text-xs text-zinc-600">
+                    Total {pokedexDeck.length} kartu kosakata benda nyata tersimpan di memori perangkat
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPokedexModal(false)}
+                className="p-2 bg-black text-white hover:bg-zinc-800 border-2 border-black"
+              >
+                <X className="w-5 h-5 stroke-[2.5]" />
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-3.5 text-zinc-500" />
+              <input
+                type="text"
+                value={pokedexSearch}
+                onChange={(e) => setPokedexSearch(e.target.value)}
+                placeholder="Cari kartu (contoh: bottle, coffee, notebook)..."
+                className="w-full pl-9 pr-4 py-2.5 bg-zinc-50 border-2 border-black text-xs font-mono text-black focus:outline-none focus:bg-white"
+              />
+            </div>
+
+            {/* Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto p-1">
+              {filteredPokedexDeck.map((item, idx) => (
+                <div
+                  key={item.id || idx}
+                  className="bg-white border-2 border-black p-4 shadow-[3px_3px_0px_#000000] flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between border-b border-zinc-200 pb-1.5">
+                      <span className="text-[10px] font-black uppercase text-zinc-600 truncate max-w-[130px]">
+                        {item.objectName}
+                      </span>
+                      <button
+                        onClick={() => speakText(item.englishWord)}
+                        title="Dengarkan Pengucapan (IPA Audio)"
+                        className="brutal-btn-yellow p-1 text-[10px]"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <h4 className="font-black text-lg text-black uppercase tracking-tight">
+                        {item.englishWord}
+                      </h4>
+                      <span className="text-xs font-bold text-cyan-700 block">
+                        {item.phonetics}
+                      </span>
+                    </div>
+
+                    <div className="p-2 bg-zinc-50 border border-black text-[11px] text-zinc-800">
+                      <span className="font-black block uppercase text-[9px] text-black">
+                        [IDIOM]:
+                      </span>
+                      <p className="italic">"{item.idiom}"</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-zinc-200 text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                    <Zap className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">{item.rpgAttribute}</span>
+                  </div>
+                </div>
+              ))}
+              {filteredPokedexDeck.length === 0 && (
+                <div className="col-span-full py-8 text-center text-zinc-500 text-xs">
+                  Tidak ada kartu yang cocok dengan pencarian "{pokedexSearch}".
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t-2 border-zinc-200 pt-3 text-xs">
+              <span className="text-zinc-600 font-bold hidden sm:inline">
+                💡 Tip: Arahkan kamera ke meja untuk membuka kartu item baru!
+              </span>
+              <button
+                onClick={() => setShowPokedexModal(false)}
+                className="brutal-btn-yellow px-5 py-2 font-mono font-black uppercase ml-auto"
+              >
+                [ TUTUP POKEDEX ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feature 5: Safe-School Shield Hazard Alert Modal */}
+      {showSafetyModal && safetyAlert && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-red-600 w-full max-w-lg shadow-[8px_8px_0px_#dc2626] p-6 space-y-4 font-mono text-black">
+            <div className="flex items-center gap-3 border-b-2 border-red-600 pb-3">
+              <div className="p-2 bg-red-600 text-white">
+                <ShieldAlert className="w-7 h-7 stroke-[2.5]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-red-600 block">
+                  [SAFE-SCHOOL SHIELD // PROTOKOL KEAMANAN SEKOLAH]
+                </span>
+                <h3 className="text-xl font-black uppercase text-red-700 tracking-tight">
+                  BENDA BERBAHAYA TERDETEKSI!
+                </h3>
+              </div>
+            </div>
+
+            <div className="p-3 bg-red-50 border-2 border-red-600 space-y-2 text-xs">
+              <div>
+                <span className="font-black text-red-900 uppercase block">OBJEK YANG DILARANG:</span>
+                <span className="font-mono text-sm font-black text-red-700 bg-white px-2 py-0.5 border border-red-600 inline-block mt-0.5">
+                  ⚠️ {safetyAlert.hazardName}
+                </span>
+              </div>
+              <div>
+                <span className="font-black text-red-900 uppercase block">PENJELASAN EDUKATIF AI:</span>
+                <p className="text-red-800 leading-relaxed mt-0.5">
+                  {safetyAlert.warningMessage}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-600 leading-normal">
+              Demi kepatuhan kurikulum dan keselamatan lingkungan sekolah, LinguaQuest menolak memproses benda tajam, rokok/api, atau benda berbahaya lainnya. Silakan ganti dengan benda aman di mejamu (buku, pensil, botol minum, dll.).
+            </p>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowSafetyModal(false);
+                  setSafetyAlert(null);
+                  setCapturedImage(null);
+                  setIsCameraActive(true);
+                }}
+                className="brutal-btn-yellow px-6 py-3 text-xs font-mono font-black uppercase border-2 border-black shadow-[3px_3px_0px_#000000]"
+              >
+                [ SAYA MENGERTI — SCAN BENDA AMAN LAINNYA ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feature 6: Lupa Kosakata SOS Modal */}
+      {showSosModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-black w-full max-w-md shadow-[8px_8px_0px_#000000] p-6 space-y-4 font-mono text-black">
+            <div className="flex items-center justify-between border-b-2 border-black pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-[#facc15] border border-black">
+                  <Lightbulb className="w-5 h-5 text-black stroke-[2.5]" />
+                </span>
+                <div>
+                  <span className="text-[10px] font-black uppercase text-zinc-600 block">
+                    [CODE-SWITCHING RESCUE // ID -&gt; EN]
+                  </span>
+                  <h3 className="text-base font-black uppercase text-black">
+                    LUPA KATA BAHASA INGGRIS?
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSosModal(false)}
+                className="p-1 bg-black text-white hover:bg-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-700 leading-relaxed">
+              Ketik kata atau istilah Bahasa Indonesia yang ingin kamu tanyakan ke NPC. NPC AI akan langsung mengajarimu kata bahasa Inggrisnya di tengah percakapan!
+            </p>
+
+            <div>
+              <label className="font-black text-black block mb-1 text-xs uppercase">
+                Kata Bahasa Indonesia (contoh: talenan, timbangan, wadah):
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={sosInput}
+                onChange={(e) => setSosInput(e.target.value)}
+                placeholder="Contoh: talenan..."
+                onKeyDown={(e) => e.key === "Enter" && handleSendSosQuery()}
+                className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-sm font-mono text-black focus:outline-none focus:bg-white"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setShowSosModal(false)}
+                className="brutal-btn-white px-4 py-2 font-mono uppercase"
+              >
+                [ BATAL ]
+              </button>
+              <button
+                type="button"
+                onClick={handleSendSosQuery}
+                disabled={!sosInput.trim()}
+                className="brutal-btn-yellow px-5 py-2 font-mono font-black uppercase flex items-center gap-1.5"
+              >
+                <span>[ TANYA KE NPC SEKARANG ]</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   // ============================================================================
   // RENDER: STEP 1 - SELECT GAME MODE (NEO-BRUTALIST CARTRIDGES)
   // ============================================================================
   if (step === "select_mode") {
     return (
-      <div className="space-y-8 font-mono">
-        {/* Anti-slop Stark Brutalist Hero (Clean Light) */}
-        <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] relative">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-4 mb-5">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-[#facc15] border border-black inline-block" />
-              <span className="font-mono text-xs font-black uppercase tracking-widest text-black">
-                [PROTOCOL: LIVE_VISION_ENGLISH_RPG]
-              </span>
+      <>
+        <div className="space-y-8 font-mono">
+          {/* Anti-slop Stark Brutalist Hero (Clean Light) */}
+          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] relative">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-4 mb-5">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-[#facc15] border border-black inline-block" />
+                <span className="font-mono text-xs font-black uppercase tracking-widest text-black">
+                  [PROTOCOL: LIVE_VISION_ENGLISH_RPG]
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPokedexModal(true)}
+                  className="brutal-btn-yellow px-3.5 py-1.5 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
+                >
+                  <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>🎒 BUKU KOLEKSI KATA ({pokedexDeck.length})</span>
+                </button>
+              </div>
             </div>
-            <span className="font-mono text-xs font-bold text-zinc-600">
-              TARGET: PATAHKAN PASSIVE FLUENCY TRAP
-            </span>
-          </div>
 
           <h1 className="text-3xl sm:text-5xl font-black text-black uppercase tracking-tight leading-none mb-4">
             SCAN BENDA NYATA. HADAPI NPC. <br />
@@ -472,26 +847,39 @@ export default function StudentGameView({
           ))}
         </div>
       </div>
-    );
-  }
+      {renderSharedModals()}
+    </>
+  );
+}
 
   // ============================================================================
   // RENDER: STEP 2 - SCANNING REAL OBJECTS (INDUSTRIAL APERTURE VIEWFINDER)
   // ============================================================================
   if (step === "scanning") {
     return (
-      <div className="max-w-3xl mx-auto space-y-5 font-mono">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setStep("select_mode")}
-            className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
-          >
-            ← KEMBALI KE PILIHAN MODE
-          </button>
-          <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-            [LANGKAH 01: OBJECT_TO_INVENTORY]
-          </span>
-        </div>
+      <>
+        <div className="max-w-3xl mx-auto space-y-5 font-mono">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setStep("select_mode")}
+              className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
+            >
+              ← KEMBALI KE PILIHAN MODE
+            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPokedexModal(true)}
+                className="brutal-btn-yellow px-3 py-1 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>🎒 POKEDEX ({pokedexDeck.length})</span>
+              </button>
+              <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
+                [LANGKAH 01: OBJECT_TO_INVENTORY]
+              </span>
+            </div>
+          </div>
 
         {/* Industrial Viewfinder Frame (Clean Light Frame) */}
         <div className="border-2 border-black bg-white shadow-[4px_4px_0px_#000000] relative">
@@ -607,26 +995,39 @@ export default function StudentGameView({
           </div>
         </div>
       </div>
-    );
-  }
+      {renderSharedModals()}
+    </>
+  );
+}
 
   // ============================================================================
   // RENDER: STEP 3 - INVENTORY CARDS & QUEST BRIEFING (LIGHT TACTILE CARDS)
   // ============================================================================
   if (step === "inventory") {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 font-mono">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setStep("scanning")}
-            className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
-          >
-            ← SCAN FOTO LAIN
-          </button>
-          <span className="font-mono text-xs font-black uppercase bg-[#4ade80] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-            [STATUS: {inventoryItems.length} OBJEK TERDETEKSI & TERDAFTAR]
-          </span>
-        </div>
+      <>
+        <div className="max-w-4xl mx-auto space-y-6 font-mono">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setStep("scanning")}
+              className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
+            >
+              ← SCAN FOTO LAIN
+            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPokedexModal(true)}
+                className="brutal-btn-yellow px-3.5 py-1 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
+              >
+                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>🎒 BUKU KOLEKSI ({pokedexDeck.length})</span>
+              </button>
+              <span className="font-mono text-xs font-black uppercase bg-[#4ade80] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
+                [STATUS: {inventoryItems.length} OBJEK TERDAFTAR]
+              </span>
+            </div>
+          </div>
 
         {/* 3 Brutalist RPG Inventory Cards (Light Mode) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -734,53 +1135,66 @@ export default function StudentGameView({
           </div>
         )}
       </div>
-    );
-  }
+      {renderSharedModals()}
+    </>
+  );
+}
 
   // ============================================================================
   // RENDER: STEP 4 - LIVE COACHING HUD (LIGHT THEME ARCADE HUD)
   // ============================================================================
   if (step === "hud" && currentQuest) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4 font-mono">
-        {/* Top Bar: NPC Identity & Arcade Rapport Meter */}
-        <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl p-1.5 bg-zinc-50 border-2 border-black">{currentQuest.npcAvatar}</span>
-            <div>
-              <div className="font-mono text-[10px] font-black uppercase text-zinc-600">
-                [TARGET NPC]
+      <>
+        <div className="max-w-4xl mx-auto space-y-4 font-mono">
+          {/* Top Bar: NPC Identity & Arcade Rapport Meter */}
+          <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl p-1.5 bg-zinc-50 border-2 border-black">{currentQuest.npcAvatar}</span>
+              <div>
+                <div className="font-mono text-[10px] font-black uppercase text-zinc-600">
+                  [TARGET NPC]
+                </div>
+                <h3 className="font-black text-sm text-black uppercase">{currentQuest.npcName}</h3>
+                <p className="font-mono text-xs text-zinc-600">{currentQuest.npcRole}</p>
               </div>
-              <h3 className="font-black text-sm text-black uppercase">{currentQuest.npcName}</h3>
-              <p className="font-mono text-xs text-zinc-600">{currentQuest.npcRole}</p>
+            </div>
+
+            {/* Arcade Rapport Health Bar */}
+            <div className="flex-1 max-w-xs space-y-1">
+              <div className="flex items-center justify-between font-mono text-xs font-black">
+                <span className="text-zinc-600 uppercase">[RAPPORT METER]:</span>
+                <span className={rapport >= 80 ? "text-emerald-700 font-black" : "text-amber-700 font-black"}>
+                  {rapport}% {rapport >= 80 ? "[PASS!]" : "[TARGET: 80%]"}
+                </span>
+              </div>
+              <div className="w-full h-4 bg-zinc-100 border-2 border-black p-0.5">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    rapport >= 80 ? "bg-emerald-500" : "bg-[#facc15]"
+                  }`}
+                  style={{ width: `${rapport}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPokedexModal(true)}
+                className="brutal-btn-yellow px-3 py-2 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
+              >
+                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="hidden sm:inline">🎒 POKEDEX ({pokedexDeck.length})</span>
+              </button>
+              <button
+                onClick={() => finishQuestSession()}
+                className="brutal-btn-white px-3.5 py-2 text-xs font-mono"
+              >
+                [ SELESAIKAN & AUTOPSI ]
+              </button>
             </div>
           </div>
-
-          {/* Arcade Rapport Health Bar */}
-          <div className="flex-1 max-w-xs space-y-1">
-            <div className="flex items-center justify-between font-mono text-xs font-black">
-              <span className="text-zinc-600 uppercase">[RAPPORT METER]:</span>
-              <span className={rapport >= 80 ? "text-emerald-700 font-black" : "text-amber-700 font-black"}>
-                {rapport}% {rapport >= 80 ? "[PASS!]" : "[TARGET: 80%]"}
-              </span>
-            </div>
-            <div className="w-full h-4 bg-zinc-100 border-2 border-black p-0.5">
-              <div
-                className={`h-full transition-all duration-300 ${
-                  rapport >= 80 ? "bg-emerald-500" : "bg-[#facc15]"
-                }`}
-                style={{ width: `${rapport}%` }}
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={() => finishQuestSession()}
-            className="brutal-btn-white px-3.5 py-2 text-xs font-mono"
-          >
-            [ SELESAIKAN & AUTOPSI ]
-          </button>
-        </div>
 
         {/* Live Conversation Stream (Clean Light Stream) */}
         <div className="border-2 border-black bg-zinc-50 p-5 min-h-[340px] max-h-[420px] overflow-y-auto space-y-4 shadow-[4px_4px_0px_#000000] relative">
@@ -873,19 +1287,96 @@ export default function StudentGameView({
           ))}
         </div>
 
+        {/* Feature 5: Safety Violation Notice Banner */}
+        {safetyViolationNotice && (
+          <div className="p-3 bg-red-100 border-2 border-red-600 text-red-900 font-mono text-xs font-black flex items-center justify-between gap-3 shadow-[3px_3px_0px_#000000]">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <span>{safetyViolationNotice}</span>
+            </div>
+            <button
+              onClick={() => setSafetyViolationNotice(null)}
+              className="px-2 py-1 bg-red-600 text-white text-[10px] font-black uppercase"
+            >
+              [TUTUP]
+            </button>
+          </div>
+        )}
+
+        {/* Feature 6: Code-Switching Rescue Banner (ID -> EN) */}
+        {codeSwitchRescue && (
+          <div className="p-3.5 bg-[#fef08a] border-2 border-black text-black font-mono text-xs shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-3 animate-slideUp">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-800 stroke-[2.5]" />
+                <span className="font-black uppercase text-amber-900">
+                  [ 💡 AI CODE-SWITCHING RESCUE // LUPA KATA ]:
+                </span>
+              </div>
+              <p className="text-zinc-900 font-bold">
+                Kamu menyebut <span className="bg-white px-1.5 py-0.5 border border-black italic">"{codeSwitchRescue.detectedIndonesianWord}"</span> → Gunakan istilah Inggris:{" "}
+                <span className="bg-amber-400 px-2 py-0.5 border border-black font-black uppercase text-black">
+                  "{codeSwitchRescue.englishEquivalent}"
+                </span>
+              </p>
+              <p className="text-[11px] text-zinc-700 italic">{codeSwitchRescue.explanation}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => speakText(codeSwitchRescue.englishEquivalent)}
+                title="Dengarkan Pelafalan Asli"
+                className="brutal-btn-white p-2 text-xs"
+              >
+                <Volume2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTextInput((prev) => (prev ? `${prev} ${codeSwitchRescue.englishEquivalent}` : codeSwitchRescue.englishEquivalent));
+                  setCodeSwitchRescue(null);
+                }}
+                className="brutal-btn-yellow px-3 py-1.5 text-xs font-mono font-black uppercase shadow-[2px_2px_0px_#000000]"
+              >
+                [ + SISIPKAN KE INPUT ]
+              </button>
+              <button
+                type="button"
+                onClick={() => setCodeSwitchRescue(null)}
+                className="p-1.5 bg-black text-white hover:bg-zinc-800"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Live Speech Microphone Input Controller */}
         <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-col sm:flex-row items-center gap-3">
-          <button
-            onClick={toggleListening}
-            className={`w-14 h-14 flex items-center justify-center flex-shrink-0 transition-all font-mono font-black ${
-              isListening
-                ? "brutal-btn-red animate-pulse"
-                : "brutal-btn-yellow"
-            }`}
-            title={isListening ? "Klik untuk Berhenti Bicara" : "Klik & Bicara dalam Bahasa Inggris"}
-          >
-            <Mic className="w-6 h-6 stroke-[2.5]" />
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={toggleListening}
+              className={`w-14 h-14 flex items-center justify-center flex-shrink-0 transition-all font-mono font-black ${
+                isListening
+                  ? "brutal-btn-red animate-pulse"
+                  : "brutal-btn-yellow"
+              }`}
+              title={isListening ? "Klik untuk Berhenti Bicara" : "Klik & Bicara dalam Bahasa Inggris"}
+            >
+              <Mic className="w-6 h-6 stroke-[2.5]" />
+            </button>
+
+            {/* Feature 6 SOS Button */}
+            <button
+              type="button"
+              onClick={() => setShowSosModal(true)}
+              className="brutal-btn-white px-3 py-3 h-14 text-xs font-mono font-black flex items-center gap-1.5 flex-shrink-0"
+              title="Tanya Terjemahan Kata Indonesia ke Inggris ke NPC"
+            >
+              <Lightbulb className="w-4 h-4 text-amber-600 stroke-[2.5]" />
+              <span className="hidden sm:inline">SOS: LUPA KATA</span>
+            </button>
+          </div>
 
           <div className="flex-1 w-full space-y-1">
             <input
@@ -906,34 +1397,47 @@ export default function StudentGameView({
           <button
             onClick={() => handleSendSpokenLine()}
             disabled={(!spokenTranscript && !textInput) || isAiThinking}
-            className="brutal-btn-yellow px-5 py-3 text-xs font-mono flex items-center gap-1.5 flex-shrink-0"
+            className="brutal-btn-yellow px-5 py-3 h-14 text-xs font-mono flex items-center gap-1.5 flex-shrink-0"
           >
             <Send className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>KIRIM JAWABAN</span>
           </button>
         </div>
       </div>
-    );
-  }
+      {renderSharedModals()}
+    </>
+  );
+}
 
   // ============================================================================
   // RENDER: STEP 5 - POST-GAME CEFR RAPOR (LIGHT DIAGNOSTIC AUTOPSY)
   // ============================================================================
   if (step === "autopsy") {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 font-mono">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3.5 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-            [POST-GAME CEFR REPLAY & AUTOPSY]
-          </span>
-          <button
-            onClick={resetAll}
-            className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>MAIN MISI BARU</span>
-          </button>
-        </div>
+      <>
+        <div className="max-w-4xl mx-auto space-y-6 font-mono">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3.5 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
+              [POST-GAME CEFR REPLAY & AUTOPSY]
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPokedexModal(true)}
+                className="brutal-btn-yellow px-3.5 py-1.5 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
+              >
+                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>🎒 BUKU KOLEKSI ({pokedexDeck.length})</span>
+              </button>
+              <button
+                onClick={resetAll}
+                className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>MAIN MISI BARU</span>
+              </button>
+            </div>
+          </div>
 
         {isEvaluating ? (
           <div className="border-2 border-black bg-white p-12 text-center shadow-[4px_4px_0px_#000000] flex flex-col items-center justify-center gap-4">
@@ -1047,8 +1551,10 @@ export default function StudentGameView({
           </div>
         ) : null}
       </div>
-    );
-  }
+      {renderSharedModals()}
+    </>
+  );
+}
 
   return null;
 }

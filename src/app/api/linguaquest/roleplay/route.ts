@@ -59,16 +59,31 @@ LATEST STUDENT SPOKEN SENTENCE:
 "${studentSpeech}"
 
 YOUR TASK:
-1. Act 100% in-character as ${quest.npcName}. Respond to the student in natural spoken English (2 to 4 sentences). Be expressive and react directly to whatever items or arguments the student presented.
-2. Evaluate the student's spoken line:
+1. CHILD SAFETY & RESPECTFUL SPEECH AUDIT:
+   If the student uses toxic, profane, offensive, or abusive words, set "isSafetyViolation": true, deduce rapport by -20, and have the NPC calmly refuse and instruct the student to rephrase respectfully.
+2. CODE-SWITCHING RESCUE (INDONESIAN -> ENGLISH COACHING):
+   Students in Indonesia often mix Indonesian when searching for words (e.g., "apa ya bahasa inggrisnya...", "ini buat...", or inserting an Indonesian word like "talenan", "spidol", "garpu").
+   If any Indonesian words are detected or the student asks for a word, extract it in "codeSwitchRescue":
+   - "detectedIndonesianWord": the Indonesian word/phrase
+   - "englishEquivalent": natural English translation
+   - "explanation": brief friendly tip
+   AND the NPC MUST warmly weave the translation into their spoken "npcReply" to teach them on the spot! (e.g. "Ah, you're asking about 'talenan'! In English, that is a 'cutting board'!")
+3. Act 100% in-character as ${quest.npcName}. Respond to the student in natural spoken English (2 to 4 sentences). Be expressive and react directly to whatever items or arguments the student presented.
+4. Evaluate the student's spoken line:
    - Identify which target items or target vocab were actually used in the sentence: "usedItems" (list of strings).
    - Evaluate progress and calculate "rapportChange" (-15 to +30). Reward clear pronunciation, politeness, and integration of the scanned items.
-   - If the student used code-switching (mixing Indonesian words, e.g. "apa ya...", "maksudnya...") or spoke with hesitation, provide "hint" (Bisikan AI: a short, polite English sentence starter they can say next).
+   - Provide "hint" (Bisikan AI: a short, polite English sentence starter they can say next).
    - Provide "upgrade": A native-like, natural English phrasing of what the student tried to say (Native-like Upgrade).
    - Determine "isQuestCompleted": true if the NPC is fully persuaded (new rapport >= 80) or if the mission objective is achieved.
 
 OUTPUT MUST BE STRICTLY JSON:
 {
+  "isSafetyViolation": false,
+  "codeSwitchRescue": {
+    "detectedIndonesianWord": "...",
+    "englishEquivalent": "...",
+    "explanation": "..."
+  },
   "npcReply": "...",
   "usedItems": ["..."],
   "rapportChange": 20,
@@ -122,6 +137,8 @@ OUTPUT MUST BE STRICTLY JSON:
       newRapport,
       usedItems: parsed.usedItems || [],
       isQuestCompleted: Boolean(parsed.isQuestCompleted || newRapport >= 80),
+      codeSwitchRescue: parsed.codeSwitchRescue || null,
+      isSafetyViolation: Boolean(parsed.isSafetyViolation),
     });
   } catch (error: any) {
     console.error("Gagal memproses turn roleplay:", error);

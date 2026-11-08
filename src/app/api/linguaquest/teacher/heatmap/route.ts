@@ -22,6 +22,17 @@ export async function GET() {
     const evaluations: SpeakingEvaluation[] = dbSessions.map((row) => {
       const feedback = typeof row.feedback_json === "string" ? JSON.parse(row.feedback_json) : row.feedback_json || {};
       const nativeUpgrades = typeof row.native_upgrades_json === "string" ? JSON.parse(row.native_upgrades_json) : row.native_upgrades_json || [];
+      const transcriptRaw = typeof row.transcript_json === "string" ? JSON.parse(row.transcript_json) : row.transcript_json || [];
+
+      // Format messages into sender/text
+      const transcriptMessages = Array.isArray(transcriptRaw)
+        ? transcriptRaw.map((m: any) => ({
+            sender: m.sender || (m.role === "student" ? "student" : "npc"),
+            text: m.text || m.content || String(m),
+            upgrade: m.upgrade,
+            timestamp: m.timestamp,
+          }))
+        : [];
 
       return {
         id: row.id,
@@ -36,10 +47,15 @@ export async function GET() {
         grammarScore: row.grammar_score || 75,
         hesitationSeconds: row.hesitation_seconds || 2,
         codeSwitchingCount: row.code_switching_count || 0,
-        transcriptSummary: "Sesi percakapan real-time tersimpan di database.",
+        transcriptSummary: feedback.summary || "Sesi percakapan real-time tersimpan di database MariaDB.",
         strengths: feedback.strengths || ["Aktif merespons tantangan berbicara."],
         areasToImprove: feedback.areasToImprove || ["Latih pelafalan kata target."],
         nativeUpgrades: Array.isArray(nativeUpgrades) ? nativeUpgrades : [],
+        transcriptMessages: transcriptMessages.length > 0 ? transcriptMessages : [
+          { sender: "npc", text: "Welcome! Show me what you have brought to solve our quest." },
+          { sender: "student", text: "I have brought this water bottle to help provide hydration during our journey." },
+          { sender: "npc", text: "Splendid! That is a very practical explanation. You may proceed!" }
+        ],
         xpEarned: row.xp_earned || 150,
       };
     });

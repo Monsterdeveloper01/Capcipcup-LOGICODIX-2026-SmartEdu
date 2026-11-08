@@ -13,6 +13,9 @@ export async function POST(req: Request) {
       detected_labels = ["bottle", "book"],
       targetLanguage = "English",
       difficultyLevel = "B1",
+      generateOnly = false,
+      customCase,
+      customQuiz,
     } = body;
 
     let finalRoomCode = null;
@@ -22,14 +25,28 @@ export async function POST(req: Request) {
 
     const questId = `quest_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
-    // If Gemini API is available, generate dynamic content using text-only prompt (Saving ~75% tokens!)
+    // If customCase and customQuiz are provided and not generating draft
     let generatedQuestData: any = null;
 
-    if (hasAiKey()) {
+    if (customCase && customQuiz && !generateOnly) {
+      generatedQuestData = {
+        title: customCase.title || `Misi Kasus: ${topic}`,
+        case_study_story: customCase.case_study_story || `Skenario studi kasus mengenai ${topic}.`,
+        npc_name: customCase.npc_name || "Mr. Alex (Examiner)",
+        npc_persona: customCase.npc_persona || "Kritis, profesional, apresiatif.",
+        required_object_hint: customCase.required_object_hint || `Gunakan objek fisik di mejamu!`,
+        mission_objectives: customCase.mission_objectives || [
+          "Jelaskan ide utamamu dalam Bahasa Inggris",
+          "Gunakan kosakata yang relevan",
+        ],
+        target_vocabularies: customCase.target_vocabularies || ["sustainable", "solution"],
+        quiz_questions: customQuiz,
+      };
+    } else if (hasAiKey()) {
       const aiClient = getAiClient();
       if (aiClient) {
         const prompt = `You are an elite educational game designer for LinguaQuest, a real-world case-study RPG for Indonesian students learning ${targetLanguage}.
-Create an engaging emergency case-study roleplay mission and a 2-question pre-quiz based on:
+Create an engaging emergency case-study roleplay mission and 3 multiple-choice pre-quiz questions based on:
 - Mode: ${mode}
 - Educational Topic: ${topic}
 - Physical Objects in Room/Desk: ${detected_labels.join(", ")}
@@ -59,6 +76,12 @@ Return STRICTLY a JSON object matching this schema:
       "question": "Second multiple-choice professional speaking question",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correctIndex": 0,
+      "explanation": "Why this answer is correct"
+    },
+    {
+      "question": "Third multiple-choice vocabulary context question",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctIndex": 2,
       "explanation": "Why this answer is correct"
     }
   ]
@@ -113,8 +136,27 @@ Return STRICTLY a JSON object matching this schema:
             correctIndex: 0,
             explanation: "'Good morning, thank you for your time today' adalah etika standar komunikasi bisnis internasional.",
           },
+          {
+            question: "Ketika kamu ingin menawarkan solusi alternatif, frasa manakah yang paling tepat?",
+            options: [
+              "You must accept this or leave.",
+              "I have no clue what to say.",
+              "Alternatively, we could consider this option.",
+              "Whatever you say doesn't matter."
+            ],
+            correctIndex: 2,
+            explanation: "'Alternatively, we could consider this option' menunjukkan keterbukaan berdiskusi.",
+          },
         ],
       };
+    }
+
+    // If request was just to generate draft (for builder preview)
+    if (generateOnly) {
+      return NextResponse.json({
+        success: true,
+        draft: generatedQuestData,
+      });
     }
 
     // Persist to MariaDB table `quests`

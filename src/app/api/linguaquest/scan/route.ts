@@ -55,8 +55,11 @@ You are the AI Vision Game Master of "LinguaQuest" (DuniaKata), an educational l
 
 Look at this real photograph taken by the student using their webcam/camera.
 Follow these steps:
-1. DETECT 2 to 4 distinct physical objects visible in the image (e.g. water bottle, shoe, spoon, glasses, coffee, book, phone, key, bag, etc.).
-2. For each detected object:
+1. CHILD SAFETY & HAZARD AUDIT:
+   Check if the image contains dangerous items, weapons, sharp blades, lighters/fire, cigarettes, alcohol, or school-inappropriate content.
+   If dangerous items are found, set "isSafe": false, specify "hazardDetected", and formulate an educational polite refusal in Indonesian "educationalWarning" explaining why this cannot be brought to school.
+2. DETECT 2 to 4 distinct physical objects visible in the image (e.g. water bottle, shoe, spoon, glasses, coffee, book, phone, key, bag, etc.).
+3. For each detected object:
    - objectName: Indonesian name (e.g., "Botol Air")
    - englishWord: Natural English vocabulary (e.g., "Reusable Water Bottle")
    - phonetics: Accurate IPA phonetic transcription (e.g., "/ˈriːˈjuːzəbəl ˈwɔːtər ˈbɒtəl/")
@@ -64,12 +67,17 @@ Follow these steps:
    - idiom: A real English idiom or common phrase involving this object, with its Indonesian explanation
    - rpgAttribute: A creative RPG stat/effect (e.g., "Hydration Flask: Restores 35 NPC patience")
    - iconName: Lucide icon name suggestion (e.g., "Droplet", "Glasses", "Coffee", "Footprints", "Key", "BookOpen", "Package")
-3. DYNAMIC QUEST SYNTHESIS:
+4. DYNAMIC QUEST SYNTHESIS:
    Combine the detected objects into an urgent, immersive English roleplay challenge based on this mode:
    ${modeInstructions[mode]}
 
 Output MUST be strictly JSON with this exact schema:
 {
+  "safetyAudit": {
+    "isSafe": true,
+    "hazardDetected": null,
+    "educationalWarning": null
+  },
   "scannedItems": [
     {
       "id": "item_1",
@@ -167,6 +175,19 @@ Output MUST be strictly JSON with this exact schema:
           curriculumTopic: "Describing Everyday Objects & Practical English",
         },
       };
+    }
+
+    if (parsed?.safetyAudit?.isSafe === false) {
+      return NextResponse.json({
+        success: false,
+        safetyAlert: {
+          isHazard: true,
+          hazardName: parsed.safetyAudit.hazardDetected || "Benda Berbahaya",
+          warningMessage:
+            parsed.safetyAudit.educationalWarning ||
+            "Peringatan Keamanan Sekolah: Benda ini tidak pantas atau tidak aman untuk lingkungan sekolah. Silakan scan perlengkapan belajar atau benda sehari-hari yang aman (seperti buku, botol minum, pulpen).",
+        },
+      });
     }
 
     const questId = `quest_${Date.now()}`;

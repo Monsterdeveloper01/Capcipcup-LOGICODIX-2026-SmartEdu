@@ -12,6 +12,7 @@ Dokumen ini mendokumentasikan **seluruh fitur fungsional yang telah dibuat dan a
 5. [Fitur Mode Khusus Demo & Kolaborasi Kelas](#5-fitur-mode-khusus-demo--kolaborasi-kelas)
 6. [Fitur Desain Antarmuka (UI/UX Neo-Brutalisme Terang)](#6-fitur-desain-antarmuka-uiux-neo-brutalisme-terang)
 7. [Fitur Fondasi AI & Arsitektur Backend](#7-fitur-fondasi-ai--arsitektur-backend)
+8. [Fitur Unggulan Hackathon (6 Inovasi Kunci Jawaban Evaluasi Juri)](#8-fitur-unggulan-hackathon-6-inovasi-kunci-jawaban-evaluasi-juri)
 
 ---
 
@@ -161,7 +162,7 @@ Dokumen ini mendokumentasikan **seluruh fitur fungsional yang telah dibuat dan a
 
 ## 6. Fitur Desain Antarmuka (UI/UX Neo-Brutalisme Terang)
 
-- **Standar Desain Bersih (Light Theme Neo-Brutalist):** Latar belakang cerah, kartu putih solid, garis tepi hitam 2px, dan bayangan offset tajam tanpa efek blur gelap.
+- **Standar Desain Bersih (Light Theme Neo-Brutalist):** Latar belakang cerah (`#f8fafc`), kartu putih solid, garis tepi hitam tebal 2px, dan bayangan offset tajam (`shadow-[4px_4px_0px_#000000]`) tanpa efek blur gelap (*anti-AI slop*).
 - **Tipografi Berkontras Tinggi:** Pembagian hierarki teks yang jelas menggunakan font sans-serif modern dan font mono untuk metadata.
 - **Micro-Interactions Tactile:** Tombol mekanis dengan umpan balik visual saat ditekan (*press/crunch feedback*).
 - **Indikator Gamifikasi:** Tampilan badge Level, XP counter, dan Streak Days di navbar.
@@ -189,3 +190,58 @@ Dokumen ini mendokumentasikan **seluruh fitur fungsional yang telah dibuat dan a
 - **Python FastAPI Microservice (Port 8000):** Menjalankan ekstraksi fitur audio/teks (WPM counter, pencocokan target vocab, dan deteksi kata jeda/filler).
 - **Next.js App Router (Port 3000):** Menangani routing antarmuka pengguna, proteksi server-side token API, dan operasi database MariaDB.
 - **Keamanan Token Server-Side:** Token AI (`GEMINI_API_KEY`) dan kredensial database tersimpan aman di environment server dan tidak pernah terpapar ke client browser.
+
+---
+
+## 8. Fitur Unggulan Hackathon (6 Inovasi Kunci Jawaban Evaluasi Juri)
+
+Fitur-fitur ini dibangun khusus untuk melengkapi seluruh celah evaluasi pedagogis dan kompetisi teknologi:
+
+### 1. Custom Case & Quiz Builder Mandiri (Manual + AI)
+- **Lokasi Akses:** `/teacher/create` (Mode Guru) dan `/solo/create` (Mode Solo Explorer).
+- **Dua Pilihan Fleksibel:**
+  - **Mode A (⚡ AI Auto-Generate Draf):** Cukup ketik topik materi (misal: *Sustainable Hospitality*), AI merancang draf skenario kasus dan 3 butir soal kuis dalam 1 detik. Guru/siswa bebas mengedit teks sebelum menyimpan.
+  - **Mode B (✍️ Manual Builder Kontrol Penuh):** Guru/siswa merancang sendiri judul kasus, skenario situasi darurat, nama & persona NPC, kosakata wajib, serta membuat butir soal kuis pilihan ganda (pertanyaan, 4 opsi A/B/C/D, penentuan kunci jawaban, dan penjelasan edukasi).
+- **Stage Pre-Quiz Interaktif:** Siswa mengerjakan 2–3 butir soal pengantar konsep sebelum masuk ke pemindaian kamera dan percakapan suara NPC.
+- **Penyimpanan Nyata MariaDB:** Seluruh data kuis dan skenario tersimpan di tabel `quests`.
+
+### 2. Modal "Bukti Transkrip & Detail Jawaban" di Tabel Guru
+- **Lokasi Akses:** Tab *Speaking Grader* pada Dashboard Guru (`/teacher/room/[pin]`).
+- **Interaksi:** Setiap baris nama siswa di tabel nilai dapat diklik secara interaktif.
+- **Pop-Up Verbatim Stream:** Membuka modal yang menampilkan:
+  - **Transkrip Dialog Asli:** Rekaman kata demi kata percakapan murid melawan NPC AI yang diambil langsung dari kolom `transcript_json` database MariaDB.
+  - **Native-Like Upgrade Comparison:** Memperlihatkan kalimat mana yang diucapkan murid beserta saran versi bahasa Inggris yang lebih alami dan penjelasan tata bahasanya.
+  - **Rincian Kekuatan & Kelemahan:** Penjelasan pedagogis terperinci mengenai mengapa nilai kelancaran atau tata bahasa murid tersebut berada di level tertentu.
+
+### 3. Buku Koleksi Kartu / Vocab Pokedex ("My Inventory Deck")
+- **Lokasi Akses:** Tombol permanen `[ 🎒 BUKU KOLEKSI KATA (POKEDEX) ]` di layar siswa (`StudentGameView`).
+- **Penyimpanan Persisten:** Menggunakan `localStorage` (`lq_inventory_deck`), sehingga kartu benda yang pernah dipindai tetap tersimpan dan tidak hilang meskipun siswa menutup peramban.
+- **Fitur Kartu:**
+  - Menampilkan nama benda Indonesia dan bahasa Inggris formal.
+  - Simbol fonetik IPA internasional lengkap dengan **tombol audio TTS** untuk memutar pelafalan asli.
+  - Idiom bahasa Inggris relevan beserta konteks maknanya.
+  - Atribut gamifikasi RPG (+XP, status bonus).
+  - **Pencarian Real-Time:** Filter pencarian instan berdasarkan kata Indonesia, kata Inggris, atau idiom.
+
+### 4. Export Rekap Nilai ke e-Rapor (.CSV / Kurikulum Merdeka)
+- **Lokasi Akses:** Tombol `[ 📥 EXPORT E-RAPOR (.CSV) ]` di header tabel Speaking Grader Guru.
+- **Format Output:** File `.csv` UTF-8 yang dapat langsung dibuka di Microsoft Excel, Google Sheets, maupun diimpor ke sistem administrasi sekolah / e-Rapor Kurikulum Merdeka.
+- **Kolom Standar Sekolah:**
+  - Nama Siswa, Judul Quest, Predikat CEFR, Skor Total, Kelancaran (Fluency %), Pelafalan (Pronunciation %), Kosakata (Vocabulary %), Tata Bahasa (Grammar %), Durasi Jeda (Detik), Frekuensi Code-Switching, Tanggal & Waktu Sesi, serta Catatan Kemampuan Berbicara.
+
+### 5. Safe-School Shield (AI Child-Safety & Hazard Guardrail)
+- **Protokol Keamanan Sekolah:** Mencegah penyalahgunaan kamera dan mikrofon oleh siswa di lingkungan sekolah.
+- **Deteksi Objek Berbahaya (Camera Vision Guardrail):**
+  - Jika siswa mengarahkan kamera ke benda tajam (pisau, gunting berlebih), api/rokok, atau benda tidak pantas lainnya, sistem otomatis menolak memproses gambar.
+  - Menampilkan modal pop-up darurat bertema peringatan merah: `[ ⚠️ SAFE-SCHOOL SHIELD: BENDA BERBAHAYA TERDETEKSI ]` lengkap dengan nama objek dan penjelasan edukatif dari AI mengapa benda tersebut tidak diperbolehkan.
+- **Filter Ujaran Tidak Pantas (Spoken Speech Guardrail):**
+  - Jika siswa mengucapkan kata kasar, ujaran kebencian, atau kalimat tidak pantas kepada NPC, AI otomatis memotong poin Rapport (-20 poin) dan menampilkan banner peringatan edukatif.
+
+### 6. Fitur "Lupa Kosakata / Code-Switching Rescue" (ID -> EN)
+- **Mengatasi Kecemasan Berbicara (Speaking Anxiety Rescue):** Siswa pemula di Indonesia sering kali ragu berbicara karena lupa 1 kata bahasa Inggris di tengah kalimat.
+- **Tombol SOS Cepat:** Tombol `[ 💡 SOS: LUPA KATA (ID -> EN) ]` di samping tombol mikrofon. Siswa cukup mengetik kata Indonesia yang ingin ditanyakan (contoh: *talenan*, *wadah*, *timbangan*), dan sistem langsung memformat pertanyaan santun ke NPC.
+- **Deteksi Otomatis AI:** Jika siswa menyelipkan kata bahasa Indonesia saat berbicara, NPC AI tidak menghukum murid, melainkan langsung mengajari kata bahasa Inggrisnya di dalam dialog (*conversational scaffolding*).
+- **Banner Melayang Code-Switching Rescue:** Muncul kartu bantuan kuning di atas kolom bicara yang memuat:
+  - Kata Indonesia yang terdeteksi vs istilah bahasa Inggris yang benar.
+  - Tombol audio TTS untuk mendengarkan cara pengucapan istilah tersebut.
+  - Tombol 1-klik `[ + SISIPKAN KE INPUT ]` untuk langsung menggunakan kata tersebut dalam dialog.
