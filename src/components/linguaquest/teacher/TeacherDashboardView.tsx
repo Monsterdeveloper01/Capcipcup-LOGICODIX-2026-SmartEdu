@@ -738,6 +738,7 @@ export default function TeacherDashboardView() {
       />
 
       <AddMemberModal
+        isOpen={showAddMemberModal}
         selectedClass={selectedClass}
         availableStudents={availableStudents}
         isAddingMember={isAddingMember}

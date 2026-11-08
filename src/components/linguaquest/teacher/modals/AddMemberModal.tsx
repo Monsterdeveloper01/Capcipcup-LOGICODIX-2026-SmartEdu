@@ -4,6 +4,7 @@ import { X, UserPlus } from "lucide-react";
 import { ClassroomItem, AvailableStudentItem } from "../types";
 
 interface Props {
+  isOpen: boolean;
   selectedClass: ClassroomItem | null;
   availableStudents: AvailableStudentItem[];
   isAddingMember: boolean;
@@ -12,12 +13,14 @@ interface Props {
 }
 
 export default function AddMemberModal({
+  isOpen,
   selectedClass,
   availableStudents,
   isAddingMember,
   onAddStudent,
   onClose,
 }: Props) {
+  if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 font-mono">
       <div className="border-4 border-black bg-white max-w-lg w-full p-6 shadow-[8px_8px_0px_#000000] space-y-4 text-black">
