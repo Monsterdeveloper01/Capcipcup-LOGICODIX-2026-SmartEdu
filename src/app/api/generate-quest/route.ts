@@ -55,25 +55,31 @@ export async function POST(req: Request) {
 IMPORTANT: The entire mission title, situation, and/or questions MUST be designed directly to fulfill and evaluate this learning objective!`
           : `Educational Topic: ${topic}`;
 
-        const taskTypeInstruction =
-          taskType === "QUIZ_ONLY"
-            ? `TASK TYPE: QUIZ ONLY (BUTIR SOAL & LISTENING TANPA SPEAKING WEBCAM).
-Create exactly ${parsedQuestionCount} multiple-choice questions testing conceptual comprehension and listening. ${
-                includeListening
-                  ? `At least 1-2 questions MUST be type "listening" with an authentic English dialogue/audio snippet in "audio_script".`
-                  : `All questions can be standard multiple_choice.`
-              }
-Set case_study_story to a concise background paragraph describing the topic context.`
-            : taskType === "SPEAKING_ONLY"
-            ? `TASK TYPE: SPEAKING ROLEPLAY ONLY.
+        const isListeningOnly = taskType === "LISTENING_ONLY";
+        const isQuizOnly = taskType === "QUIZ_ONLY";
+        const isSpeakingOnly = taskType === "SPEAKING_ONLY";
+
+        let taskTypeInstruction = "";
+        if (isQuizOnly) {
+          taskTypeInstruction = `TASK TYPE: QUIZ ONLY (MURNI PILIHAN GANDA TERTULIS TANPA AUDIO LISTENING).
+Create exactly ${parsedQuestionCount} multiple-choice questions testing conceptual English comprehension. All questions MUST have "type": "multiple_choice" and "audio_script": null.
+Set case_study_story to a concise background paragraph describing the topic context.`;
+        } else if (isListeningOnly) {
+          taskTypeInstruction = `TASK TYPE: LISTENING QUIZ ONLY (SOAL DENGAN AUDIO SUARA TTS).
+Create exactly ${parsedQuestionCount} questions. All or most questions MUST have "type": "listening" with an authentic English spoken dialogue/announcement in "audio_script" (20-35 words) so students can listen before answering.
+Set case_study_story to a concise background paragraph describing the topic context.`;
+        } else if (isSpeakingOnly) {
+          taskTypeInstruction = `TASK TYPE: SPEAKING ROLEPLAY ONLY.
 Focus deeply on creating an authentic real-world emergency/speaking challenge with an NPC Examiner, scenario brief, physical desk objects, and target vocabularies.
-Set "quiz_questions" to an empty array [].`
-            : `TASK TYPE: HYBRID (SPEAKING ROLEPLAY + KUIS & LISTENING).
+Set "quiz_questions" to an empty array [].`;
+        } else {
+          taskTypeInstruction = `TASK TYPE: HYBRID (SPEAKING ROLEPLAY + KUIS & LISTENING).
 Create both an authentic speaking scenario with an NPC, physical desk items, target vocabularies, AND exactly ${parsedQuestionCount} multiple-choice quiz questions. ${
-                includeListening
-                  ? `At least 1-2 questions MUST be type "listening" with an authentic English spoken dialogue in "audio_script".`
-                  : `All questions can be standard multiple_choice.`
-              }`;
+            includeListening
+              ? `At least 1-2 questions MUST be type "listening" with an authentic English spoken dialogue in "audio_script".`
+              : `All questions can be standard multiple_choice.`
+          }`;
+        }
 
         const prompt = `You are an elite educational game designer and psychometric assessment expert for LinguaQuest (Indonesian Vocational/High School English Learning).
 

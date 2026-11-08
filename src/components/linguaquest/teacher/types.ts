@@ -30,7 +30,7 @@ export interface AvailableStudentItem {
   email: string;
 }
 
-export type TaskType = "HYBRID" | "SPEAKING_ONLY" | "QUIZ_ONLY";
+export type TaskType = "HYBRID" | "SPEAKING_ONLY" | "QUIZ_ONLY" | "LISTENING_ONLY";
 export type QuizQuestionType = "multiple_choice" | "listening";
 
 export interface TeacherRoomItem {

@@ -274,8 +274,8 @@ export default function StudentGameView({
   const handleSelectAndStartTask = (task: any) => {
     setSelectedTask(task);
 
-    // If task is QUIZ_ONLY, jump directly to quiz without opening camera
-    if (task.taskType === "QUIZ_ONLY") {
+    // If task is QUIZ_ONLY or LISTENING_ONLY, jump directly to quiz without opening camera
+    if (task.taskType === "QUIZ_ONLY" || task.taskType === "LISTENING_ONLY") {
       stopCameraStream();
       setStep("quiz");
       return;

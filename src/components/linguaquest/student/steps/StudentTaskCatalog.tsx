@@ -109,8 +109,10 @@ export default function StudentTaskCatalog({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {classTasks.map((task, idx) => {
               const isQuizOnly = task.taskType === "QUIZ_ONLY";
+              const isListeningOnly = task.taskType === "LISTENING_ONLY";
               const isSpeakingOnly = task.taskType === "SPEAKING_ONLY";
-              const isHybrid = task.taskType === "HYBRID" || (!isQuizOnly && !isSpeakingOnly);
+              const isHybrid = task.taskType === "HYBRID" || (!isQuizOnly && !isListeningOnly && !isSpeakingOnly);
+              const isNonCameraTask = isQuizOnly || isListeningOnly;
 
               let qCount = 0;
               let hasListening = false;
@@ -118,7 +120,7 @@ export default function StudentTaskCatalog({
                 const rawQ = task.quiz_questions || task.quizQuestions;
                 const parsedQ = typeof rawQ === "string" ? JSON.parse(rawQ) : rawQ || [];
                 qCount = parsedQ.length;
-                hasListening = parsedQ.some((q: any) => q.type === "listening" || Boolean(q.audioScript));
+                hasListening = isListeningOnly || parsedQ.some((q: any) => q.type === "listening" || Boolean(q.audioScript));
               } catch (e) {}
 
               return (
@@ -134,7 +136,12 @@ export default function StudentTaskCatalog({
                         </span>
                         {isQuizOnly && (
                           <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-600">
-                            📝 KUIS & LISTENING
+                            📝 HANYA KUIS
+                          </span>
+                        )}
+                        {isListeningOnly && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-cyan-100 text-cyan-900 border border-cyan-600">
+                            🎧 KUIS & LISTENING
                           </span>
                         )}
                         {isSpeakingOnly && (
@@ -171,13 +178,13 @@ export default function StudentTaskCatalog({
                       )}
                     </div>
 
-                    {isQuizOnly ? (
+                    {isNonCameraTask ? (
                       <div className="p-2.5 bg-blue-50 border border-black text-xs space-y-1">
                         <div className="text-zinc-800 font-bold">
-                          FORMAT: <span className="text-black font-black">Butir Soal Mandiri {hasListening ? "(Ada Audio Listening 🎧)" : ""}</span>
+                          FORMAT: <span className="text-black font-black">{isListeningOnly ? "Kuis dengan Audio Listening 🎧" : "Pilihan Ganda Tertulis 📝"}</span>
                         </div>
                         <div className="text-blue-900 font-black">
-                          Jumlah Soal: {qCount > 0 ? `${qCount} Butir Soal Kuis` : "Pilihan Ganda"}
+                          Jumlah Soal: {qCount > 0 ? `${qCount} Butir Soal` : "Pilihan Ganda"}
                         </div>
                       </div>
                     ) : (
@@ -198,7 +205,7 @@ export default function StudentTaskCatalog({
                   </div>
 
                   <div className="pt-2">
-                    {isQuizOnly ? (
+                    {isNonCameraTask ? (
                       <button
                         type="button"
                         onClick={() => onSelectTask(task)}
@@ -207,7 +214,13 @@ export default function StudentTaskCatalog({
                         }`}
                       >
                         <BookOpen className="w-4 h-4 stroke-[2.5]" />
-                        <span>{task.isCompleted ? "[ 🔄 KERJAKAN ULANG KUIS ]" : "[ 📝 KERJAKAN KUIS & LISTENING ]"}</span>
+                        <span>
+                          {task.isCompleted
+                            ? "[ 🔄 KERJAKAN ULANG KUIS ]"
+                            : isListeningOnly
+                            ? "[ 🎧 KERJAKAN KUIS & LISTENING ]"
+                            : "[ 📝 KERJAKAN KUIS ]"}
+                        </span>
                         <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
                       </button>
                     ) : (

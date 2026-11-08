@@ -52,6 +52,9 @@ export default function EditTaskModal({
 }: Props) {
   if (!editingRoom) return null;
 
+  const isSpeakingTask = editingRoom.taskType === "HYBRID" || editingRoom.taskType === "SPEAKING_ONLY" || !editingRoom.taskType;
+  const isQuizTask = editingRoom.taskType === "HYBRID" || editingRoom.taskType === "QUIZ_ONLY" || editingRoom.taskType === "LISTENING_ONLY" || !editingRoom.taskType;
+
   const testPlayAudio = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
@@ -154,75 +157,91 @@ export default function EditTaskModal({
               required
               value={editTitle}
               onChange={(e) => onTitleChange(e.target.value)}
-              className="w-full border-2 border-black p-2.5 font-mono text-xs bg-white outline-hidden font-bold"
+              placeholder="Contoh: Restaurant Dining & Food Allergy Inquiry"
+              className="w-full border-2 border-black p-2.5 font-mono text-xs bg-white outline-hidden font-bold placeholder-zinc-400"
             />
           </div>
 
-          <div>
-            <label className="text-xs font-black uppercase block mb-1">
-              Skenario Kasus Nyata:
-            </label>
-            <textarea
-              required
-              rows={3}
-              value={editCaseStory}
-              onChange={(e) => onCaseStoryChange(e.target.value)}
-              className="w-full border-2 border-black p-2.5 font-mono text-xs bg-white outline-hidden leading-relaxed"
-            />
-          </div>
+          {/* Skenario Speaking (Hanya untuk tugas yang melibatkan speaking) */}
+          {isSpeakingTask && (
+            <div className="p-4 border-2 border-black bg-zinc-50 space-y-4">
+              <span className="text-[10px] font-black uppercase bg-black text-[#facc15] px-2 py-0.5">
+                SKENARIO ROLEPLAY & NPC
+              </span>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-black uppercase block mb-1">
-                Nama NPC Penguji:
-              </label>
-              <input
-                type="text"
-                value={editNpcName}
-                onChange={(e) => onNpcNameChange(e.target.value)}
-                className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-black uppercase block mb-1">
-                Persona NPC:
-              </label>
-              <input
-                type="text"
-                value={editNpcPersona}
-                onChange={(e) => onNpcPersonaChange(e.target.value)}
-                className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
-              />
-            </div>
-          </div>
+              <div>
+                <label className="text-xs font-black uppercase block mb-1">
+                  Skenario Kasus Nyata:
+                </label>
+                <textarea
+                  required={isSpeakingTask}
+                  rows={3}
+                  value={editCaseStory}
+                  onChange={(e) => onCaseStoryChange(e.target.value)}
+                  placeholder="Contoh: Pelanggan asing merasa kecewa dengan keterlambatan pengiriman..."
+                  className="w-full border-2 border-black p-2.5 font-mono text-xs bg-white outline-hidden leading-relaxed placeholder-zinc-400"
+                />
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-black uppercase block mb-1">
-                Benda Nyata yang Harus Discan:
-              </label>
-              <input
-                type="text"
-                value={editRequiredHint}
-                onChange={(e) => onRequiredHintChange(e.target.value)}
-                className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Nama NPC Penguji:
+                  </label>
+                  <input
+                    type="text"
+                    value={editNpcName}
+                    onChange={(e) => onNpcNameChange(e.target.value)}
+                    placeholder="Contoh: Ms. Clara (Foreign Client)"
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden placeholder-zinc-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Persona NPC:
+                  </label>
+                  <input
+                    type="text"
+                    value={editNpcPersona}
+                    onChange={(e) => onNpcPersonaChange(e.target.value)}
+                    placeholder="Contoh: Tegas, kritis terhadap ketepatan waktu, menghargai solusi transparan."
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden placeholder-zinc-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Benda Nyata yang Harus Discan:
+                  </label>
+                  <input
+                    type="text"
+                    value={editRequiredHint}
+                    onChange={(e) => onRequiredHintChange(e.target.value)}
+                    placeholder="Contoh: Tunjukkan botol minum atau buku catatan di meja!"
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden placeholder-zinc-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-black uppercase block mb-1">
+                    Target Kosakata (Pisahkan Koma):
+                  </label>
+                  <input
+                    type="text"
+                    value={editTargetVocab}
+                    onChange={(e) => onTargetVocabChange(e.target.value)}
+                    placeholder="Contoh: apologize, compensation, sustainable, delivery, resolution"
+                    className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden placeholder-zinc-400"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="text-xs font-black uppercase block mb-1">
-                Target Kosakata (Pisahkan Koma):
-              </label>
-              <input
-                type="text"
-                value={editTargetVocab}
-                onChange={(e) => onTargetVocabChange(e.target.value)}
-                className="w-full border-2 border-black p-2 font-mono text-xs bg-white outline-hidden"
-              />
-            </div>
-          </div>
+          )}
 
           {/* Edit Quiz Section */}
-          <div className="border-t-2 border-black pt-4 space-y-4">
+          {isQuizTask && (
+            <div className="border-t-2 border-black pt-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase block text-black">
                 Soal Kuis Pilihan Ganda ({editQuizQuestions.length} Butir)
@@ -369,6 +388,7 @@ export default function EditTaskModal({
               ))}
             </div>
           </div>
+        )}
 
           <div className="border-t-2 border-black pt-4 flex items-center justify-end gap-2.5">
             <button

@@ -76,8 +76,12 @@ export default function ClassroomTasksTab({
                       #{idx + 1}
                     </span>
                     {room.taskType === "QUIZ_ONLY" ? (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-800">
+                        📝 Hanya Kuis Saja
+                      </span>
+                    ) : room.taskType === "LISTENING_ONLY" ? (
                       <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-cyan-100 text-cyan-900 border border-cyan-800">
-                        📝 Kuis & Listening
+                        🎧 Kuis & Listening
                       </span>
                     ) : room.taskType === "SPEAKING_ONLY" ? (
                       <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-800">

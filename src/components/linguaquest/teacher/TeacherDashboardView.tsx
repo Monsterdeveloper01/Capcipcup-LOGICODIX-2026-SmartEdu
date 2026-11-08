@@ -122,34 +122,14 @@ export default function TeacherDashboardView() {
   const [learningObjective, setLearningObjective] = useState("");
   const [questionCount, setQuestionCount] = useState<number>(3);
   const [includeListening, setIncludeListening] = useState<boolean>(true);
-  const [newTopic, setNewTopic] = useState("Handling Customer Negotiation & Service Recovery");
+  const [newTopic, setNewTopic] = useState("");
   const [newDifficulty, setNewDifficulty] = useState("B1");
-  const [newCaseStory, setNewCaseStory] = useState(
-    "Pelanggan asing merasa kecewa dengan keterlambatan pengiriman produk ramah lingkungan. Jelaskan kendala secara sopan dan tawarkan kompensasi solusi praktis menggunakan produk di mejamu."
-  );
-  const [newNpcName, setNewNpcName] = useState("Ms. Clara (Foreign Client)");
-  const [newNpcPersona, setNewNpcPersona] = useState("Tegas, kritis terhadap ketepatan waktu, menghargai solusi transparan.");
-  const [newTargetVocab, setNewTargetVocab] = useState("apologize, compensation, sustainable, delivery, resolution");
-  const [newRequiredHint, setNewRequiredHint] = useState("Tunjukkan botol minum atau buku catatan di mejamu sebagai contoh produk fisik!");
-  const [newQuizQuestions, setNewQuizQuestions] = useState<QuizQuestionItem[]>([
-    {
-      question: "What is the most professional response when a client reports a delivery delay?",
-      options: [
-        "It was the shipping company's fault.",
-        "I apologize for the delay; let me track your shipment right now.",
-        "You should have ordered two weeks earlier.",
-        "We are closed on weekends so please call next Monday."
-      ],
-      correctIndex: 1,
-      explanation: "Taking immediate ownership and offering a direct action step demonstrates professionalism.",
-    },
-    {
-      question: "Which word best describes a package made from natural materials that do not pollute?",
-      options: ["Disposable", "Biodegradable", "Toxic", "Artificial"],
-      correctIndex: 1,
-      explanation: "'Biodegradable' means capable of decomposing naturally without environmental harm.",
-    },
-  ]);
+  const [newCaseStory, setNewCaseStory] = useState("");
+  const [newNpcName, setNewNpcName] = useState("");
+  const [newNpcPersona, setNewNpcPersona] = useState("");
+  const [newTargetVocab, setNewTargetVocab] = useState("");
+  const [newRequiredHint, setNewRequiredHint] = useState("");
+  const [newQuizQuestions, setNewQuizQuestions] = useState<QuizQuestionItem[]>([]);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [createSuccessMsg, setCreateSuccessMsg] = useState<string | null>(null);
@@ -410,7 +390,8 @@ export default function TeacherDashboardView() {
       showAlert("Judul Belum Diisi", "Judul materi atau tugas wajib diisi.", "warning");
       return;
     }
-    if (taskType !== "QUIZ_ONLY" && !newCaseStory.trim()) {
+    const requiresSpeaking = taskType === "HYBRID" || taskType === "SPEAKING_ONLY";
+    if (requiresSpeaking && !newCaseStory.trim()) {
       showAlert("Skenario Kasus Kosong", "Skenario kasus speaking wajib diisi jika format melibatkan speaking.", "warning");
       return;
     }
@@ -447,6 +428,16 @@ export default function TeacherDashboardView() {
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan tugas.");
 
       setCreateSuccessMsg(`Tugas [${newTopic}] (${taskType}) berhasil ditambahkan ke kelas [${selectedClass.name}]!`);
+      // Reset form states to clean slate with placeholders
+      setNewTopic("");
+      setLearningObjective("");
+      setNewCaseStory("");
+      setNewNpcName("");
+      setNewNpcPersona("");
+      setNewTargetVocab("");
+      setNewRequiredHint("");
+      setNewQuizQuestions([]);
+
       await fetchTasks(selectedClass.id, selectedClass.classCode);
       await fetchClasses();
       setActiveTab("tasks");
