@@ -9,6 +9,7 @@ export async function GET(req: Request) {
 
     let sql = `
       SELECT q.id, q.classroom_id as classroomId, q.room_code as roomCode, q.creator_name as creatorName, q.title, 
+             q.task_type as taskType,
              q.difficulty_level as difficultyLevel, q.case_study_story as caseStudyStory,
              q.npc_name as npcName, q.npc_persona as npcPersona, q.required_object_hint as requiredObjectHint,
              q.mission_objectives as missionObjectives, q.target_vocabularies as targetVocabularies,
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       title,
+      taskType = "HYBRID",
       creatorName = "Budi Santoso, S.Pd",
       classroomId = "cls_demo_edu889",
       customPin,
@@ -63,7 +65,9 @@ export async function POST(req: Request) {
       difficultyLevel = "B1",
     } = body;
 
-    if (!title || !caseStudyStory) {
+    const finalCaseStory = caseStudyStory?.trim() || (taskType === "QUIZ_ONLY" ? "Pengerjaan Butir Soal Kuis & Listening Comprehension." : "");
+
+    if (!title || (!finalCaseStory && taskType !== "QUIZ_ONLY")) {
       return NextResponse.json(
         { error: "Judul misi dan skenario studi kasus wajib diisi." },
         { status: 400 }
@@ -86,18 +90,19 @@ export async function POST(req: Request) {
 
     await query(
       `INSERT INTO quests (
-        id, mode, classroom_id, room_code, creator_name, title, target_language, difficulty_level,
+        id, mode, classroom_id, task_type, room_code, creator_name, title, target_language, difficulty_level,
         case_study_story, npc_name, npc_persona, required_object_hint,
         mission_objectives, target_vocabularies, quiz_questions
-      ) VALUES (?, 'ROOM', ?, ?, ?, ?, 'English', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, 'ROOM', ?, ?, ?, ?, ?, 'English', ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         newId,
         classroomId,
+        taskType,
         finalRoomCode,
         creatorName,
         title,
         difficultyLevel,
-        caseStudyStory,
+        finalCaseStory || "Tugas kuis dan latihan bahasa Inggris.",
         npcName,
         npcPersona,
         requiredObjectHint,
@@ -135,6 +140,7 @@ export async function PUT(req: Request) {
     const {
       id,
       title,
+      taskType,
       roomCode,
       caseStudyStory,
       npcName = "Mr. Arthur",
@@ -146,9 +152,11 @@ export async function PUT(req: Request) {
       difficultyLevel = "B1",
     } = body;
 
-    if (!id || !title || !caseStudyStory) {
+    const finalCaseStory = caseStudyStory?.trim() || (taskType === "QUIZ_ONLY" ? "Pengerjaan Butir Soal Kuis & Listening Comprehension." : "");
+
+    if (!id || !title || (!finalCaseStory && taskType !== "QUIZ_ONLY")) {
       return NextResponse.json(
-        { error: "ID, Judul misi, dan skenario studi kasus wajib diisi." },
+        { error: "ID dan Judul misi wajib diisi." },
         { status: 400 }
       );
     }
@@ -162,6 +170,7 @@ export async function PUT(req: Request) {
     await query(
       `UPDATE quests SET 
         title = ?,
+        task_type = COALESCE(?, task_type),
         room_code = ?,
         difficulty_level = ?,
         case_study_story = ?,
@@ -174,9 +183,10 @@ export async function PUT(req: Request) {
       WHERE id = ?`,
       [
         title,
+        taskType || null,
         roomCode?.trim().toUpperCase(),
         difficultyLevel,
-        caseStudyStory,
+        finalCaseStory || "Tugas kuis dan latihan bahasa Inggris.",
         npcName,
         npcPersona,
         requiredObjectHint,

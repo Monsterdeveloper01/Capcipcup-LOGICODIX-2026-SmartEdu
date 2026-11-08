@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 
     // Ambil daftar tugas di kelas ini
     const tasks = await query<any[]>(
-      `SELECT q.id, q.room_code as roomCode, q.creator_name as creatorName, q.title,
+      `SELECT q.id, q.task_type as taskType, q.room_code as roomCode, q.creator_name as creatorName, q.title,
               q.difficulty_level as difficultyLevel, q.case_study_story as caseStudyStory,
               q.npc_name as npcName, q.npc_persona as npcPersona, q.required_object_hint as requiredObjectHint,
               q.mission_objectives as missionObjectives, q.target_vocabularies as targetVocabularies,

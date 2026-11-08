@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Check, Plus, Trash2 } from "lucide-react";
+import { X, Check, Plus, Trash2, Headphones, Volume2 } from "lucide-react";
 import { TeacherRoomItem, QuizQuestionItem } from "../types";
 
 interface Props {
@@ -52,10 +52,22 @@ export default function EditTaskModal({
 }: Props) {
   if (!editingRoom) return null;
 
+  const testPlayAudio = (text: string) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const handleAddQuestion = () => {
     onQuizQuestionsChange([
       ...editQuizQuestions,
       {
+        type: "multiple_choice",
+        audioScript: "",
         question: "Pertanyaan kuis baru...",
         options: ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
         correctIndex: 0,
@@ -228,10 +240,25 @@ export default function EditTaskModal({
             <div className="space-y-4">
               {editQuizQuestions.map((qItem, qIdx) => (
                 <div key={qIdx} className="border-2 border-black bg-zinc-50 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase bg-black text-white px-2 py-0.5">
-                      Soal #{qIdx + 1}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase bg-black text-white px-2 py-0.5">
+                        Soal #{qIdx + 1}
+                      </span>
+                      <select
+                        value={qItem.type || "multiple_choice"}
+                        onChange={(e) => {
+                          const next = [...editQuizQuestions];
+                          next[qIdx].type = e.target.value as any;
+                          onQuizQuestionsChange(next);
+                        }}
+                        className="border border-black px-2 py-0.5 text-xs font-black uppercase bg-white"
+                      >
+                        <option value="multiple_choice">📝 Pilihan Ganda Teks</option>
+                        <option value="listening">🎧 Soal Listening (Audio Suara)</option>
+                      </select>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => handleRemoveQuestion(qIdx)}
@@ -241,6 +268,39 @@ export default function EditTaskModal({
                       <span>Hapus Soal</span>
                     </button>
                   </div>
+
+                  {/* Naskah Audio untuk Soal Listening */}
+                  {qItem.type === "listening" && (
+                    <div className="p-3 bg-amber-50 border-2 border-amber-600 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-black uppercase text-amber-900 flex items-center gap-1.5">
+                          <Headphones className="w-3.5 h-3.5" />
+                          <span>Naskah Audio Listening:</span>
+                        </label>
+                        {qItem.audioScript && (
+                          <button
+                            type="button"
+                            onClick={() => testPlayAudio(qItem.audioScript || "")}
+                            className="brutal-btn-yellow px-2.5 py-1 text-[10px] font-black uppercase flex items-center gap-1"
+                          >
+                            <Volume2 className="w-3 h-3" />
+                            <span>[ 🔊 Tes Putar Audio ]</span>
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={qItem.audioScript || ""}
+                        onChange={(e) => {
+                          const next = [...editQuizQuestions];
+                          next[qIdx].audioScript = e.target.value;
+                          onQuizQuestionsChange(next);
+                        }}
+                        placeholder="Ketik teks dialog bahasa Inggris yang akan dibacakan audio ke siswa..."
+                        className="w-full border border-black p-2 font-mono text-xs bg-white text-black outline-none font-bold"
+                      />
+                    </div>
+                  )}
 
                   <input
                     type="text"

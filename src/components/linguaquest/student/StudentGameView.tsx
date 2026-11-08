@@ -12,6 +12,7 @@ import StudentScanningStep from "./steps/StudentScanningStep";
 import StudentInventoryStep from "./steps/StudentInventoryStep";
 import StudentDialogueHud from "./steps/StudentDialogueHud";
 import StudentAutopsyStep from "./steps/StudentAutopsyStep";
+import StudentQuizPlayerStep from "./steps/StudentQuizPlayerStep";
 import StudentPokedexModal from "./modals/StudentPokedexModal";
 import StudentSafetyModal from "./modals/StudentSafetyModal";
 import StudentSosModal from "./modals/StudentSosModal";
@@ -71,7 +72,7 @@ export default function StudentGameView({
   // Classroom Gate State
   const [activeClassroom, setActiveClassroom] = useState<ActiveClassroom | null>(null);
   const [classTasks, setClassTasks] = useState<ClassroomTaskItem[]>([]);
-  const [, setSelectedTask] = useState<any | null>(null);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [isLoadingTasks, setIsLoadingTasks] = useState<boolean>(false);
   const [, setIsClassroomChecking] = useState<boolean>(true);
   const [inputPin, setInputPin] = useState<string>("");
@@ -269,8 +270,17 @@ export default function StudentGameView({
     }
   };
 
-  // Select a task and launch camera & roleplay
+  // Select a task and launch camera & roleplay (or direct quiz player if QUIZ_ONLY)
   const handleSelectAndStartTask = (task: any) => {
+    setSelectedTask(task);
+
+    // If task is QUIZ_ONLY, jump directly to quiz without opening camera
+    if (task.taskType === "QUIZ_ONLY") {
+      stopCameraStream();
+      setStep("quiz");
+      return;
+    }
+
     let parsedObjectives = [];
     try {
       parsedObjectives = typeof task.mission_objectives === "string" ? JSON.parse(task.mission_objectives) : task.mission_objectives || task.missionObjectives || [];
@@ -835,6 +845,26 @@ export default function StudentGameView({
           pokedexCount={pokedexDeck.length}
           onOpenPokedex={() => setShowPokedexModal(true)}
           onReturnToCatalog={handleReturnToClassCatalog}
+          selectedTask={selectedTask}
+          onStartQuiz={() => {
+            setStep("quiz");
+          }}
+        />
+      )}
+
+      {/* STEP 6: QUIZ & LISTENING PLAYER */}
+      {step === "quiz" && selectedTask && (
+        <StudentQuizPlayerStep
+          activeClassroom={activeClassroom}
+          task={selectedTask}
+          studentName={currentUser?.name || inputStudentName || "Ahmad Faiz"}
+          onReturnToCatalog={handleReturnToClassCatalog}
+          onCompleteQuiz={(score, xp) => {
+            onXpEarned?.(xp);
+            if (activeClassroom?.roomCode) {
+              fetchClassTasks(activeClassroom.roomCode);
+            }
+          }}
         />
       )}
 

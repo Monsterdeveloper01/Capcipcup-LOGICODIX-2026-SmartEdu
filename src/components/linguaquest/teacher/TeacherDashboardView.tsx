@@ -19,6 +19,7 @@ import {
   TeacherRoomItem,
   QuizQuestionItem,
   TeacherTab,
+  TaskType,
 } from "./types";
 
 // Import Modular Tabs
@@ -117,6 +118,10 @@ export default function TeacherDashboardView() {
   const [selectedEvaluation, setSelectedEvaluation] = useState<SpeakingEvaluation | null>(null);
 
   // In-Dashboard Task Builder State
+  const [taskType, setTaskType] = useState<TaskType>("HYBRID");
+  const [learningObjective, setLearningObjective] = useState("");
+  const [questionCount, setQuestionCount] = useState<number>(3);
+  const [includeListening, setIncludeListening] = useState<boolean>(true);
   const [newTopic, setNewTopic] = useState("Handling Customer Negotiation & Service Recovery");
   const [newDifficulty, setNewDifficulty] = useState("B1");
   const [newCaseStory, setNewCaseStory] = useState(
@@ -338,8 +343,12 @@ export default function TeacherDashboardView() {
 
   // AI Auto-Generate Case & Quiz Draft
   const handleAutoGenerateAi = async () => {
-    if (!newTopic.trim()) {
-      showAlert("Topik Materi Kosong", "Silakan masukkan topik materi pelajaran terlebih dahulu sebelum men-generate draf dengan AI.", "warning");
+    if (!newTopic.trim() && !learningObjective.trim()) {
+      showAlert(
+        "Tujuan Belajar / Topik Belum Diisi",
+        "Silakan masukkan maksud dan tujuan pembelajaran (atau topik materi) terlebih dahulu.",
+        "warning"
+      );
       return;
     }
 
@@ -350,8 +359,12 @@ export default function TeacherDashboardView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "ROOM",
-          creatorName: "Guru Bahasa Inggris",
-          topic: newTopic,
+          creatorName: "Budi Santoso, S.Pd",
+          topic: newTopic || learningObjective,
+          learningObjective,
+          taskType,
+          questionCount,
+          includeListening,
           difficultyLevel: newDifficulty,
           detected_labels: ["bottle", "book", "cup"],
           generateOnly: true,
@@ -364,19 +377,21 @@ export default function TeacherDashboardView() {
       const q = data.draft || data.quest || data;
       if (!q) throw new Error("Format respons draf AI tidak valid.");
 
+      if (q.title) setNewTopic(q.title);
       const scenarioText = q.case_study_story || q.scenario || q.scenarioBrief || q.urgent_goal || newCaseStory;
       setNewCaseStory(scenarioText);
       setNewNpcName(q.npc_name || q.npcName || newNpcName);
       setNewNpcPersona(q.npc_persona || q.npcPersona || newNpcPersona);
+      if (q.required_object_hint) setNewRequiredHint(q.required_object_hint);
       if (q.target_vocabularies || q.targetVocab) {
         const vocab = q.target_vocabularies || q.targetVocab;
         const vocabStr = Array.isArray(vocab) ? vocab.join(", ") : vocab;
         setNewTargetVocab(vocabStr);
       }
-      if (q.quiz_questions && Array.isArray(q.quiz_questions) && q.quiz_questions.length > 0) {
+      if (q.quiz_questions && Array.isArray(q.quiz_questions)) {
         setNewQuizQuestions(q.quiz_questions);
       }
-      setCreateSuccessMsg("Draf kuis dan skenario berhasil dibuat otomatis oleh AI Gemini!");
+      setCreateSuccessMsg("Draf materi dan butir soal berhasil disusun otomatis oleh AI Gemini!");
     } catch (err: any) {
       showAlert("Gagal Membuat Draf AI", err.message || "Terjadi kesalahan saat membuat draf kuis dengan AI.", "danger");
     } finally {
@@ -391,8 +406,12 @@ export default function TeacherDashboardView() {
       showAlert("Kelas Belum Dipilih", "Pilih rombongan kelas terlebih dahulu sebelum menyimpan tugas.", "warning");
       return;
     }
-    if (!newTopic.trim() || !newCaseStory.trim()) {
-      showAlert("Form Belum Lengkap", "Judul materi dan skenario kasus wajib diisi.", "warning");
+    if (!newTopic.trim()) {
+      showAlert("Judul Belum Diisi", "Judul materi atau tugas wajib diisi.", "warning");
+      return;
+    }
+    if (taskType !== "QUIZ_ONLY" && !newCaseStory.trim()) {
+      showAlert("Skenario Kasus Kosong", "Skenario kasus speaking wajib diisi jika format melibatkan speaking.", "warning");
       return;
     }
 
@@ -410,6 +429,7 @@ export default function TeacherDashboardView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: newTopic,
+          taskType,
           creatorName: "Budi Santoso, S.Pd",
           classroomId: selectedClass.id,
           customPin: selectedClass.classCode,
@@ -418,7 +438,7 @@ export default function TeacherDashboardView() {
           npcPersona: newNpcPersona,
           requiredObjectHint: newRequiredHint,
           targetVocabularies: vocabList,
-          quizQuestions: newQuizQuestions,
+          quizQuestions: taskType === "SPEAKING_ONLY" ? [] : newQuizQuestions,
           difficultyLevel: newDifficulty,
         }),
       });
@@ -426,7 +446,7 @@ export default function TeacherDashboardView() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan tugas.");
 
-      setCreateSuccessMsg(`Tugas [${newTopic}] berhasil ditambahkan ke kelas [${selectedClass.name}]!`);
+      setCreateSuccessMsg(`Tugas [${newTopic}] (${taskType}) berhasil ditambahkan ke kelas [${selectedClass.name}]!`);
       await fetchTasks(selectedClass.id, selectedClass.classCode);
       await fetchClasses();
       setActiveTab("tasks");
@@ -736,6 +756,10 @@ export default function TeacherDashboardView() {
       {activeTab === "builder" && (
         <TaskBuilderTab
           selectedClass={selectedClass}
+          taskType={taskType}
+          learningObjective={learningObjective}
+          questionCount={questionCount}
+          includeListening={includeListening}
           newTopic={newTopic}
           newDifficulty={newDifficulty}
           newCaseStory={newCaseStory}
@@ -746,6 +770,10 @@ export default function TeacherDashboardView() {
           newQuizQuestions={newQuizQuestions}
           isGeneratingAi={isGeneratingAi}
           isSavingTask={isSavingTask}
+          onTaskTypeChange={setTaskType}
+          onLearningObjectiveChange={setLearningObjective}
+          onQuestionCountChange={setQuestionCount}
+          onIncludeListeningChange={setIncludeListening}
           onTopicChange={setNewTopic}
           onDifficultyChange={setNewDifficulty}
           onCaseStoryChange={setNewCaseStory}

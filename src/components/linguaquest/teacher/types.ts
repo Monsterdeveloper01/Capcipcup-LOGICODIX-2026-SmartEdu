@@ -30,12 +30,16 @@ export interface AvailableStudentItem {
   email: string;
 }
 
+export type TaskType = "HYBRID" | "SPEAKING_ONLY" | "QUIZ_ONLY";
+export type QuizQuestionType = "multiple_choice" | "listening";
+
 export interface TeacherRoomItem {
   id: string;
   classroomId?: string;
   roomCode: string;
   creatorName: string;
   title: string;
+  taskType?: TaskType;
   difficultyLevel: string;
   caseStudyStory?: string;
   npcName?: string;
@@ -50,6 +54,9 @@ export interface TeacherRoomItem {
 }
 
 export interface QuizQuestionItem {
+  id?: string;
+  type?: QuizQuestionType;
+  audioScript?: string;
   question: string;
   options: [string, string, string, string];
   correctIndex: number;

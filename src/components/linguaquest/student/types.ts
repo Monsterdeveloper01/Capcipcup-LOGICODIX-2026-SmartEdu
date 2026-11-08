@@ -1,6 +1,6 @@
 import { GameMode, QuestScenario, ScannedItem, RoleplayTurnMessage, SpeakingEvaluation } from "@/lib/linguaquest/types";
 
-export type StudentStep = "select_mode" | "scanning" | "inventory" | "hud" | "autopsy";
+export type StudentStep = "select_mode" | "scanning" | "inventory" | "hud" | "autopsy" | "quiz";
 
 export interface ActiveClassroom {
   id?: string;
@@ -36,6 +36,7 @@ export interface CodeSwitchRescue {
 export interface ClassroomTaskItem {
   id: string;
   title: string;
+  taskType?: "HYBRID" | "SPEAKING_ONLY" | "QUIZ_ONLY";
   description?: string;
   caseStudyStory?: string;
   case_study_story?: string;

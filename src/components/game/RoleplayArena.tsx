@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Mic, Send, Volume2, ShieldAlert, Sparkles, CheckSquare, Square, Zap, ArrowRight } from "lucide-react";
 import { analyzeSpeechMetricsWithPython, PythonSpeechMetrics, YoloDetection } from "@/lib/python-api";
+import BrutalAlertModal, { ModalConfig } from "@/components/linguaquest/common/BrutalAlertModal";
 
 interface RoleplayArenaProps {
   quest: any;
@@ -23,6 +24,25 @@ export default function RoleplayArena({
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const [completedObjectives, setCompletedObjectives] = useState<number[]>([]);
   const [turnStartTime, setTurnStartTime] = useState<number>(Date.now());
+
+  // Custom Brutal Alert Modal
+  const [alertModal, setAlertModal] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "warning",
+  });
+
+  const showAlert = (title: string, message: string, type: ModalConfig["type"] = "warning") => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText: "[ OKE / MENGERTI ]",
+      onConfirm: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
   const [lastMetrics, setLastMetrics] = useState<PythonSpeechMetrics>({
     word_count: 0,
     wpm: 90,
@@ -85,7 +105,7 @@ export default function RoleplayArena({
 
   const toggleMic = () => {
     if (!recognitionRef.current) {
-      alert("Browser Anda belum mendukung Web Speech API. Silakan ketik kalimat di kolom teks.");
+      showAlert("Mikrofon Tidak Didukung", "Browser Anda belum mendukung Web Speech API. Silakan ketik kalimat di kolom teks.", "info");
       return;
     }
     if (isListening) {
@@ -350,6 +370,8 @@ export default function RoleplayArena({
           <span>KIRIM DIALOG</span>
         </button>
       </div>
+
+      <BrutalAlertModal {...alertModal} />
     </div>
   );
 }

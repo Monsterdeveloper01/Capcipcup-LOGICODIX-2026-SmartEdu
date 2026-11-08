@@ -58,13 +58,21 @@ async function migrate() {
   `);
   console.log("Table `classroom_members` created/verified.");
 
-  // 3. Add `classroom_id` column to `quests` if not exists and drop UNIQUE on room_code
+  // 3. Add `classroom_id` and `task_type` columns to `quests` if not exists and drop UNIQUE on room_code
   const [cols] = await conn.query("SHOW COLUMNS FROM quests LIKE 'classroom_id'");
   if (cols.length === 0) {
     await conn.query("ALTER TABLE quests ADD COLUMN classroom_id varchar(36) DEFAULT NULL AFTER mode");
     console.log("Added `classroom_id` column to `quests`.");
   } else {
     console.log("`classroom_id` column already exists in `quests`.");
+  }
+
+  const [ttCols] = await conn.query("SHOW COLUMNS FROM quests LIKE 'task_type'");
+  if (ttCols.length === 0) {
+    await conn.query("ALTER TABLE quests ADD COLUMN task_type varchar(30) DEFAULT 'HYBRID' AFTER mode");
+    console.log("Added `task_type` column to `quests`.");
+  } else {
+    console.log("`task_type` column already exists in `quests`.");
   }
 
   // Check if room_code has UNIQUE index and convert to normal index

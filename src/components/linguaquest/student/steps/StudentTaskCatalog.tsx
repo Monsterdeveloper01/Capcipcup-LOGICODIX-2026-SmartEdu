@@ -107,63 +107,126 @@ export default function StudentTaskCatalog({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {classTasks.map((task, idx) => (
-              <div
-                key={task.id}
-                className="border-2 border-black bg-white p-5 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4 hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#facc15] border border-black">
-                      TUGAS #{idx + 1} • CEFR: {task.difficultyLevel || task.difficulty_level || "B1"}
-                    </span>
-                    {task.isCompleted ? (
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-700">
-                        ✅ SELESAI ({task.studentScore}/100)
-                      </span>
+            {classTasks.map((task, idx) => {
+              const isQuizOnly = task.taskType === "QUIZ_ONLY";
+              const isSpeakingOnly = task.taskType === "SPEAKING_ONLY";
+              const isHybrid = task.taskType === "HYBRID" || (!isQuizOnly && !isSpeakingOnly);
+
+              let qCount = 0;
+              let hasListening = false;
+              try {
+                const rawQ = task.quiz_questions || task.quizQuestions;
+                const parsedQ = typeof rawQ === "string" ? JSON.parse(rawQ) : rawQ || [];
+                qCount = parsedQ.length;
+                hasListening = parsedQ.some((q: any) => q.type === "listening" || Boolean(q.audioScript));
+              } catch (e) {}
+
+              return (
+                <div
+                  key={task.id}
+                  className="border-2 border-black bg-white p-5 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4 hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                >
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#facc15] border border-black">
+                          TUGAS #{idx + 1} • CEFR: {task.difficultyLevel || task.difficulty_level || "B1"}
+                        </span>
+                        {isQuizOnly && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-600">
+                            📝 KUIS & LISTENING
+                          </span>
+                        )}
+                        {isSpeakingOnly && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-600">
+                            🎙️ SPEAKING ONLY
+                          </span>
+                        )}
+                        {isHybrid && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-purple-100 text-purple-900 border border-purple-600">
+                            ⚡ SPEAKING + KUIS
+                          </span>
+                        )}
+                      </div>
+
+                      {task.isCompleted ? (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-700">
+                          ✅ SELESAI ({task.studentScore}/100)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-700">
+                          ⏳ BELUM DIKERJAKAN
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-base font-black text-black uppercase leading-tight line-clamp-2">
+                        {task.title}
+                      </h3>
+                      {(task.caseStudyStory || task.case_study_story) && (
+                        <p className="text-xs text-zinc-600 line-clamp-2 mt-1 leading-relaxed">
+                          {task.caseStudyStory || task.case_study_story}
+                        </p>
+                      )}
+                    </div>
+
+                    {isQuizOnly ? (
+                      <div className="p-2.5 bg-blue-50 border border-black text-xs space-y-1">
+                        <div className="text-zinc-800 font-bold">
+                          FORMAT: <span className="text-black font-black">Butir Soal Mandiri {hasListening ? "(Ada Audio Listening 🎧)" : ""}</span>
+                        </div>
+                        <div className="text-blue-900 font-black">
+                          Jumlah Soal: {qCount > 0 ? `${qCount} Butir Soal Kuis` : "Pilihan Ganda"}
+                        </div>
+                      </div>
                     ) : (
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-700">
-                        ⏳ BELUM DIKERJAKAN
-                      </span>
+                      <div className="p-2.5 bg-zinc-50 border border-black text-xs space-y-1">
+                        <div className="text-zinc-700 font-bold">
+                          NPC: <span className="text-black font-black">{task.npcName || task.npc_name || "Mr. Arthur"}</span>
+                        </div>
+                        <div className="text-cyan-800 font-bold truncate">
+                          Scan: {task.requiredObjectHint || task.required_object_hint || "Benda fisik di meja"}
+                        </div>
+                        {isHybrid && qCount > 0 && (
+                          <div className="text-purple-800 font-bold">
+                            + Bonus Kuis: {qCount} Butir Soal {hasListening ? "(+Listening)" : ""}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
-                  <div>
-                    <h3 className="text-base font-black text-black uppercase leading-tight line-clamp-2">
-                      {task.title}
-                    </h3>
-                    {(task.caseStudyStory || task.case_study_story) && (
-                      <p className="text-xs text-zinc-600 line-clamp-2 mt-1 leading-relaxed">
-                        {task.caseStudyStory || task.case_study_story}
-                      </p>
+                  <div className="pt-2">
+                    {isQuizOnly ? (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTask(task)}
+                        className={`w-full py-3 text-xs font-black uppercase flex items-center justify-center gap-2 shadow-[2px_2px_0px_#000000] ${
+                          task.isCompleted ? "brutal-btn-cyan" : "brutal-btn-yellow"
+                        }`}
+                      >
+                        <BookOpen className="w-4 h-4 stroke-[2.5]" />
+                        <span>{task.isCompleted ? "[ 🔄 KERJAKAN ULANG KUIS ]" : "[ 📝 KERJAKAN KUIS & LISTENING ]"}</span>
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onSelectTask(task)}
+                        className={`w-full py-3 text-xs font-black uppercase flex items-center justify-center gap-2 shadow-[2px_2px_0px_#000000] ${
+                          task.isCompleted ? "brutal-btn-cyan" : "brutal-btn-yellow"
+                        }`}
+                      >
+                        <Camera className="w-4 h-4 stroke-[2.5]" />
+                        <span>{task.isCompleted ? "[ 🔄 KERJAKAN ULANG MISI ]" : "[ 🚀 KERJAKAN MISI INI ]"}</span>
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
                     )}
                   </div>
-
-                  <div className="p-2.5 bg-zinc-50 border border-black text-xs space-y-1">
-                    <div className="text-zinc-700 font-bold">
-                      NPC: <span className="text-black font-black">{task.npcName || task.npc_name || "Mr. Arthur"}</span>
-                    </div>
-                    <div className="text-cyan-800 font-bold truncate">
-                      Scan: {task.requiredObjectHint || task.required_object_hint || "Benda fisik di meja"}
-                    </div>
-                  </div>
                 </div>
-
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => onSelectTask(task)}
-                    className={`w-full py-3 text-xs font-black uppercase flex items-center justify-center gap-2 shadow-[2px_2px_0px_#000000] ${
-                      task.isCompleted ? "brutal-btn-cyan" : "brutal-btn-yellow"
-                    }`}
-                  >
-                    <Camera className="w-4 h-4 stroke-[2.5]" />
-                    <span>{task.isCompleted ? "[ 🔄 KERJAKAN ULANG MISI ]" : "[ 🚀 KERJAKAN MISI INI ]"}</span>
-                    <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

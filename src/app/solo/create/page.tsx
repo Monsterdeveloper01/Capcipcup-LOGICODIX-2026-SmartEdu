@@ -6,6 +6,7 @@ import { Camera, Sparkles, ArrowLeft, ArrowRight, BookOpen, Layers, Plus, Trash2
 import Link from "next/link";
 import CameraScanner from "@/components/game/CameraScanner";
 import { YoloDetection } from "@/lib/python-api";
+import BrutalAlertModal, { ModalConfig } from "@/components/linguaquest/common/BrutalAlertModal";
 
 interface QuizQuestionItem {
   question: string;
@@ -22,6 +23,25 @@ export default function SoloCreatePage() {
   const [studentName, setStudentName] = useState("Solo Explorer");
   const [difficultyLevel, setDifficultyLevel] = useState("B1");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Custom Brutal Alert Modal
+  const [alertModal, setAlertModal] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "warning",
+  });
+
+  const showAlert = (title: string, message: string, type: ModalConfig["type"] = "warning") => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText: "[ OKE / MENGERTI ]",
+      onConfirm: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
 
   // Manual Mode State
   const [manualTitle, setManualTitle] = useState("Misi Mandiri: Practical English Conversation");
@@ -92,7 +112,7 @@ export default function SoloCreatePage() {
       const subId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       router.push(`/play/${data.quest.id}?subId=${subId}&name=${encodeURIComponent(studentName)}`);
     } catch (err: any) {
-      alert(err.message || "Gagal membuat solo quest.");
+      showAlert("Gagal Membuat Misi Mandiri", err.message || "Gagal membuat solo quest.", "danger");
     } finally {
       setIsGenerating(false);
     }
@@ -333,6 +353,8 @@ export default function SoloCreatePage() {
           </div>
         )}
       </div>
+
+      <BrutalAlertModal {...alertModal} />
     </div>
   );
 }

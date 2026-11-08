@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, ArrowLeft, Sparkles, Plus, Trash2, CheckCircle2, BookOpen, Layers } from "lucide-react";
 import Link from "next/link";
+import BrutalAlertModal, { ModalConfig } from "@/components/linguaquest/common/BrutalAlertModal";
 
 interface QuizQuestionItem {
   question: string;
@@ -26,6 +27,25 @@ export default function TeacherCreateRoomPage() {
   const [builderMode, setBuilderMode] = useState<"ai_assisted" | "manual">("ai_assisted");
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Custom Brutal Alert Modal
+  const [alertModal, setAlertModal] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "warning",
+  });
+
+  const showAlert = (title: string, message: string, type: ModalConfig["type"] = "warning") => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText: "[ OKE / MENGERTI ]",
+      onConfirm: () => setAlertModal((prev) => ({ ...prev, isOpen: false })),
+    });
+  };
 
   // Case Study Details
   const [caseTitle, setCaseTitle] = useState("Misi Studi Kasus: Eco-Friendly Hospitality");
@@ -103,7 +123,7 @@ export default function TeacherCreateRoomPage() {
         }
       }
     } catch (err: any) {
-      alert(err.message || "Gagal menghubungi AI. Draf bawaan tetap digunakan.");
+      showAlert("Gagal Menghubungi AI", err.message || "Gagal menghubungi AI. Draf bawaan tetap digunakan.", "warning");
     } finally {
       setIsGeneratingDraft(false);
     }
@@ -124,7 +144,7 @@ export default function TeacherCreateRoomPage() {
 
   const handleRemoveQuestion = (idx: number) => {
     if (quizQuestions.length <= 1) {
-      alert("Minimal harus ada 1 butir soal kuis.");
+      showAlert("Peringatan Soal Kuis", "Minimal harus ada 1 butir soal kuis.", "warning");
       return;
     }
     setQuizQuestions(quizQuestions.filter((_, i) => i !== idx));
@@ -195,7 +215,7 @@ export default function TeacherCreateRoomPage() {
 
       router.push(`/teacher/room/${data.quest.room_code || roomCode}`);
     } catch (err: any) {
-      alert(err.message || "Gagal membuat room.");
+      showAlert("Gagal Membuat Room", err.message || "Gagal membuat room.", "danger");
     } finally {
       setIsSubmitting(false);
     }
@@ -542,6 +562,8 @@ export default function TeacherCreateRoomPage() {
           </div>
         </form>
       </div>
+
+      <BrutalAlertModal {...alertModal} />
     </div>
   );
 }

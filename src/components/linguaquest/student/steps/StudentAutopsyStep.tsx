@@ -11,6 +11,8 @@ interface StudentAutopsyStepProps {
   pokedexCount: number;
   onOpenPokedex: () => void;
   onReturnToCatalog: () => void;
+  selectedTask?: any;
+  onStartQuiz?: () => void;
 }
 
 export default function StudentAutopsyStep({
@@ -20,7 +22,18 @@ export default function StudentAutopsyStep({
   pokedexCount,
   onOpenPokedex,
   onReturnToCatalog,
+  selectedTask,
+  onStartQuiz,
 }: StudentAutopsyStepProps) {
+  let hasQuiz = false;
+  if (selectedTask) {
+    const raw = selectedTask.quiz_questions || selectedTask.quizQuestions;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed) && parsed.length > 0) hasQuiz = true;
+    } catch {}
+    if (selectedTask.taskType === "HYBRID") hasQuiz = true;
+  }
   return (
     <div className="max-w-4xl mx-auto space-y-4 font-mono">
       {/* Active Class Indicator */}
@@ -166,6 +179,31 @@ export default function StudentAutopsyStep({
               </ul>
             </div>
           </div>
+
+          {/* Hybrid Task - Continue to Quiz CTA */}
+          {hasQuiz && onStartQuiz && (
+            <div className="p-5 bg-[#fef08a] border-2 border-black shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4 font-mono">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase text-purple-900 block">
+                  [ ⚡ TUGAS KOMBO HYBRID // BAGIAN 2: BUTIR KUIS & LISTENING ]
+                </span>
+                <h4 className="text-sm font-black text-black uppercase">
+                  Kerjakan Butir Soal Terkait Skenario Ini Untuk Tambahan Nilai & +150 XP!
+                </h4>
+                <p className="text-xs text-zinc-700">
+                  Uji pemahaman kosakata dan naskah percakapan yang baru saja kamu bicarakan dengan AI.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onStartQuiz}
+                className="brutal-btn-cyan px-5 py-3 text-xs font-black uppercase flex items-center gap-2 shadow-[2px_2px_0px_#000000]"
+              >
+                <BookOpen className="w-4 h-4 stroke-[2.5]" />
+                <span>[ 📝 LANJUT KERJAKAN KUIS & LISTENING ]</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
     </div>

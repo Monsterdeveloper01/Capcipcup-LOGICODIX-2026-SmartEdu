@@ -71,11 +71,26 @@ export default function ClassroomTasksTab({
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-cyan-100 text-cyan-900 border border-cyan-800">
-                    TUGAS #{idx + 1} • KELAS {selectedClass?.classCode}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#facc15] border border-black">
+                      #{idx + 1}
+                    </span>
+                    {room.taskType === "QUIZ_ONLY" ? (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-cyan-100 text-cyan-900 border border-cyan-800">
+                        📝 Kuis & Listening
+                      </span>
+                    ) : room.taskType === "SPEAKING_ONLY" ? (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-800">
+                        🎙️ Speaking Only
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-800">
+                        ⚡ Speaking + Kuis
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs font-black uppercase text-zinc-500">
-                    Target CEFR: [{room.difficultyLevel}]
+                    CEFR: [{room.difficultyLevel}]
                   </span>
                 </div>
 
