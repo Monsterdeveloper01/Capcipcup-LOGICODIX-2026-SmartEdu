@@ -1,95 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { GameMode, QuestScenario, ScannedItem, RoleplayTurnMessage, SpeakingEvaluation } from "@/lib/linguaquest/types";
 import confetti from "canvas-confetti";
-import {
-  Camera,
-  Upload,
-  Volume2,
-  Mic,
-  Send,
-  CheckCircle2,
-  AlertCircle,
-  RotateCcw,
-  ArrowRight,
-  Flame,
-  Zap,
-  Terminal,
-  ShieldAlert,
-  Radio,
-  Sparkles,
-  BookOpen,
-  Search,
-  X,
-  Lightbulb,
-  Lock,
-  Key,
-  GraduationCap,
-  LogOut,
-} from "lucide-react";
+import { GameMode, QuestScenario, ScannedItem, RoleplayTurnMessage, SpeakingEvaluation } from "@/lib/linguaquest/types";
+import { ActiveClassroom, SafetyAlert, CodeSwitchRescue, StudentStep, ClassroomTaskItem } from "./types";
 
-const GAME_MODES = [
-  {
-    id: "survival" as GameMode,
-    code: "MOD-01",
-    title: "Survival & Adventure RPG",
-    target: "Siswa SD – SMA",
-    description: "Terdampar di pulau misterius. Scan barang di sekitarmu sebagai alat barter untuk melobi penjaga gerbang kuno.",
-    badge: "Anti-Speaking Anxiety",
-    accent: "border-[#facc15]",
-    icon: "🏕️",
-  },
-  {
-    id: "smk_career" as GameMode,
-    code: "MOD-02",
-    title: "SMK & Career Simulator",
-    target: "SMK Perhotelan & Bisnis",
-    description: "Hadapi tamu VIP asing yang komplain di hotel bintang 5. Negosiasikan solusi profesional dan tawarkan kompensasi.",
-    badge: "Vocational Hospitality",
-    accent: "border-[#22d3ee]",
-    icon: "🏨",
-  },
-  {
-    id: "local_pride" as GameMode,
-    code: "MOD-03",
-    title: "Local Pride Ambassador",
-    target: "Budaya & Produk Lokal",
-    description: "Jelaskan keistimewaan warisan budaya nusantara (Batik, Kopi, Anyaman) ke travel blogger mancanegara.",
-    badge: "Cultural Diplomacy",
-    accent: "border-[#4ade80]",
-    icon: "🎨",
-  },
-  {
-    id: "boss_raid" as GameMode,
-    code: "MOD-04",
-    title: "Classroom Boss Raid",
-    target: "Satu Kelas Kolaboratif",
-    description: "Gabungkan benda nyata 3-4 siswa untuk berdebat melawan Titan Polusi Lingkungan dalam Mode Proyektor.",
-    badge: "Classroom Co-op",
-    accent: "border-[#ef4444]",
-    icon: "⚔️",
-  },
-];
-
-export interface ActiveClassroom {
-  id?: string;
-  roomCode: string;
-  name?: string;
-  creatorName: string;
-  topic?: string;
-  questTitle?: string;
-  questId?: string;
-  difficultyLevel?: string;
-  quizQuestions?: any[];
-  scenarioStory?: string;
-  npcName?: string;
-  npcRole?: string;
-  targetVocab?: string[];
-  requiredHint?: string;
-  gradeLevel?: string;
-  description?: string;
-}
+// Subcomponents & Modals
+import StudentClassroomGate from "./steps/StudentClassroomGate";
+import StudentTaskCatalog from "./steps/StudentTaskCatalog";
+import StudentScanningStep from "./steps/StudentScanningStep";
+import StudentInventoryStep from "./steps/StudentInventoryStep";
+import StudentDialogueHud from "./steps/StudentDialogueHud";
+import StudentAutopsyStep from "./steps/StudentAutopsyStep";
+import StudentPokedexModal from "./modals/StudentPokedexModal";
+import StudentSafetyModal from "./modals/StudentSafetyModal";
+import StudentSosModal from "./modals/StudentSosModal";
 
 export default function StudentGameView({
   onXpEarned,
@@ -98,15 +23,15 @@ export default function StudentGameView({
   onXpEarned?: (xp: number) => void;
   currentUser?: any;
 }) {
-  const [selectedMode, setSelectedMode] = useState<GameMode>("survival");
-  const [step, setStep] = useState<"select_mode" | "scanning" | "inventory" | "hud" | "autopsy">("select_mode");
+  const [selectedMode] = useState<GameMode>("survival");
+  const [step, setStep] = useState<StudentStep>("select_mode");
 
-  // Classroom Gate State (Murid Wajib Terhubung ke Kelas Guru)
+  // Classroom Gate State
   const [activeClassroom, setActiveClassroom] = useState<ActiveClassroom | null>(null);
-  const [classTasks, setClassTasks] = useState<any[]>([]);
-  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [classTasks, setClassTasks] = useState<ClassroomTaskItem[]>([]);
+  const [, setSelectedTask] = useState<any | null>(null);
   const [isLoadingTasks, setIsLoadingTasks] = useState<boolean>(false);
-  const [isClassroomChecking, setIsClassroomChecking] = useState<boolean>(true);
+  const [, setIsClassroomChecking] = useState<boolean>(true);
   const [inputPin, setInputPin] = useState<string>("");
   const [inputStudentName, setInputStudentName] = useState<string>(currentUser?.name || "Ahmad Faiz");
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -115,9 +40,9 @@ export default function StudentGameView({
   // Camera & Image State
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
   // Centralized Bulletproof Camera Killer (Turns off Hardware Light Immediately)
@@ -150,18 +75,17 @@ export default function StudentGameView({
   const [currentQuest, setCurrentQuest] = useState<QuestScenario | null>(null);
   const [inventoryItems, setInventoryItems] = useState<ScannedItem[]>([]);
 
-  // Feature 3: Buku Koleksi Kartu / Vocab Pokedex ("My Inventory Deck")
+  // Feature 3: Pokedex Deck State
   const [showPokedexModal, setShowPokedexModal] = useState<boolean>(false);
   const [pokedexDeck, setPokedexDeck] = useState<ScannedItem[]>([]);
-  const [pokedexSearch, setPokedexSearch] = useState<string>("");
 
-  // Feature 5: AI Child-Safety & Hazard Guardrail ("Safe-School Shield")
-  const [safetyAlert, setSafetyAlert] = useState<{ isHazard: boolean; hazardName: string; warningMessage: string } | null>(null);
+  // Feature 5: Safe-School Shield State
+  const [safetyAlert, setSafetyAlert] = useState<SafetyAlert | null>(null);
   const [showSafetyModal, setShowSafetyModal] = useState<boolean>(false);
   const [safetyViolationNotice, setSafetyViolationNotice] = useState<string | null>(null);
 
-  // Feature 6: Lupa Kosakata / Code-Switching Rescue (ID -> EN)
-  const [codeSwitchRescue, setCodeSwitchRescue] = useState<{ detectedIndonesianWord: string; englishEquivalent: string; explanation: string } | null>(null);
+  // Feature 6: Code-Switching Rescue State
+  const [codeSwitchRescue, setCodeSwitchRescue] = useState<CodeSwitchRescue | null>(null);
   const [showSosModal, setShowSosModal] = useState<boolean>(false);
   const [sosInput, setSosInput] = useState<string>("");
 
@@ -174,7 +98,7 @@ export default function StudentGameView({
   const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<number>(0);
-  const [hesitationCounter, setHesitationCounter] = useState<number>(0);
+  const [hesitationCounter] = useState<number>(0);
 
   // Post-Game Autopsy State
   const [evaluation, setEvaluation] = useState<SpeakingEvaluation | null>(null);
@@ -305,11 +229,6 @@ export default function StudentGameView({
 
   // Select a task and launch camera & roleplay
   const handleSelectAndStartTask = (task: any) => {
-    let parsedQuiz = [];
-    try {
-      parsedQuiz = typeof task.quiz_questions === "string" ? JSON.parse(task.quiz_questions) : task.quiz_questions || task.quizQuestions || [];
-    } catch (e) {}
-
     let parsedObjectives = [];
     try {
       parsedObjectives = typeof task.mission_objectives === "string" ? JSON.parse(task.mission_objectives) : task.mission_objectives || task.missionObjectives || [];
@@ -365,7 +284,7 @@ export default function StudentGameView({
     }
   };
 
-  // Load / Seed Vocab Pokedex from localStorage
+  // Load Vocab Pokedex from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -430,19 +349,15 @@ export default function StudentGameView({
     });
   };
 
-  // ============================================================================
-  // CAMERA STREAM HANDLER (HARDWARE INDICATOR AUTO-SHUTOFF)
-  // ============================================================================
+  // Camera stream handler with automatic hardware shutoff
   useEffect(() => {
     let isCancelled = false;
 
-    // Kamera HANYA menyala saat benar-benar di step scanning dan belum mengambil foto
     if (step === "scanning" && isCameraActive && !capturedImage) {
       navigator.mediaDevices
         ?.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } })
         .then((s) => {
           if (isCancelled) {
-            // Jika user sudah berpindah step sebelum izin kamera selesai, langsung matikan track
             s.getTracks().forEach((track) => {
               try { track.stop(); } catch (e) {}
             });
@@ -467,7 +382,6 @@ export default function StudentGameView({
           setScanError("Kamera tidak dapat diakses atau izin ditolak. Anda dapat mengunggah file foto di bawah.");
         });
     } else {
-      // Step selain scanning, atau foto sudah terambil -> MATIKAN LAMPU KAMERA
       stopCameraStream();
     }
 
@@ -477,9 +391,7 @@ export default function StudentGameView({
     };
   }, [step, isCameraActive, capturedImage]);
 
-  // ============================================================================
-  // WEB SPEECH API (STT & TTS)
-  // ============================================================================
+  // Web Speech API (STT) setup
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -541,9 +453,7 @@ export default function StudentGameView({
     }
   };
 
-  // ============================================================================
-  // ACTION: SNAP & SCAN OBJECTS DENGAN GEMINI AI VISION
-  // ============================================================================
+  // Vision Scan Actions
   const handleSnapFromVideo = () => {
     if (!videoRef.current) return;
     const canvas = document.createElement("canvas");
@@ -554,9 +464,7 @@ export default function StudentGameView({
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
 
-    // Matikan lampu kamera perangkat segera begitu foto diambil
     stopCameraStream();
-
     setCapturedImage(dataUrl);
     processVisionScan(dataUrl);
   };
@@ -565,9 +473,7 @@ export default function StudentGameView({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Matikan lampu kamera jika user beralih mengunggah file
     stopCameraStream();
-
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -596,7 +502,6 @@ export default function StudentGameView({
         throw new Error(data.error || "Gagal memproses gambar.");
       }
 
-      // Feature 5: Safe-School Shield Check
       if (data.safetyAlert && data.safetyAlert.isHazard) {
         setSafetyAlert(data.safetyAlert);
         setShowSafetyModal(true);
@@ -605,7 +510,6 @@ export default function StudentGameView({
         return;
       }
 
-      // Feature 3: Save detected items to Vocab Pokedex
       if (data.scannedItems && data.scannedItems.length > 0) {
         saveItemsToPokedex(data.scannedItems);
       }
@@ -625,9 +529,7 @@ export default function StudentGameView({
     }
   };
 
-  // ============================================================================
-  // ACTION: START HUD ROLEPLAY
-  // ============================================================================
+  // Roleplay Session Actions
   const startRoleplaySession = () => {
     stopCameraStream();
     if (!currentQuest) return;
@@ -644,9 +546,6 @@ export default function StudentGameView({
     speakText(currentQuest.initialNpcGreeting);
   };
 
-  // ============================================================================
-  // ACTION: SEND SPOKEN TURN TO NPC AI
-  // ============================================================================
   const handleSendSpokenLine = async (overrideText?: string) => {
     const textToSend = (overrideText || spokenTranscript || textInput).trim();
     if (!textToSend || !currentQuest || isAiThinking) return;
@@ -665,7 +564,6 @@ export default function StudentGameView({
     setIsAiThinking(true);
     setActiveHint(null);
 
-    // Tandai jika ada item inventori yang berhasil diucapkan
     const lowerText = textToSend.toLowerCase();
     setInventoryItems((prev) =>
       prev.map((item) => ({
@@ -693,7 +591,6 @@ export default function StudentGameView({
       setMessages((prev) => [...prev, npcMsg]);
       setRapport(data.newRapport);
 
-      // Feature 5 check: Safety violation during spoken dialogue
       if (data.isSafetyViolation) {
         setSafetyViolationNotice(
           "⚠️ Safe-School Shield: Ujaran mengandung kata kasar atau tidak pantas. Poin Rapport berkurang -20. Silakan gunakan bahasa yang sopan dan santun."
@@ -702,7 +599,6 @@ export default function StudentGameView({
         setSafetyViolationNotice(null);
       }
 
-      // Feature 6: Code-Switching Rescue (ID -> EN)
       if (data.codeSwitchRescue && data.codeSwitchRescue.detectedIndonesianWord) {
         setCodeSwitchRescue(data.codeSwitchRescue);
       } else {
@@ -730,9 +626,6 @@ export default function StudentGameView({
     handleSendSpokenLine(`Excuse me, what is the English word for "${term}"?`);
   };
 
-  // ============================================================================
-  // ACTION: FINISH QUEST & RUN POST-GAME AUTOPSY
-  // ============================================================================
   const finishQuestSession = async (allMessages?: RoleplayTurnMessage[]) => {
     stopCameraStream();
     if (!currentQuest) return;
@@ -787,1282 +680,138 @@ export default function StudentGameView({
     setSafetyViolationNotice(null);
   };
 
-  const filteredPokedexDeck = pokedexDeck.filter((item) => {
-    if (!pokedexSearch.trim()) return true;
-    const q = pokedexSearch.toLowerCase();
-    return (
-      item.englishWord.toLowerCase().includes(q) ||
-      item.objectName.toLowerCase().includes(q) ||
-      (item.idiom && item.idiom.toLowerCase().includes(q))
-    );
-  });
-
-  const renderSharedModals = () => (
+  return (
     <>
-      {/* Feature 3: Vocab Pokedex / My Inventory Deck Modal */}
-      {showPokedexModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white border-4 border-black w-full max-w-3xl shadow-[8px_8px_0px_#000000] p-6 space-y-5 font-mono text-black max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b-2 border-black pb-4">
-              <div className="flex items-center gap-3">
-                <span className="p-2 bg-[#facc15] border-2 border-black shadow-[2px_2px_0px_#000000]">
-                  <BookOpen className="w-6 h-6 text-black stroke-[2.5]" />
-                </span>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-zinc-600 block">
-                    [FEATURE 3 // PERSISTENT INVENTORY DECK]
-                  </span>
-                  <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
-                    BUKU KOLEKSI KATA (VOCAB POKEDEX)
-                  </h3>
-                  <p className="text-xs text-zinc-600">
-                    Total {pokedexDeck.length} kartu kosakata benda nyata tersimpan di memori perangkat
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowPokedexModal(false)}
-                className="p-2 bg-black text-white hover:bg-zinc-800 border-2 border-black"
-              >
-                <X className="w-5 h-5 stroke-[2.5]" />
-              </button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3.5 text-zinc-500" />
-              <input
-                type="text"
-                value={pokedexSearch}
-                onChange={(e) => setPokedexSearch(e.target.value)}
-                placeholder="Cari kartu (contoh: bottle, coffee, notebook)..."
-                className="w-full pl-9 pr-4 py-2.5 bg-zinc-50 border-2 border-black text-xs font-mono text-black focus:outline-none focus:bg-white"
-              />
-            </div>
-
-            {/* Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto p-1">
-              {filteredPokedexDeck.map((item, idx) => (
-                <div
-                  key={item.id || idx}
-                  className="bg-white border-2 border-black p-4 shadow-[3px_3px_0px_#000000] flex flex-col justify-between space-y-3"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between border-b border-zinc-200 pb-1.5">
-                      <span className="text-[10px] font-black uppercase text-zinc-600 truncate max-w-[130px]">
-                        {item.objectName}
-                      </span>
-                      <button
-                        onClick={() => speakText(item.englishWord)}
-                        title="Dengarkan Pengucapan (IPA Audio)"
-                        className="brutal-btn-yellow p-1 text-[10px]"
-                      >
-                        <Volume2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div>
-                      <h4 className="font-black text-lg text-black uppercase tracking-tight">
-                        {item.englishWord}
-                      </h4>
-                      <span className="text-xs font-bold text-cyan-700 block">
-                        {item.phonetics}
-                      </span>
-                    </div>
-
-                    <div className="p-2 bg-zinc-50 border border-black text-[11px] text-zinc-800">
-                      <span className="font-black block uppercase text-[9px] text-black">
-                        [IDIOM]:
-                      </span>
-                      <p className="italic">"{item.idiom}"</p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-zinc-200 text-[10px] font-bold text-emerald-700 flex items-center gap-1">
-                    <Zap className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{item.rpgAttribute}</span>
-                  </div>
-                </div>
-              ))}
-              {filteredPokedexDeck.length === 0 && (
-                <div className="col-span-full py-8 text-center text-zinc-500 text-xs">
-                  Tidak ada kartu yang cocok dengan pencarian "{pokedexSearch}".
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between border-t-2 border-zinc-200 pt-3 text-xs">
-              <span className="text-zinc-600 font-bold hidden sm:inline">
-                💡 Tip: Arahkan kamera ke meja untuk membuka kartu item baru!
-              </span>
-              <button
-                onClick={() => setShowPokedexModal(false)}
-                className="brutal-btn-yellow px-5 py-2 font-mono font-black uppercase ml-auto"
-              >
-                [ TUTUP POKEDEX ]
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* STEP 0: CLASSROOM GATE (UNENROLLED) */}
+      {!activeClassroom && (
+        <StudentClassroomGate
+          currentUser={currentUser}
+          inputPin={inputPin}
+          setInputPin={setInputPin}
+          inputStudentName={inputStudentName}
+          isJoining={isJoining}
+          joinError={joinError}
+          onJoinClassroom={handleJoinClassroom}
+        />
       )}
 
-      {/* Feature 5: Safe-School Shield Hazard Alert Modal */}
-      {showSafetyModal && safetyAlert && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white border-4 border-red-600 w-full max-w-lg shadow-[8px_8px_0px_#dc2626] p-6 space-y-4 font-mono text-black">
-            <div className="flex items-center gap-3 border-b-2 border-red-600 pb-3">
-              <div className="p-2 bg-red-600 text-white">
-                <ShieldAlert className="w-7 h-7 stroke-[2.5]" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase text-red-600 block">
-                  [SAFE-SCHOOL SHIELD // PROTOKOL KEAMANAN SEKOLAH]
-                </span>
-                <h3 className="text-xl font-black uppercase text-red-700 tracking-tight">
-                  BENDA BERBAHAYA TERDETEKSI!
-                </h3>
-              </div>
-            </div>
-
-            <div className="p-3 bg-red-50 border-2 border-red-600 space-y-2 text-xs">
-              <div>
-                <span className="font-black text-red-900 uppercase block">OBJEK YANG DILARANG:</span>
-                <span className="font-mono text-sm font-black text-red-700 bg-white px-2 py-0.5 border border-red-600 inline-block mt-0.5">
-                  ⚠️ {safetyAlert.hazardName}
-                </span>
-              </div>
-              <div>
-                <span className="font-black text-red-900 uppercase block">PENJELASAN EDUKATIF AI:</span>
-                <p className="text-red-800 leading-relaxed mt-0.5">
-                  {safetyAlert.warningMessage}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-zinc-600 leading-normal">
-              Demi kepatuhan kurikulum dan keselamatan lingkungan sekolah, LinguaQuest menolak memproses benda tajam, rokok/api, atau benda berbahaya lainnya. Silakan ganti dengan benda aman di mejamu (buku, pensil, botol minum, dll.).
-            </p>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => {
-                  setShowSafetyModal(false);
-                  setSafetyAlert(null);
-                  setCapturedImage(null);
-                  setIsCameraActive(true);
-                }}
-                className="brutal-btn-yellow px-6 py-3 text-xs font-mono font-black uppercase border-2 border-black shadow-[3px_3px_0px_#000000]"
-              >
-                [ SAYA MENGERTI — SCAN BENDA AMAN LAINNYA ]
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* STEP 1: TASK CATALOG IN ACTIVE CLASSROOM */}
+      {step === "select_mode" && activeClassroom && (
+        <StudentTaskCatalog
+          activeClassroom={activeClassroom}
+          classTasks={classTasks}
+          isLoadingTasks={isLoadingTasks}
+          pokedexCount={pokedexDeck.length}
+          onOpenPokedex={() => setShowPokedexModal(true)}
+          onLeaveClassroom={handleLeaveClassroom}
+          onRefreshTasks={() => fetchClassTasks(activeClassroom.roomCode)}
+          onSelectTask={handleSelectAndStartTask}
+        />
       )}
 
-      {/* Feature 6: Lupa Kosakata SOS Modal */}
-      {showSosModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white border-4 border-black w-full max-w-md shadow-[8px_8px_0px_#000000] p-6 space-y-4 font-mono text-black">
-            <div className="flex items-center justify-between border-b-2 border-black pb-3">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 bg-[#facc15] border border-black">
-                  <Lightbulb className="w-5 h-5 text-black stroke-[2.5]" />
-                </span>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-zinc-600 block">
-                    [CODE-SWITCHING RESCUE // ID -&gt; EN]
-                  </span>
-                  <h3 className="text-base font-black uppercase text-black">
-                    LUPA KATA BAHASA INGGRIS?
-                  </h3>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSosModal(false)}
-                className="p-1 bg-black text-white hover:bg-zinc-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-zinc-700 leading-relaxed">
-              Ketik kata atau istilah Bahasa Indonesia yang ingin kamu tanyakan ke NPC. NPC AI akan langsung mengajarimu kata bahasa Inggrisnya di tengah percakapan!
-            </p>
-
-            <div>
-              <label className="font-black text-black block mb-1 text-xs uppercase">
-                Kata Bahasa Indonesia (contoh: talenan, timbangan, wadah):
-              </label>
-              <input
-                type="text"
-                autoFocus
-                value={sosInput}
-                onChange={(e) => setSosInput(e.target.value)}
-                placeholder="Contoh: talenan..."
-                onKeyDown={(e) => e.key === "Enter" && handleSendSosQuery()}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 border-2 border-black text-sm font-mono text-black focus:outline-none focus:bg-white"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setShowSosModal(false)}
-                className="brutal-btn-white px-4 py-2 font-mono uppercase"
-              >
-                [ BATAL ]
-              </button>
-              <button
-                type="button"
-                onClick={handleSendSosQuery}
-                disabled={!sosInput.trim()}
-                className="brutal-btn-yellow px-5 py-2 font-mono font-black uppercase flex items-center gap-1.5"
-              >
-                <span>[ TANYA KE NPC SEKARANG ]</span>
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* STEP 2: SCANNING OBJECTS WITH CAMERA / VISION */}
+      {step === "scanning" && (
+        <StudentScanningStep
+          activeClassroom={activeClassroom}
+          pokedexCount={pokedexDeck.length}
+          videoRef={videoRef}
+          isCameraActive={isCameraActive}
+          capturedImage={capturedImage}
+          isAnalyzing={isAnalyzing}
+          scanError={scanError}
+          onReturnToCatalog={handleReturnToClassCatalog}
+          onOpenPokedex={() => setShowPokedexModal(true)}
+          onStartCamera={() => setIsCameraActive(true)}
+          onSnapFromVideo={handleSnapFromVideo}
+          onFileUpload={handleFileUpload}
+          onRetake={() => {
+            setCapturedImage(null);
+            setIsCameraActive(true);
+          }}
+        />
       )}
+
+      {/* STEP 3: INVENTORY CARDS & QUEST BRIEFING */}
+      {step === "inventory" && (
+        <StudentInventoryStep
+          activeClassroom={activeClassroom}
+          inventoryItems={inventoryItems}
+          currentQuest={currentQuest}
+          pokedexCount={pokedexDeck.length}
+          onRescan={() => setStep("scanning")}
+          onOpenPokedex={() => setShowPokedexModal(true)}
+          onSpeak={speakText}
+          onStartRoleplay={startRoleplaySession}
+        />
+      )}
+
+      {/* STEP 4: LIVE ROLEPLAY DIALOGUE HUD */}
+      {step === "hud" && currentQuest && (
+        <StudentDialogueHud
+          activeClassroom={activeClassroom}
+          currentQuest={currentQuest}
+          messages={messages}
+          rapport={rapport}
+          isListening={isListening}
+          spokenTranscript={spokenTranscript}
+          textInput={textInput}
+          setTextInput={setTextInput}
+          isAiThinking={isAiThinking}
+          activeHint={activeHint}
+          setActiveHint={setActiveHint}
+          inventoryItems={inventoryItems}
+          safetyViolationNotice={safetyViolationNotice}
+          setSafetyViolationNotice={setSafetyViolationNotice}
+          codeSwitchRescue={codeSwitchRescue}
+          setCodeSwitchRescue={setCodeSwitchRescue}
+          pokedexCount={pokedexDeck.length}
+          onOpenPokedex={() => setShowPokedexModal(true)}
+          onOpenSos={() => setShowSosModal(true)}
+          onFinishSession={() => finishQuestSession()}
+          onToggleListening={toggleListening}
+          onSendSpokenLine={handleSendSpokenLine}
+          onSpeak={speakText}
+        />
+      )}
+
+      {/* STEP 5: POST-GAME AUTOPSY & CEFR REPORT */}
+      {step === "autopsy" && (
+        <StudentAutopsyStep
+          activeClassroom={activeClassroom}
+          isEvaluating={isEvaluating}
+          evaluation={evaluation}
+          pokedexCount={pokedexDeck.length}
+          onOpenPokedex={() => setShowPokedexModal(true)}
+          onReturnToCatalog={handleReturnToClassCatalog}
+        />
+      )}
+
+      {/* SHARED MODALS */}
+      <StudentPokedexModal
+        isOpen={showPokedexModal}
+        onClose={() => setShowPokedexModal(false)}
+        deck={pokedexDeck}
+        onSpeak={speakText}
+      />
+
+      <StudentSafetyModal
+        isOpen={showSafetyModal}
+        safetyAlert={safetyAlert}
+        onAcknowledge={() => {
+          setShowSafetyModal(false);
+          setSafetyAlert(null);
+          setCapturedImage(null);
+          setIsCameraActive(true);
+        }}
+      />
+
+      <StudentSosModal
+        isOpen={showSosModal}
+        onClose={() => setShowSosModal(false)}
+        sosInput={sosInput}
+        setSosInput={setSosInput}
+        onSubmit={handleSendSosQuery}
+      />
     </>
   );
-
-  // ============================================================================
-  // RENDER: STEP 0 - GERBANG KELAS (SISWA WAJIB GABUNG KELAS GURU)
-  // Alur: userlogin -> nama kebaca otomatis -> masukan kode kelas
-  // ============================================================================
-  if (!activeClassroom) {
-    const verifiedStudentName = currentUser?.name || inputStudentName || "Ahmad Faiz";
-    const verifiedUsername = currentUser?.username || "siswa";
-
-    return (
-      <>
-        <div className="max-w-2xl mx-auto space-y-6 font-mono text-black">
-          {/* Status Alert Bar */}
-          <div className="border-2 border-black bg-[#facc15] p-3 text-xs font-black uppercase flex items-center justify-between shadow-[3px_3px_0px_#000000]">
-            <div className="flex items-center gap-2">
-              <Key className="w-4 h-4 stroke-[2.5]" />
-              <span>[ 🔐 GERBANG KELAS // WAJIB GABUNG PIN KELAS GURU ]</span>
-            </div>
-            <span className="hidden sm:inline bg-black text-white px-2 py-0.5 text-[10px]">
-              KURIKULUM MERDEKA
-            </span>
-          </div>
-
-          {/* Main Classroom Gate Card */}
-          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0px_#000000] space-y-6">
-            <div className="border-b-2 border-zinc-200 pb-4 space-y-3">
-              <div className="w-12 h-12 bg-amber-100 border-2 border-black flex items-center justify-center shadow-[3px_3px_0px_#000000]">
-                <Key className="w-6 h-6 text-black stroke-[2.5]" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-black uppercase tracking-tight">
-                MASUKKAN PIN KELAS DARI GURUMU
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
-                Sebagai siswa, kamu <strong>tidak dapat memulai misi atau memindai benda</strong> sebelum terdaftar di kelas guru. Masukkan 6-digit PIN dari gurumu agar hasil latihan bicaramu tersinkronisasi otomatis ke dashboard guru.
-              </p>
-            </div>
-
-            {/* TAHAP 1: NAMA KEBACA OTOMATIS DARI SISTEM LOGIN */}
-            <div className="p-4 bg-emerald-50 border-2 border-emerald-600 shadow-[3px_3px_0px_#000000] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-emerald-800">
-                  [ TAHAP 01 // IDENTITAS SISWA TERVERIFIKASI ]
-                </span>
-                <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2 py-0.5 border border-black">
-                  ✓ NAMA KEBACA OTOMATIS
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-200 border-2 border-black flex items-center justify-center text-lg font-black shadow-[1px_1px_0px_#000000]">
-                  👤
-                </div>
-                <div>
-                  <div className="text-base font-black text-black tracking-tight">
-                    {verifiedStudentName}
-                  </div>
-                  <div className="text-xs text-zinc-600 font-bold">
-                    Username: <span className="text-black font-black">@{verifiedUsername}</span> • Role: <span className="uppercase text-emerald-800 font-black">Siswa Kelas Terdaftar</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {joinError && (
-              <div className="p-3 bg-red-100 border-2 border-red-600 text-red-900 text-xs font-bold flex items-center gap-2 shadow-[2px_2px_0px_#000000]">
-                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                <span>{joinError}</span>
-              </div>
-            )}
-
-            {/* TAHAP 2: FORM MASUKAN KODE PIN KELAS (HANYA PIN KELAS) */}
-            <form onSubmit={(e) => { e.preventDefault(); handleJoinClassroom(); }} className="space-y-4 text-xs">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-black text-black uppercase">
-                    TAHAP 02 // MASUKKAN 6-DIGIT PIN ROOM GURU:
-                  </label>
-                  <span className="text-[10px] text-zinc-500 font-bold uppercase">
-                    DARI LAYAR GURU
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  required
-                  maxLength={8}
-                  autoFocus
-                  value={inputPin}
-                  onChange={(e) => setInputPin(e.target.value.toUpperCase())}
-                  placeholder="CONTOH: EDU889"
-                  className="w-full px-4 py-3.5 bg-zinc-50 border-2 border-black text-2xl font-black tracking-widest text-black placeholder-zinc-400 focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isJoining}
-                className="w-full brutal-btn-yellow py-4 text-sm font-black uppercase flex items-center justify-center gap-2 shadow-[4px_4px_0px_#000000]"
-              >
-                {isJoining ? (
-                  <span>[ MENYAMBUNGKAN KE ROOM GURU... ]</span>
-                ) : (
-                  <>
-                    <Key className="w-4 h-4 stroke-[2.5]" />
-                    <span>[ 🚀 GABUNG KELAS & BUKA MISI ]</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* 1-Click Demo Shortcut */}
-            <div className="pt-2 border-t-2 border-zinc-200 space-y-2">
-              <span className="text-[10px] font-black uppercase text-zinc-500 block">
-                AKSES CEPAT PENGUJIAN JURI / EVALUATOR:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setInputPin("EDU889");
-                  handleJoinClassroom("EDU889");
-                }}
-                disabled={isJoining}
-                className="w-full brutal-btn-white py-2.5 text-xs font-mono font-black uppercase flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600 stroke-[2.5]" />
-                <span>[ ⚡ 1-KLIK GABUNG KELAS DEMO: EDU889 (PAK BUDI) ]</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        {renderSharedModals()}
-      </>
-    );
-  }
-
-  // ============================================================================
-  // RENDER: STEP 1 - KELAS TERHUBUNG // MISI KHUSUS KELAS GURU
-  // ============================================================================
-  if (step === "select_mode" && activeClassroom) {
-    return (
-      <>
-        <div className="max-w-4xl mx-auto space-y-6 font-mono text-black">
-          {/* Active Class Header */}
-          <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-[#facc15] border-2 border-black shadow-[2px_2px_0px_#000000]">
-                <GraduationCap className="w-6 h-6 text-black stroke-[2.5]" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase text-emerald-800 block">
-                  [ 🎓 KELAS AKTIF TERHUBUNG ]
-                </span>
-                <h3 className="font-black text-lg text-black uppercase">
-                  PIN: [{activeClassroom.roomCode}] • GURU: {activeClassroom.creatorName}
-                </h3>
-                <p className="text-xs text-cyan-800 font-bold">
-                  Target CEFR: {activeClassroom.difficultyLevel}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowPokedexModal(true)}
-                className="brutal-btn-yellow px-3.5 py-2 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>🎒 BUKU KOLEKSI ({pokedexDeck.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleLeaveClassroom}
-                className="brutal-btn-white px-3.5 py-2 text-xs font-mono text-red-600 hover:text-red-800 font-black flex items-center gap-1"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>[ KELUAR KELAS ]</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Classroom Tasks Catalog */}
-          <div className="border-2 border-black bg-white p-6 shadow-[6px_6px_0px_#000000] space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-zinc-200 pb-4">
-              <div>
-                <span className="text-xs font-black uppercase text-amber-800 block">
-                  [KATALOG TUGAS KELAS // KURIKULUM MERDEKA]
-                </span>
-                <h2 className="text-xl sm:text-2xl font-black text-black uppercase tracking-tight">
-                  Tugas & Misi Speaking ({classTasks.length} Misi Aktif)
-                </h2>
-                <p className="text-xs text-zinc-600 mt-0.5">
-                  Pilih salah satu misi di bawah ini untuk memulai latihan percakapan dengan penguji AI.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => fetchClassTasks(activeClassroom.roomCode)}
-                className="brutal-btn-white px-3 py-1.5 text-xs font-black uppercase flex items-center gap-1.5"
-                title="Muat ulang daftar tugas"
-              >
-                <RotateCcw className={`w-3.5 h-3.5 ${isLoadingTasks ? "animate-spin" : ""}`} />
-                <span>[ REFRESH TUGAS ]</span>
-              </button>
-            </div>
-
-            {isLoadingTasks ? (
-              <div className="py-12 text-center text-xs font-black uppercase">
-                [ MEMUAT DAFTAR TUGAS DARI GURU... ]
-              </div>
-            ) : classTasks.length === 0 ? (
-              <div className="py-12 text-center border-2 border-dashed border-zinc-300 p-6 space-y-2">
-                <BookOpen className="w-8 h-8 mx-auto text-zinc-400" />
-                <p className="text-xs font-bold text-zinc-600">
-                  Guru belum menugaskan misi speaking di kelas ini.
-                </p>
-                <p className="text-[11px] text-zinc-500">
-                  Silakan tunggu atau minta gurumu untuk menerbitkan tugas di kelas ini.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {classTasks.map((task, idx) => (
-                  <div
-                    key={task.id}
-                    className="border-2 border-black bg-white p-5 shadow-[4px_4px_0px_#000000] flex flex-col justify-between space-y-4 hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#facc15] border border-black">
-                          TUGAS #{idx + 1} • CEFR: {task.difficultyLevel || task.difficulty_level || "B1"}
-                        </span>
-                        {task.isCompleted ? (
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-700">
-                            ✅ SELESAI ({task.studentScore}/100)
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-700">
-                            ⏳ BELUM DIKERJAKAN
-                          </span>
-                        )}
-                      </div>
-
-                      <div>
-                        <h3 className="text-base font-black text-black uppercase leading-tight line-clamp-2">
-                          {task.title}
-                        </h3>
-                        {(task.caseStudyStory || task.case_study_story) && (
-                          <p className="text-xs text-zinc-600 line-clamp-2 mt-1 leading-relaxed">
-                            {task.caseStudyStory || task.case_study_story}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="p-2.5 bg-zinc-50 border border-black text-xs space-y-1">
-                        <div className="text-zinc-700 font-bold">
-                          NPC: <span className="text-black font-black">{task.npcName || task.npc_name || "Mr. Arthur"}</span>
-                        </div>
-                        <div className="text-cyan-800 font-bold truncate">
-                          Scan: {task.requiredObjectHint || task.required_object_hint || "Benda fisik di meja"}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectAndStartTask(task)}
-                        className={`w-full py-3 text-xs font-black uppercase flex items-center justify-center gap-2 shadow-[2px_2px_0px_#000000] ${
-                          task.isCompleted ? "brutal-btn-cyan" : "brutal-btn-yellow"
-                        }`}
-                      >
-                        <Camera className="w-4 h-4 stroke-[2.5]" />
-                        <span>{task.isCompleted ? "[ 🔄 KERJAKAN ULANG MISI ]" : "[ 🚀 KERJAKAN MISI INI ]"}</span>
-                        <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        {renderSharedModals()}
-      </>
-    );
-  }
-
-  // ============================================================================
-  // RENDER: STEP 2 - SCANNING REAL OBJECTS (INDUSTRIAL APERTURE VIEWFINDER)
-  // ============================================================================
-  if (step === "scanning") {
-    return (
-      <>
-        <div className="max-w-3xl mx-auto space-y-4 font-mono">
-          {/* Active Class Indicator */}
-          {activeClassroom && (
-            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
-                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
-              </div>
-              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <button
-              onClick={handleReturnToClassCatalog}
-              className="brutal-btn-white px-3.5 py-1.5 text-xs font-mono font-black uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-            >
-              <span>[ 📋 KEMBALI KE DAFTAR TUGAS ]</span>
-            </button>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowPokedexModal(true)}
-                className="brutal-btn-yellow px-3 py-1 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>🎒 POKEDEX ({pokedexDeck.length})</span>
-              </button>
-              <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-                [LANGKAH 01: OBJECT_TO_INVENTORY]
-              </span>
-            </div>
-          </div>
-
-        {/* Industrial Viewfinder Frame (Clean Light Frame) */}
-        <div className="border-2 border-black bg-white shadow-[4px_4px_0px_#000000] relative">
-          {/* Viewfinder Header Bar */}
-          <div className="p-3 bg-zinc-100 border-b-2 border-black flex items-center justify-between text-xs font-mono font-black text-black">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-red-600 rounded-full border border-black animate-pulse" />
-              <span>[CAM_FEED: 1280X720 // SENSOR: ACTIVE]</span>
-            </div>
-            <span className="text-black hidden sm:inline bg-[#facc15] px-2 py-0.5 border border-black">
-              [TARGET: 2-3 BENDA DI MEJA]
-            </span>
-          </div>
-
-          {/* Camera Viewport with Corner Crosshairs */}
-          <div className="relative h-[380px] sm:h-[460px] bg-zinc-900 flex items-center justify-center overflow-hidden">
-            {capturedImage ? (
-              <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
-            ) : isCameraActive ? (
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center gap-3 text-zinc-300 p-6 text-center">
-                <Camera className="w-12 h-12 stroke-[2] text-[#facc15]" />
-                <p className="font-mono text-xs max-w-sm">
-                  Kamera belum aktif. Klik tombol di bawah untuk menyalakan webcam atau unggah foto benda dari komputermu.
-                </p>
-                <button
-                  onClick={() => setIsCameraActive(true)}
-                  className="brutal-btn-yellow px-5 py-2.5 text-xs font-mono"
-                >
-                  NYALAKAN KAMERA WEBCAM
-                </button>
-              </div>
-            )}
-
-            {/* Corner Crosshairs */}
-            <div className="absolute top-4 left-4 font-mono text-xl font-black text-[#facc15] select-none pointer-events-none">
-              + [0,0]
-            </div>
-            <div className="absolute top-4 right-4 font-mono text-xl font-black text-[#facc15] select-none pointer-events-none">
-              [W,0] +
-            </div>
-            <div className="absolute bottom-4 left-4 font-mono text-xl font-black text-[#facc15] select-none pointer-events-none">
-              + [0,H]
-            </div>
-            <div className="absolute bottom-4 right-4 font-mono text-xl font-black text-[#facc15] select-none pointer-events-none">
-              [W,H] +
-            </div>
-
-            {/* Targeting Reticle */}
-            {isCameraActive && !capturedImage && (
-              <div className="absolute inset-10 border-2 border-[#facc15] border-dashed pointer-events-none flex items-center justify-center">
-                <div className="font-mono text-xs font-black uppercase text-black bg-[#facc15] px-3 py-1 border-2 border-black shadow-[3px_3px_0px_#000000]">
-                  [POSISIKAN OBJEK DI AREA BIDIK INI]
-                </div>
-              </div>
-            )}
-
-            {/* Analyzing Overlay */}
-            {isAnalyzing && (
-              <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center gap-3 z-30 p-6 text-center">
-                <div className="w-10 h-10 border-4 border-black border-t-[#facc15] animate-spin" />
-                <span className="font-mono text-sm font-black uppercase text-black bg-[#facc15] px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-                  [GEMINI 3.1 FLASH-LITE // VISION SCANNING...]
-                </span>
-                <p className="font-mono text-xs text-zinc-700 max-w-xs">
-                  Mengekstrak kosakata bahasa Inggris, simbol fonetik IPA, idiom, dan menyintesis skenario darurat RPG...
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Scan Error Bar */}
-          {scanError && (
-            <div className="p-3 bg-red-50 border-t-2 border-red-600 text-red-900 text-xs font-mono font-bold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-              <span>{scanError}</span>
-            </div>
-          )}
-
-          {/* Bottom Shutter Controls */}
-          <div className="p-4 bg-white border-t-2 border-black flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <label className="brutal-btn-white px-3.5 py-2 text-xs font-mono cursor-pointer flex items-center gap-2">
-                <Upload className="w-3.5 h-3.5" />
-                <span>[ UNGGAH FOTO ]</span>
-                <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-              </label>
-
-              {capturedImage && (
-                <button
-                  onClick={() => {
-                    setCapturedImage(null);
-                    setIsCameraActive(true);
-                  }}
-                  className="brutal-btn-white px-3 py-2 text-xs font-mono"
-                >
-                  [ FOTO ULANG ]
-                </button>
-              )}
-            </div>
-
-            {isCameraActive && !capturedImage && (
-              <button
-                onClick={handleSnapFromVideo}
-                disabled={isAnalyzing}
-                className="brutal-btn-yellow px-6 py-2.5 text-xs sm:text-sm font-mono flex items-center gap-2"
-              >
-                <Camera className="w-4 h-4 stroke-[2.5]" />
-                <span>📸 JEPRET & ANALISIS OBJEK (AI VISION)</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-      {renderSharedModals()}
-    </>
-  );
-}
-
-  // ============================================================================
-  // RENDER: STEP 3 - INVENTORY CARDS & QUEST BRIEFING (LIGHT TACTILE CARDS)
-  // ============================================================================
-  if (step === "inventory") {
-    return (
-      <>
-        <div className="max-w-4xl mx-auto space-y-4 font-mono">
-          {/* Active Class Indicator */}
-          {activeClassroom && (
-            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
-                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
-              </div>
-              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setStep("scanning")}
-              className="brutal-btn-white px-3 py-1.5 text-xs font-mono"
-            >
-              ← SCAN FOTO LAIN
-            </button>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowPokedexModal(true)}
-                className="brutal-btn-yellow px-3.5 py-1 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-              >
-                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>🎒 BUKU KOLEKSI ({pokedexDeck.length})</span>
-              </button>
-              <span className="font-mono text-xs font-black uppercase bg-[#4ade80] text-black px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-                [STATUS: {inventoryItems.length} OBJEK TERDAFTAR]
-              </span>
-            </div>
-          </div>
-
-        {/* 3 Brutalist RPG Inventory Cards (Light Mode) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {inventoryItems.map((item, idx) => (
-            <div
-              key={item.id}
-              className="bg-white border-2 border-black p-5 shadow-[4px_4px_0px_#000000] flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between border-b-2 border-zinc-200 pb-2">
-                  <span className="font-mono text-[10px] font-black uppercase text-zinc-600">
-                    [ITEM-0{idx + 1}: {item.objectName}]
-                  </span>
-                  <button
-                    onClick={() => speakText(item.englishWord)}
-                    title="Dengarkan Pengucapan Bahasa Inggris (IPA)"
-                    className="brutal-btn-cyan p-1 text-[10px] font-mono"
-                  >
-                    <Volume2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div>
-                  <h4 className="font-black text-xl text-black uppercase tracking-tight">
-                    {item.englishWord}
-                  </h4>
-                  <p className="font-mono text-xs font-bold text-cyan-700 mt-0.5">
-                    {item.phonetics}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-zinc-50 border border-black font-mono text-[11px] text-zinc-800">
-                  <span className="font-black text-black block uppercase mb-0.5">
-                    [IDIOM]:
-                  </span>
-                  <p className="italic">"{item.idiom}"</p>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t-2 border-zinc-200 font-mono text-[11px] font-bold text-emerald-700 flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">{item.rpgAttribute}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Dynamic Emergency Quest Memorandum (Light Mode) */}
-        {currentQuest && (
-          <div className="border-2 border-black bg-white p-6 sm:p-8 shadow-[4px_4px_0px_#000000] space-y-5">
-            {/* Memorandum Header Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-zinc-200 pb-4">
-              <div className="flex items-center gap-3.5">
-                <span className="text-4xl p-2 bg-zinc-50 border-2 border-black shadow-[2px_2px_0px_#000000]">
-                  {currentQuest.npcAvatar}
-                </span>
-                <div>
-                  <div className="font-mono text-xs font-black uppercase text-black">
-                    [DARURAT: MISI PERCAKAPAN NPC]
-                  </div>
-                  <h3 className="font-black text-2xl text-black uppercase tracking-tight">
-                    {currentQuest.title}
-                  </h3>
-                  <p className="font-mono text-xs text-cyan-800 font-bold">
-                    NPC: {currentQuest.npcName} ({currentQuest.npcRole})
-                  </p>
-                </div>
-              </div>
-
-              <div className="font-mono text-xs font-black bg-[#facc15] text-black px-4 py-2 border-2 border-black shadow-[2px_2px_0px_#000000]">
-                ⏱️ BATAS WAKTU: {currentQuest.timeLimitSeconds} DETIK
-              </div>
-            </div>
-
-            <div className="font-mono text-xs sm:text-sm text-zinc-800 leading-relaxed bg-zinc-50 p-4 border border-black">
-              <span className="font-black text-black block mb-1 uppercase">
-                [SKENARIO SITUASI]:
-              </span>
-              {currentQuest.scenarioBrief}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-              <span className="font-black text-black uppercase">
-                KOSAKATA WAJIB DIUCAPKAN:
-              </span>
-              {currentQuest.targetVocab.map((word, idx) => (
-                <span
-                  key={idx}
-                  className="px-2.5 py-1 bg-[#facc15] text-black font-black uppercase border border-black shadow-[2px_2px_0px_#000000]"
-                >
-                  {word}
-                </span>
-              ))}
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={startRoleplaySession}
-                className="brutal-btn-yellow px-8 py-3.5 text-sm sm:text-base font-mono flex items-center gap-2"
-              >
-                <span>MASUK KE ARENA & BICARA KE NPC</span>
-                <ArrowRight className="w-5 h-5 stroke-[3]" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-      {renderSharedModals()}
-    </>
-  );
-}
-
-  // ============================================================================
-  // RENDER: STEP 4 - LIVE COACHING HUD (LIGHT THEME ARCADE HUD)
-  // ============================================================================
-  if (step === "hud" && currentQuest) {
-    return (
-      <>
-        <div className="max-w-4xl mx-auto space-y-4 font-mono">
-          {/* Active Class Indicator */}
-          {activeClassroom && (
-            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
-                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
-              </div>
-              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
-            </div>
-          )}
-
-          {/* Top Bar: NPC Identity & Arcade Rapport Meter */}
-          <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl p-1.5 bg-zinc-50 border-2 border-black">{currentQuest.npcAvatar}</span>
-              <div>
-                <div className="font-mono text-[10px] font-black uppercase text-zinc-600">
-                  [TARGET NPC]
-                </div>
-                <h3 className="font-black text-sm text-black uppercase">{currentQuest.npcName}</h3>
-                <p className="font-mono text-xs text-zinc-600">{currentQuest.npcRole}</p>
-              </div>
-            </div>
-
-            {/* Arcade Rapport Health Bar */}
-            <div className="flex-1 max-w-xs space-y-1">
-              <div className="flex items-center justify-between font-mono text-xs font-black">
-                <span className="text-zinc-600 uppercase">[RAPPORT METER]:</span>
-                <span className={rapport >= 80 ? "text-emerald-700 font-black" : "text-amber-700 font-black"}>
-                  {rapport}% {rapport >= 80 ? "[PASS!]" : "[TARGET: 80%]"}
-                </span>
-              </div>
-              <div className="w-full h-4 bg-zinc-100 border-2 border-black p-0.5">
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    rapport >= 80 ? "bg-emerald-500" : "bg-[#facc15]"
-                  }`}
-                  style={{ width: `${rapport}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowPokedexModal(true)}
-                className="brutal-btn-yellow px-3 py-2 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-              >
-                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span className="hidden sm:inline">🎒 POKEDEX ({pokedexDeck.length})</span>
-              </button>
-              <button
-                onClick={() => finishQuestSession()}
-                className="brutal-btn-white px-3.5 py-2 text-xs font-mono"
-              >
-                [ SELESAIKAN & AUTOPSI ]
-              </button>
-            </div>
-          </div>
-
-        {/* Live Conversation Stream (Clean Light Stream) */}
-        <div className="border-2 border-black bg-zinc-50 p-5 min-h-[340px] max-h-[420px] overflow-y-auto space-y-4 shadow-[4px_4px_0px_#000000] relative">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex flex-col ${msg.sender === "student" ? "items-end" : "items-start"}`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono text-[11px] font-black uppercase text-zinc-600">
-                  {msg.sender === "student" ? "[KAMU // SISWA]" : `[${currentQuest.npcName.toUpperCase()}]`}
-                </span>
-                {msg.sender === "npc" && (
-                  <button
-                    onClick={() => speakText(msg.text)}
-                    className="p-1 bg-white border border-black text-black hover:bg-[#facc15]"
-                  >
-                    <Volume2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-
-              <div
-                className={`p-4 max-w-xl text-sm leading-relaxed border-2 border-black font-mono ${
-                  msg.sender === "student"
-                    ? "bg-[#22d3ee] text-black shadow-[3px_3px_0px_#000000]"
-                    : "bg-[#facc15] text-black shadow-[3px_3px_0px_#000000]"
-                }`}
-              >
-                <p className="font-bold">{msg.text}</p>
-
-                {msg.upgrade && (
-                  <div className="mt-2.5 pt-2 border-t-2 border-black text-xs">
-                    <span className="font-black uppercase block text-[10px]">
-                      ★ NATIVE-LIKE UPGRADE:
-                    </span>
-                    <p className="italic font-bold">"{msg.upgrade}"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {isAiThinking && (
-            <div className="font-mono text-xs text-black flex items-center gap-2 bg-amber-50 p-2.5 border border-black">
-              <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />
-              <span>[NPC SEDANG MENDENGARKAN DAN MERESPONS...]</span>
-            </div>
-          )}
-
-          {/* Floating Brutalist "Bisikan AI" Warning Card */}
-          {activeHint && (
-            <div className="sticky bottom-2 left-0 right-0 p-3.5 bg-[#facc15] text-black border-2 border-black shadow-[4px_4px_0px_#000000] flex items-center justify-between gap-3 animate-slideUp">
-              <div className="flex items-center gap-2 font-mono text-xs">
-                <ShieldAlert className="w-5 h-5 flex-shrink-0 stroke-[2.5]" />
-                <div>
-                  <span className="font-black uppercase block">
-                    [ ! BISIKAN AI: PETUNJUK KATA DARURAT ! ]
-                  </span>
-                  <span className="font-bold">{activeHint}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveHint(null)}
-                className="px-2 py-1 bg-black text-white font-mono text-[10px] font-black uppercase"
-              >
-                [TUTUP]
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Scanned Items Tray: Glows when Spoken in Brutal Style */}
-        <div className="p-3 bg-white border-2 border-black flex flex-wrap items-center gap-2 font-mono text-xs">
-          <span className="font-black text-black mr-2 uppercase">
-            [BENDA DIUCAPKAN]:
-          </span>
-          {inventoryItems.map((item) => (
-            <span
-              key={item.id}
-              className={`px-3 py-1 font-black uppercase border-2 transition-all ${
-                item.usedInSpeech
-                  ? "brutal-glow-active bg-[#facc15] text-black border-black"
-                  : "bg-zinc-100 text-zinc-600 border-zinc-400"
-              }`}
-            >
-              {item.usedInSpeech && "✓ "}
-              {item.englishWord}
-            </span>
-          ))}
-        </div>
-
-        {/* Feature 5: Safety Violation Notice Banner */}
-        {safetyViolationNotice && (
-          <div className="p-3 bg-red-100 border-2 border-red-600 text-red-900 font-mono text-xs font-black flex items-center justify-between gap-3 shadow-[3px_3px_0px_#000000]">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <span>{safetyViolationNotice}</span>
-            </div>
-            <button
-              onClick={() => setSafetyViolationNotice(null)}
-              className="px-2 py-1 bg-red-600 text-white text-[10px] font-black uppercase"
-            >
-              [TUTUP]
-            </button>
-          </div>
-        )}
-
-        {/* Feature 6: Code-Switching Rescue Banner (ID -> EN) */}
-        {codeSwitchRescue && (
-          <div className="p-3.5 bg-[#fef08a] border-2 border-black text-black font-mono text-xs shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-3 animate-slideUp">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-800 stroke-[2.5]" />
-                <span className="font-black uppercase text-amber-900">
-                  [ 💡 AI CODE-SWITCHING RESCUE // LUPA KATA ]:
-                </span>
-              </div>
-              <p className="text-zinc-900 font-bold">
-                Kamu menyebut <span className="bg-white px-1.5 py-0.5 border border-black italic">"{codeSwitchRescue.detectedIndonesianWord}"</span> → Gunakan istilah Inggris:{" "}
-                <span className="bg-amber-400 px-2 py-0.5 border border-black font-black uppercase text-black">
-                  "{codeSwitchRescue.englishEquivalent}"
-                </span>
-              </p>
-              <p className="text-[11px] text-zinc-700 italic">{codeSwitchRescue.explanation}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => speakText(codeSwitchRescue.englishEquivalent)}
-                title="Dengarkan Pelafalan Asli"
-                className="brutal-btn-white p-2 text-xs"
-              >
-                <Volume2 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTextInput((prev) => (prev ? `${prev} ${codeSwitchRescue.englishEquivalent}` : codeSwitchRescue.englishEquivalent));
-                  setCodeSwitchRescue(null);
-                }}
-                className="brutal-btn-yellow px-3 py-1.5 text-xs font-mono font-black uppercase shadow-[2px_2px_0px_#000000]"
-              >
-                [ + SISIPKAN KE INPUT ]
-              </button>
-              <button
-                type="button"
-                onClick={() => setCodeSwitchRescue(null)}
-                className="p-1.5 bg-black text-white hover:bg-zinc-800"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Live Speech Microphone Input Controller */}
-        <div className="border-2 border-black bg-white p-4 shadow-[4px_4px_0px_#000000] flex flex-col sm:flex-row items-center gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              onClick={toggleListening}
-              className={`w-14 h-14 flex items-center justify-center flex-shrink-0 transition-all font-mono font-black ${
-                isListening
-                  ? "brutal-btn-red animate-pulse"
-                  : "brutal-btn-yellow"
-              }`}
-              title={isListening ? "Klik untuk Berhenti Bicara" : "Klik & Bicara dalam Bahasa Inggris"}
-            >
-              <Mic className="w-6 h-6 stroke-[2.5]" />
-            </button>
-
-            {/* Feature 6 SOS Button */}
-            <button
-              type="button"
-              onClick={() => setShowSosModal(true)}
-              className="brutal-btn-white px-3 py-3 h-14 text-xs font-mono font-black flex items-center gap-1.5 flex-shrink-0"
-              title="Tanya Terjemahan Kata Indonesia ke Inggris ke NPC"
-            >
-              <Lightbulb className="w-4 h-4 text-amber-600 stroke-[2.5]" />
-              <span className="hidden sm:inline">SOS: LUPA KATA</span>
-            </button>
-          </div>
-
-          <div className="flex-1 w-full space-y-1">
-            <input
-              type="text"
-              value={spokenTranscript || textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder={isListening ? "Mendengarkan suaramu... bicara dalam Bahasa Inggris..." : "Bicara lewat mikrofon, atau ketik kalimat di sini..."}
-              onKeyDown={(e) => e.key === "Enter" && handleSendSpokenLine()}
-              className="w-full px-4 py-3 bg-zinc-50 border-2 border-black text-sm font-mono text-black placeholder-zinc-500 focus:outline-none focus:bg-white"
-            />
-            {isListening && (
-              <span className="font-mono text-[10px] text-red-600 font-black uppercase block animate-pulse">
-                🔴 SUARA SEDANG DIREKAM REAL-TIME VIA WEB SPEECH API (ENGLISH)...
-              </span>
-            )}
-          </div>
-
-          <button
-            onClick={() => handleSendSpokenLine()}
-            disabled={(!spokenTranscript && !textInput) || isAiThinking}
-            className="brutal-btn-yellow px-5 py-3 h-14 text-xs font-mono flex items-center gap-1.5 flex-shrink-0"
-          >
-            <Send className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>KIRIM JAWABAN</span>
-          </button>
-        </div>
-      </div>
-      {renderSharedModals()}
-    </>
-  );
-}
-
-  // ============================================================================
-  // RENDER: STEP 5 - POST-GAME CEFR RAPOR (LIGHT DIAGNOSTIC AUTOPSY)
-  // ============================================================================
-  if (step === "autopsy") {
-    return (
-      <>
-        <div className="max-w-4xl mx-auto space-y-4 font-mono">
-          {/* Active Class Indicator */}
-          {activeClassroom && (
-            <div className="p-2.5 bg-emerald-50 border-2 border-black flex flex-wrap items-center justify-between gap-2 text-xs font-mono font-bold text-black shadow-[2px_2px_0px_#000000]">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border border-black" />
-                <span>[KELAS AKTIF: PIN {activeClassroom.roomCode} • GURU: {activeClassroom.creatorName}]</span>
-              </div>
-              <span className="text-cyan-900 font-black truncate">{activeClassroom.questTitle}</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs font-black uppercase bg-[#facc15] text-black px-3.5 py-1 border-2 border-black shadow-[2px_2px_0px_#000000]">
-              [POST-GAME CEFR REPLAY & AUTOPSY]
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowPokedexModal(true)}
-                className="brutal-btn-yellow px-3.5 py-1.5 text-xs font-mono font-black flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-              >
-                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>🎒 BUKU KOLEKSI ({pokedexDeck.length})</span>
-              </button>
-              <button
-                onClick={handleReturnToClassCatalog}
-                className="brutal-btn-yellow px-4 py-1.5 text-xs font-mono font-black uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000000]"
-              >
-                <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>[ 📋 DAFTAR TUGAS KELAS ]</span>
-              </button>
-            </div>
-          </div>
-
-        {isEvaluating ? (
-          <div className="border-2 border-black bg-white p-12 text-center shadow-[4px_4px_0px_#000000] flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 border-4 border-black border-t-[#facc15] animate-spin" />
-            <h3 className="font-mono text-base font-black text-black uppercase">
-              [MENGANALISIS TRANSKRIP SESI BERBICARA DENGAN STANDAR CEFR...]
-            </h3>
-            <p className="font-mono text-xs text-zinc-600 max-w-sm">
-              Menilai kelancaran, tata bahasa, dan membandingkan kalimatmu dengan versi Native-like Upgrade...
-            </p>
-          </div>
-        ) : evaluation ? (
-          <div className="space-y-6">
-            {/* Top Diagnostic Banner */}
-            <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] flex flex-wrap items-center justify-between gap-6">
-              <div className="space-y-1">
-                <span className="font-mono text-xs font-black text-amber-800 uppercase tracking-wider block">
-                  [HASIL DIAGNOSTIK KELANCARAN BERBICARA]
-                </span>
-                <h3 className="text-2xl font-black text-black uppercase">{evaluation.questTitle}</h3>
-                <p className="font-mono text-xs text-zinc-700 max-w-xl">{evaluation.transcriptSummary}</p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="text-center p-3 px-5 bg-zinc-50 border-2 border-black shadow-[3px_3px_0px_#000000]">
-                  <span className="font-mono text-[10px] font-black text-zinc-600 uppercase block">LEVEL CEFR</span>
-                  <span className="font-mono text-3xl font-black text-emerald-700">{evaluation.cefrLevel}</span>
-                </div>
-
-                <div className="text-center p-3 px-5 bg-[#facc15] text-black border-2 border-black shadow-[3px_3px_0px_#000000]">
-                  <span className="font-mono text-[10px] font-black uppercase block">SKOR TOTAL</span>
-                  <span className="font-mono text-3xl font-black">{evaluation.overallScore}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 4-Pillar Score Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Fluency</span>
-                <span className="font-mono text-2xl font-black text-amber-600">{evaluation.fluencyScore}%</span>
-              </div>
-              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Pronunciation</span>
-                <span className="font-mono text-2xl font-black text-cyan-700">{evaluation.pronunciationScore}%</span>
-              </div>
-              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Vocabulary</span>
-                <span className="font-mono text-2xl font-black text-emerald-700">{evaluation.vocabularyScore}%</span>
-              </div>
-              <div className="p-4 bg-white border-2 border-black shadow-[3px_3px_0px_#000000]">
-                <span className="font-mono text-xs font-bold text-zinc-600 block mb-1 uppercase">Grammar</span>
-                <span className="font-mono text-2xl font-black text-rose-600">{evaluation.grammarScore}%</span>
-              </div>
-            </div>
-
-            {/* Native-like Upgrade Comparison Table */}
-            {evaluation.nativeUpgrades.length > 0 && (
-              <div className="border-2 border-black bg-white p-6 shadow-[4px_4px_0px_#000000] space-y-4">
-                <h4 className="font-mono text-sm font-black text-black uppercase flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                  [NATIVE-LIKE UPGRADE: CARA MENGUCAPKAN DENGAN LEBIH ALAMI]
-                </h4>
-
-                <div className="space-y-3 font-mono text-xs">
-                  {evaluation.nativeUpgrades.map((item, idx) => (
-                    <div key={idx} className="p-4 bg-zinc-50 border-2 border-black space-y-2">
-                      <div>
-                        <span className="text-zinc-600 font-bold block text-[11px] uppercase">
-                          Yang Kamu Ucapkan:
-                        </span>
-                        <p className="text-zinc-800 italic">"{item.original}"</p>
-                      </div>
-                      <div>
-                        <span className="text-emerald-700 font-black block text-[11px] uppercase">
-                          Versi Lebih Natural (Native):
-                        </span>
-                        <p className="text-black font-bold">"{item.upgraded}"</p>
-                      </div>
-                      <p className="text-[11px] text-zinc-600 pt-1 border-t border-zinc-200">{item.explanation}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Strengths & Improvements */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 bg-white border-2 border-black shadow-[4px_4px_0px_#000000] space-y-2 font-mono">
-                <h5 className="font-black text-xs text-emerald-800 uppercase flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> [KELEBIHAN KAMU]:
-                </h5>
-                <ul className="text-xs text-zinc-700 space-y-1.5 list-disc list-inside">
-                  {evaluation.strengths.map((str, idx) => (
-                    <li key={idx}>{str}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="p-5 bg-white border-2 border-black shadow-[4px_4px_0px_#000000] space-y-2 font-mono">
-                <h5 className="font-black text-xs text-amber-800 uppercase flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" /> [AREA PERLU DITINGKATKAN]:
-                </h5>
-                <ul className="text-xs text-zinc-700 space-y-1.5 list-disc list-inside">
-                  {evaluation.areasToImprove.map((area, idx) => (
-                    <li key={idx}>{area}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
-      {renderSharedModals()}
-    </>
-  );
-}
-
-  return null;
 }
