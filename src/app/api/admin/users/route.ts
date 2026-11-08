@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 export async function GET() {
   try {
@@ -30,10 +31,12 @@ export async function POST(req: Request) {
       }
 
       const newId = `usr_${role}_${Date.now()}`;
+      const hashedPassword = await bcrypt.hash(password.trim(), 10);
+
       await query(
         `INSERT INTO users (id, name, username, email, password, role, avatar_url, xp, level, streak_days)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [newId, name, username, email, password, role, role === "teacher" ? "👨‍🏫" : role === "superadmin" ? "⚡" : "🎒", xp || 100, 1, 1]
+        [newId, name, username, email, hashedPassword, role, role === "teacher" ? "👨‍🏫" : role === "superadmin" ? "⚡" : "🎒", xp || 100, 1, 1]
       );
 
       return NextResponse.json({ success: true, message: `User ${username} berhasil dibuat.` });

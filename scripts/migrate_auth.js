@@ -1,4 +1,5 @@
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
 
 async function migrateAuth() {
   const conn = await mysql.createConnection({
@@ -21,22 +22,24 @@ async function migrateAuth() {
   }
 
   if (!colNames.includes('password')) {
-    await conn.query('ALTER TABLE users ADD COLUMN password VARCHAR(100) AFTER email');
+    await conn.query('ALTER TABLE users ADD COLUMN password VARCHAR(255) AFTER email');
     console.log('Added column `password`.');
+  } else {
+    await conn.query('ALTER TABLE users MODIFY COLUMN password VARCHAR(255)');
   }
 
   // Update enum
   await conn.query("ALTER TABLE users MODIFY COLUMN role ENUM('student', 'teacher', 'admin', 'superadmin') DEFAULT 'student'");
   console.log('Updated `role` enum to include superadmin.');
 
-  // Seed default demo accounts if not present
+  // Seed default demo accounts with BCYPT HASHED PASSWORDS
   const demoUsers = [
     {
       id: 'usr_superadmin_01',
       name: 'Super Administrator',
       username: 'superadmin',
       email: 'superadmin@capcipcup.edu',
-      password: 'admin123',
+      rawPassword: 'admin123',
       role: 'superadmin',
       avatar_url: '⚡',
       xp: 9999,
@@ -48,7 +51,7 @@ async function migrateAuth() {
       name: 'Budi Santoso, S.Pd',
       username: 'guru',
       email: 'budi.guru@capcipcup.edu',
-      password: 'guru123',
+      rawPassword: 'guru123',
       role: 'teacher',
       avatar_url: '👨‍🏫',
       xp: 4200,
@@ -60,7 +63,7 @@ async function migrateAuth() {
       name: 'Ahmad Faiz',
       username: 'siswa',
       email: 'ahmad.siswa@capcipcup.edu',
-      password: 'siswa123',
+      rawPassword: 'siswa123',
       role: 'student',
       avatar_url: '🎒',
       xp: 680,
@@ -70,13 +73,14 @@ async function migrateAuth() {
   ];
 
   for (const u of demoUsers) {
+    const hashedPassword = await bcrypt.hash(u.rawPassword, 10);
     await conn.query(
       `INSERT INTO users (id, name, username, email, password, role, avatar_url, xp, level, streak_days)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE name=VALUES(name), password=VALUES(password), role=VALUES(role), xp=VALUES(xp), level=VALUES(level)`,
-      [u.id, u.name, u.username, u.email, u.password, u.role, u.avatar_url, u.xp, u.level, u.streak_days]
+      [u.id, u.name, u.username, u.email, hashedPassword, u.role, u.avatar_url, u.xp, u.level, u.streak_days]
     );
-    console.log(`Seeded user: ${u.username} (${u.role}) - Password: ${u.password}`);
+    console.log(`Seeded user: ${u.username} (${u.role}) - Password Hashed with Bcrypt`);
   }
 
   const [finalUsers] = await conn.query('SELECT id, name, username, email, role, xp, level FROM users');

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { AuthUser } from "@/lib/auth/types";
+import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
@@ -17,11 +18,11 @@ export async function POST(req: Request) {
     const cleanPass = password.trim();
 
     const users = await query<any[]>(
-      `SELECT id, name, username, email, role, avatar_url as avatarUrl, xp, level, streak_days as streakDays 
+      `SELECT id, name, username, email, password, role, avatar_url as avatarUrl, xp, level, streak_days as streakDays 
        FROM users 
-       WHERE (username = ? OR email = ?) AND password = ? 
+       WHERE username = ? OR email = ? 
        LIMIT 1`,
-      [cleanUser, cleanUser, cleanPass]
+      [cleanUser, cleanUser]
     );
 
     if (!users || users.length === 0) {
@@ -32,6 +33,22 @@ export async function POST(req: Request) {
     }
 
     const dbUser = users[0];
+    
+    // Verifikasi password dengan bcrypt
+    const isPasswordValid = await bcrypt.compare(cleanPass, dbUser.password || "");
+
+    // Fallback migration jika masih ada password plaintext lama
+    if (!isPasswordValid && dbUser.password === cleanPass) {
+      // Re-hash secara transparan ke bcrypt untuk keamanan otomatis
+      const upgradedHash = await bcrypt.hash(cleanPass, 10);
+      await query(`UPDATE users SET password = ? WHERE id = ?`, [upgradedHash, dbUser.id]).catch(() => {});
+    } else if (!isPasswordValid) {
+      return NextResponse.json(
+        { error: "Kredensial tidak valid. Silakan periksa username dan password Anda." },
+        { status: 401 }
+      );
+    }
+
     const user: AuthUser = {
       id: dbUser.id,
       name: dbUser.name,
