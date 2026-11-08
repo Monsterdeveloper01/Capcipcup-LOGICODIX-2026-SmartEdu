@@ -29,26 +29,26 @@ export default function SoloCreatePage() {
   const [manualNpcName, setManualNpcName] = useState("Mr. Robert (Examiner)");
   const [manualQuestions, setManualQuestions] = useState<QuizQuestionItem[]>([
     {
-      question: "Which greeting is most appropriate for a formal business or hotel setting?",
+      question: "What is the most impactful way to deliver a 30-second elevator pitch?",
       options: [
-        "Good morning, how may I assist you today?",
-        "Hey you, what's up?",
-        "Why are you here?",
-        "Wait a minute."
+        "I want to explain my entire educational background and university courses.",
+        "We reduce startup server costs by 35%.",
+        "Please allow me to present my thirty-page business documentation binder.",
+        "You must listen to my personal story about starting a software company."
       ],
-      correctIndex: 0,
-      explanation: "'Good morning, how may I assist you today?' is formal and welcoming.",
+      correctIndex: 1,
+      explanation: "'We reduce startup server costs by 35%' leads with a punchy, quantifiable value proposition.",
     },
     {
-      question: "If you do not understand what someone said, what is the best phrase to use?",
+      question: "If you need a client to repeat a point politely, what should you say?",
       options: [
-        "Pardon me, could you please repeat that?",
-        "Speak louder, I cannot hear!",
-        "Stop talking so fast.",
-        "Whatever."
+        "Speak louder because I could not hear your presentation.",
+        "Could you please clarify that point?",
+        "I have no idea what you just said right now.",
+        "Your explanation was completely incomprehensible to everyone here."
       ],
-      correctIndex: 0,
-      explanation: "'Pardon me, could you please repeat that?' is polite and natural.",
+      correctIndex: 1,
+      explanation: "'Could you please clarify that point?' is concise, polite, and professional.",
     },
   ]);
 

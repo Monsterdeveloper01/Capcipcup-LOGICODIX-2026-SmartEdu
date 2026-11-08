@@ -62,15 +62,15 @@ export default function PlayQuestPage() {
               explanation: "'Durable' berarti tahan lama dan kuat, sangat cocok untuk mendeskripsikan kualitas fisik produk.",
             },
             {
-              question: "Ungkapan pembuka yang paling santun dan profesional untuk memulai presentasi bisnis adalah...",
+              question: "What is the best way to open a professional elevator pitch?",
               options: [
-                "Good morning, thank you for your time today.",
-                "Hey, look at this right now!",
-                "Why are you staring at me?",
-                "Give me money immediately."
+                "I would like to present our forty-page market analysis regarding youth consumer habits.",
+                "We cut cafe delivery costs by 40%.",
+                "I have always dreamed of working at your prestigious company since my childhood.",
+                "You should listen to my detailed technical specifications regarding our software product."
               ],
-              correctIndex: 0,
-              explanation: "'Good morning, thank you for your time today' adalah etika standar bisnis.",
+              correctIndex: 1,
+              explanation: "'We cut cafe delivery costs by 40%' is concise, punchy, and delivers immediate value.",
             },
           ],
         });

@@ -45,12 +45,32 @@ export async function POST(req: Request) {
     } else if (hasAiKey()) {
       const aiClient = getAiClient();
       if (aiClient) {
-        const prompt = `You are an elite educational game designer for LinguaQuest, a real-world case-study RPG for Indonesian students learning ${targetLanguage}.
+        const prompt = `You are an elite educational game designer and psychometric test assessment expert for LinguaQuest, a real-world case-study RPG for Indonesian students learning ${targetLanguage}.
 Create an engaging emergency case-study roleplay mission and 3 multiple-choice pre-quiz questions based on:
 - Mode: ${mode}
 - Educational Topic: ${topic}
 - Physical Objects in Room/Desk: ${detected_labels.join(", ")}
 - Target Difficulty: ${difficultyLevel} CEFR
+
+CRITICAL TEST-DESIGN RULES (PREVENT "LONGEST OPTION IS ALWAYS CORRECT" CHEAT):
+1. ZERO LENGTH BIAS (STRICT RULE): NEVER make the correct answer noticeably longer or more detailed than the incorrect distractors! Indonesian students will exploit this flaw by guessing "the longest option is always correct".
+2. BALANCED PARALLEL LENGTHS: In each question, all 4 options (A, B, C, D) MUST have nearly identical word count (within ±2 words) and parallel grammatical structure.
+3. TRICKY SHORT CORRECT ANSWERS: In at least 1-2 questions, deliberately make the CORRECT answer concise, punchy, and SHORTER than the distractors (e.g. 5-7 words), while making the INCORRECT distractors verbose, wordy, flowery, or overly complicated (10-14 words) but conceptually flawed! This completely foils students trying to guess the longest option.
+4. PLAUSIBLE DISTRACTORS: All distractors must sound realistic, professional, and intelligent—never silly 2-word jokes or obvious caricatures.
+5. VARY CORRECT INDEX: Distribute correctIndex across 0, 1, 2, 3 (do NOT always put it at 0 or 2).
+
+EXAMPLE OF GOOD QUESTION DESIGN (Short punchy correct answer, long deceptive distractors):
+{
+  "question": "What is the most effective opening hook for a professional 30-second elevator pitch?",
+  "options": [
+    "I would like to respectfully present our forty-page market analysis report regarding youth habits.",
+    "We cut cafe delivery costs by 40%.",
+    "I have always dreamed of working at your prestigious international company since my university days.",
+    "You should listen to my detailed technical specifications regarding our startup software architecture."
+  ],
+  "correctIndex": 1,
+  "explanation": "'We cut cafe delivery costs by 40%' is a punchy, value-first opening statement that respects the listener's time."
+}
 
 Return STRICTLY a JSON object matching this schema:
 {
@@ -68,19 +88,19 @@ Return STRICTLY a JSON object matching this schema:
   "quiz_questions": [
     {
       "question": "Clear multiple-choice conceptual question",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctIndex": 1,
-      "explanation": "Why this answer is correct"
-    },
-    {
-      "question": "Second multiple-choice professional speaking question",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "options": ["Option A (similar length)", "Option B (similar length)", "Option C (similar length)", "Option D (similar length)"],
       "correctIndex": 0,
       "explanation": "Why this answer is correct"
     },
     {
+      "question": "Second multiple-choice professional speaking question (Short correct answer, longer distractors)",
+      "options": ["Long deceptive distractor A", "Short punchy correct answer B", "Long deceptive distractor C", "Long deceptive distractor D"],
+      "correctIndex": 1,
+      "explanation": "Why this answer is correct"
+    },
+    {
       "question": "Third multiple-choice vocabulary context question",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "options": ["Option A (balanced length)", "Option B (balanced length)", "Option C (balanced length)", "Option D (balanced length)"],
       "correctIndex": 2,
       "explanation": "Why this answer is correct"
     }
@@ -104,7 +124,7 @@ Return STRICTLY a JSON object matching this schema:
       }
     }
 
-    // High quality deterministic fallback
+    // High quality deterministic fallback (Strictly adheres to Anti-Length Bias)
     if (!generatedQuestData) {
       generatedQuestData = {
         title: `Misi Kasus: ${topic}`,
@@ -121,31 +141,31 @@ Return STRICTLY a JSON object matching this schema:
         quiz_questions: [
           {
             question: "Manakah kata sifat yang paling tepat untuk mendeskripsikan produk yang kuat dan tidak mudah rusak?",
-            options: ["Fragile", "Durable", "Temporary", "Hazardous"],
+            options: ["Fragile", "Durable", "Hazardous", "Temporary"],
             correctIndex: 1,
             explanation: "'Durable' berarti tahan lama dan kokoh.",
           },
           {
-            question: "Ungkapan pembuka yang paling santun dan profesional untuk memulai presentasi adalah...",
+            question: "What is the most effective opening hook for a professional 30-second elevator pitch?",
             options: [
-              "Good morning, thank you for your time today.",
-              "Hey, look at this right now!",
-              "Why are you staring at me?",
-              "Give me money immediately."
+              "I would like to respectfully present our forty-page market analysis report.",
+              "We cut cafe delivery costs by 40%.",
+              "I have always dreamed of working at your prestigious international company.",
+              "You should read our detailed technical manual regarding hospitality amenities."
             ],
-            correctIndex: 0,
-            explanation: "'Good morning, thank you for your time today' adalah etika standar komunikasi bisnis internasional.",
+            correctIndex: 1,
+            explanation: "'We cut cafe delivery costs by 40%' is a punchy, value-first opening statement.",
           },
           {
-            question: "Ketika kamu ingin menawarkan solusi alternatif, frasa manakah yang paling tepat?",
+            question: "When a client asks for a quick price discount, what is the best professional response?",
             options: [
-              "You must accept this or leave.",
-              "I have no clue what to say.",
-              "Alternatively, we could consider this option.",
-              "Whatever you say doesn't matter."
+              "We cannot change our prices, take it or leave it.",
+              "I can offer a 5% discount for bulk orders.",
+              "Our company policy is extremely strict regarding financial discounts and margins.",
+              "You should ask someone else who has authority over financial budget decisions."
             ],
-            correctIndex: 2,
-            explanation: "'Alternatively, we could consider this option' menunjukkan keterbukaan berdiskusi.",
+            correctIndex: 1,
+            explanation: "Offering a conditional discount tied to bulk volume protects margins while being constructive.",
           },
         ],
       };

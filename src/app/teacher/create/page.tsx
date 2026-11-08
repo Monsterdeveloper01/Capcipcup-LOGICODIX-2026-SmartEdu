@@ -46,26 +46,26 @@ export default function TeacherCreateRoomPage() {
       explanation: "'Biodegradable' means capable of being decomposed by bacteria or other living organisms.",
     },
     {
-      question: "What is the most polite phrase to offer an alternative amenity to a VIP guest?",
+      question: "What is the most effective opening hook for a professional elevator pitch?",
       options: [
-        "Take it or leave it, sir.",
-        "May I recommend our eco-friendly wooden kit instead?",
-        "We don't care about plastic here.",
-        "You should bring your own stuff."
+        "I would like to respectfully present our forty-page market analysis report.",
+        "We cut hotel plastic waste by 40%.",
+        "I have always dreamed of working at your prestigious international company.",
+        "You should read our detailed technical manual regarding hospitality amenities."
       ],
       correctIndex: 1,
-      explanation: "'May I recommend...' is a polite standard formula in international hospitality.",
+      explanation: "'We cut hotel plastic waste by 40%' is a punchy, value-first opening statement.",
     },
     {
-      question: "When a guest is dissatisfied, what is the best first reaction in professional English?",
+      question: "When a guest is dissatisfied with their room, what is the best first response?",
       options: [
-        "I apologize for the inconvenience and I will resolve it immediately.",
-        "It's not my fault, go talk to the manager.",
-        "Why are you so picky today?",
-        "Please remain silent."
+        "Please file a formal complaint with our general manager tomorrow.",
+        "I will resolve this issue immediately for you.",
+        "Our hotel policies do not allow guest room adjustments.",
+        "You should have selected our premium executive suite."
       ],
-      correctIndex: 0,
-      explanation: "Apologizing empathetically and taking immediate ownership is the golden rule of hospitality.",
+      correctIndex: 1,
+      explanation: "Taking immediate ownership calmly is standard five-star hospitality etiquette.",
     },
   ]);
 
