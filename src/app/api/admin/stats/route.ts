@@ -34,3 +34,4 @@ export async function GET() {
     return NextResponse.json({ error: "Gagal mengambil statistik admin.", details: err.message }, { status: 500 });
   }
 }
+

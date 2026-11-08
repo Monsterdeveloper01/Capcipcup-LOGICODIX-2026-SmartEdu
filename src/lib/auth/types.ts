@@ -11,3 +11,4 @@ export interface AuthUser {
   level: number;
   streakDays: number;
 }
+
