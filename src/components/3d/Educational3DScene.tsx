@@ -1,277 +1,465 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Float, Stars } from "@react-three/drei";
+import { OrbitControls, Text, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import { HandTransform } from "@/components/camera/HandGestureTracker";
 
-export type ModelType = "atom" | "planet" | "geometry";
+export type BlockShape = "cube" | "rectangle" | "cylinder" | "pyramid";
 
-interface SceneProps {
-  modelType: ModelType;
-  autoRotate?: boolean;
+export interface SandboxBlock {
+  id: string;
+  shape: BlockShape;
+  position: [number, number, number];
+  size: [number, number, number]; // [w, h, d]
+  color: string;
+  label: string;
+  isGrabbed?: boolean;
+}
+
+interface SandboxSceneProps {
+  handTransform?: HandTransform;
   wireframe?: boolean;
-  handTransform?: HandTransform;
+  onBlockCountChange?: (count: number) => void;
+  sandboxCommand?: { type: "add" | "reset" | "stack"; shape?: BlockShape } | null;
 }
 
-// Wrapper yang mengunci objek agar HANYA mengikuti gestur tangan ketika sudah berinteraksi
-function HandControlledModel({
-  handTransform,
-  children,
-}: {
-  handTransform?: HandTransform;
-  children: React.ReactNode;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  const hasInteractedRef = useRef(false);
-
-  useEffect(() => {
-    // Jika handTransform direset ke 0, perbolehkan reset status interaksi
-    if (handTransform && handTransform.rotationX === 0 && handTransform.rotationY === 0 && handTransform.scale === 1 && !handTransform.handDetected) {
-      hasInteractedRef.current = false;
-      if (groupRef.current) {
-        groupRef.current.rotation.set(0, 0, 0);
-        groupRef.current.scale.set(1, 1, 1);
-      }
-    }
-  }, [handTransform]);
-
-  useFrame((_, delta) => {
-    if (!groupRef.current || !handTransform) return;
-
-    if (handTransform.handDetected) {
-      hasInteractedRef.current = true;
-    }
-
-    // Jika objek sudah pernah/sedang diinteraksikan oleh tangan:
-    // Hentikan semua gerakan default, dan objek HANYA mengikuti posisi tangan!
-    if (hasInteractedRef.current) {
-      groupRef.current.rotation.x = THREE.MathUtils.lerp(
-        groupRef.current.rotation.x,
-        handTransform.rotationX,
-        Math.min(delta * 12, 1)
-      );
-      groupRef.current.rotation.y = THREE.MathUtils.lerp(
-        groupRef.current.rotation.y,
-        handTransform.rotationY,
-        Math.min(delta * 12, 1)
-      );
-
-      const targetScale = Math.max(0.4, Math.min(handTransform.scale, 2.8));
-      groupRef.current.scale.lerp(
-        new THREE.Vector3(targetScale, targetScale, targetScale),
-        Math.min(delta * 10, 1)
-      );
-    }
-  });
-
-  return <group ref={groupRef}>{children}</group>;
-}
-
-// 1. Model Atom & Orbit Elektron (Kimia/Fisika)
-function AtomModel({ wireframe = false, isControlled = false }: { wireframe?: boolean; isControlled?: boolean }) {
-  const electron1Ref = useRef<THREE.Group>(null);
-  const electron2Ref = useRef<THREE.Group>(null);
-  const electron3Ref = useRef<THREE.Group>(null);
-  const nucleusRef = useRef<THREE.Group>(null);
-
-  useFrame((_, delta) => {
-    // Elektron tetap mengorbit, tetapi inti atom berhenti berputar jika dikontrol tangan
-    if (electron1Ref.current) electron1Ref.current.rotation.z += delta * 2.5;
-    if (electron2Ref.current) electron2Ref.current.rotation.x += delta * 2;
-    if (electron3Ref.current) electron3Ref.current.rotation.y += delta * 1.8;
-    if (!isControlled && nucleusRef.current) {
-      nucleusRef.current.rotation.y += delta * 0.5;
-    }
-  });
-
-  return (
-    <group>
-      {/* Inti Atom (Proton & Neutron) */}
-      <group ref={nucleusRef}>
-        <mesh position={[0, 0, 0]}>
-          <sphereGeometry args={[0.5, 32, 32]} />
-          <meshStandardMaterial
-            color="#ef4444"
-            emissive="#b91c1c"
-            emissiveIntensity={0.6}
-            roughness={0.2}
-            wireframe={wireframe}
-          />
-        </mesh>
-        <mesh position={[0.2, 0.2, 0.1]}>
-          <sphereGeometry args={[0.35, 24, 24]} />
-          <meshStandardMaterial color="#3b82f6" roughness={0.3} wireframe={wireframe} />
-        </mesh>
-        <mesh position={[-0.2, -0.15, -0.1]}>
-          <sphereGeometry args={[0.38, 24, 24]} />
-          <meshStandardMaterial color="#6366f1" roughness={0.3} wireframe={wireframe} />
-        </mesh>
-      </group>
-
-      {/* Cincin Orbit 1 & Elektron */}
-      <group ref={electron1Ref} rotation={[0, 0, Math.PI / 4]}>
-        <mesh>
-          <torusGeometry args={[1.8, 0.02, 16, 100]} />
-          <meshBasicMaterial color="#60a5fa" transparent opacity={0.6} />
-        </mesh>
-        <mesh position={[1.8, 0, 0]}>
-          <sphereGeometry args={[0.12, 16, 16]} />
-          <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1} />
-        </mesh>
-      </group>
-
-      {/* Cincin Orbit 2 & Elektron */}
-      <group ref={electron2Ref} rotation={[Math.PI / 3, 0, 0]}>
-        <mesh>
-          <torusGeometry args={[2.1, 0.02, 16, 100]} />
-          <meshBasicMaterial color="#a78bfa" transparent opacity={0.6} />
-        </mesh>
-        <mesh position={[0, 2.1, 0]}>
-          <sphereGeometry args={[0.12, 16, 16]} />
-          <meshStandardMaterial color="#10b981" emissive="#059669" emissiveIntensity={1} />
-        </mesh>
-      </group>
-
-      {/* Cincin Orbit 3 & Elektron */}
-      <group ref={electron3Ref} rotation={[-Math.PI / 3, Math.PI / 4, 0]}>
-        <mesh>
-          <torusGeometry args={[1.95, 0.02, 16, 100]} />
-          <meshBasicMaterial color="#f472b6" transparent opacity={0.6} />
-        </mesh>
-        <mesh position={[0, 0, 1.95]}>
-          <sphereGeometry args={[0.12, 16, 16]} />
-          <meshStandardMaterial color="#ec4899" emissive="#db2777" emissiveIntensity={1} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-// 2. Model Planet & Atmosfer (Geografi/Astronomi)
-function PlanetModel({ wireframe = false, isControlled = false }: { wireframe?: boolean; isControlled?: boolean }) {
-  const planetRef = useRef<THREE.Mesh>(null);
-  const ringRef = useRef<THREE.Mesh>(null);
-
-  useFrame((_, delta) => {
-    // Jika sedang/sudah dikontrol tangan, planet TIDAK berputar sendiri
-    if (!isControlled && planetRef.current) {
-      planetRef.current.rotation.y += delta * 0.4;
-    }
-    if (ringRef.current) {
-      ringRef.current.rotation.z -= delta * (isControlled ? 0.05 : 0.2);
-    }
-  });
-
-  return (
-    <group>
-      <mesh ref={planetRef}>
-        <sphereGeometry args={[1.2, 48, 48]} />
-        <meshStandardMaterial
-          color="#2563eb"
-          roughness={0.4}
-          metalness={0.1}
-          wireframe={wireframe}
-        />
-      </mesh>
-
-      <mesh ref={ringRef} rotation={[Math.PI / 2.8, 0, 0]}>
-        <ringGeometry args={[1.6, 2.4, 64]} />
-        <meshStandardMaterial
-          color="#f59e0b"
-          side={THREE.DoubleSide}
-          transparent
-          opacity={0.75}
-          roughness={0.5}
-          wireframe={wireframe}
-        />
-      </mesh>
-
-      <mesh>
-        <sphereGeometry args={[1.28, 32, 32]} />
-        <meshBasicMaterial color="#60a5fa" transparent opacity={0.15} side={THREE.BackSide} />
-      </mesh>
-    </group>
-  );
-}
-
-// 3. Model Geometri Matematika (Ikosahedron & Wireframe)
-function GeometryModel({ wireframe = false, isControlled = false }: { wireframe?: boolean; isControlled?: boolean }) {
-  const meshRef = useRef<THREE.Group>(null);
-
-  useFrame((_, delta) => {
-    // Matikan rotasi otomatis mandiri jika dikontrol tangan!
-    if (!isControlled && meshRef.current) {
-      meshRef.current.rotation.x += delta * 0.5;
-      meshRef.current.rotation.y += delta * 0.7;
-    }
-  });
-
-  return (
-    <group ref={meshRef}>
-      <mesh>
-        <icosahedronGeometry args={[1.3, 0]} />
-        <meshStandardMaterial
-          color="#8b5cf6"
-          roughness={0.2}
-          metalness={0.4}
-          wireframe={wireframe}
-        />
-      </mesh>
-      <mesh scale={1.05}>
-        <icosahedronGeometry args={[1.3, 0]} />
-        <meshBasicMaterial color="#ec4899" wireframe />
-      </mesh>
-    </group>
-  );
-}
+// Initial educational building blocks
+const INITIAL_BLOCKS: SandboxBlock[] = [
+  { id: "b1", shape: "cube", position: [-1.8, 0.4, 0], size: [0.8, 0.8, 0.8], color: "#ef4444", label: "A" },
+  { id: "b2", shape: "cube", position: [-0.6, 0.4, 0], size: [0.8, 0.8, 0.8], color: "#3b82f6", label: "B" },
+  { id: "b3", shape: "cube", position: [0.6, 0.4, 0], size: [0.8, 0.8, 0.8], color: "#10b981", label: "C" },
+  { id: "b4", shape: "rectangle", position: [1.8, 0.3, 0], size: [1.4, 0.6, 0.8], color: "#f59e0b", label: "123" },
+  { id: "b5", shape: "cylinder", position: [0, 0.5, -1.5], size: [0.8, 1.0, 0.8], color: "#8b5cf6", label: "★" },
+  { id: "b6", shape: "pyramid", position: [-1.2, 0.5, -1.5], size: [0.9, 0.9, 0.9], color: "#ec4899", label: "▲" },
+];
 
 export default function Educational3DScene({
-  modelType,
-  autoRotate = true,
-  wireframe = false,
   handTransform,
-}: SceneProps) {
-  const isHandActive = Boolean(
-    handTransform && (handTransform.handDetected || handTransform.rotationX !== 0 || handTransform.rotationY !== 0 || handTransform.scale !== 1)
-  );
+  wireframe = false,
+  onBlockCountChange,
+  sandboxCommand,
+}: SandboxSceneProps) {
+  const [blocks, setBlocks] = useState<SandboxBlock[]>(INITIAL_BLOCKS);
+  const grabbedBlockIdRef = useRef<string | null>(null);
+
+  // Synchronize block count
+  useEffect(() => {
+    onBlockCountChange?.(blocks.length);
+  }, [blocks.length, onBlockCountChange]);
+
+  // Handle external sandbox commands (add block, reset, stack tower)
+  useEffect(() => {
+    if (!sandboxCommand) return;
+
+    if (sandboxCommand.type === "reset") {
+      grabbedBlockIdRef.current = null;
+      setBlocks(INITIAL_BLOCKS);
+    } else if (sandboxCommand.type === "add") {
+      const shape = sandboxCommand.shape || "cube";
+      const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
+      const labels = ["1", "2", "3", "4", "5", "★", "▲", "◆", "XYZ"];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      const randomLabel = labels[Math.floor(Math.random() * labels.length)];
+      const randomX = (Math.random() - 0.5) * 3;
+      const randomZ = (Math.random() - 0.5) * 2;
+
+      const newBlock: SandboxBlock = {
+        id: `block_${Date.now()}`,
+        shape,
+        position: [randomX, 2.5, randomZ], // Muncul dari atas lalu jatuh ke meja/tumpukan
+        size: shape === "rectangle" ? [1.4, 0.6, 0.8] : [0.8, 0.8, 0.8],
+        color: randomColor,
+        label: randomLabel,
+      };
+
+      setBlocks((prev) => [...prev, newBlock]);
+    } else if (sandboxCommand.type === "stack") {
+      // Susun otomatis menjadi menara bertingkat
+      setBlocks((prev) => {
+        let currentY = 0;
+        return prev.map((b, idx) => {
+          const h = b.size[1];
+          const posY = currentY + h / 2;
+          currentY += h;
+          return {
+            ...b,
+            position: [0, posY, 0],
+          };
+        });
+      });
+    }
+  }, [sandboxCommand]);
 
   return (
-    <div className="w-full h-full relative cursor-grab active:cursor-grabbing">
+    <div className="w-full h-full relative select-none">
       <Canvas
-        camera={{ position: [0, 0, 4.8], fov: 45 }}
+        camera={{ position: [0, 4, 6.5], fov: 45 }}
         gl={{ alpha: true, antialias: true }}
       >
         <ambientLight intensity={0.9} />
-        <directionalLight position={[5, 8, 5]} intensity={1.5} />
-        <pointLight position={[-5, -5, -5]} color="#6366f1" intensity={0.8} />
+        <directionalLight position={[5, 10, 6]} intensity={1.6} castShadow />
+        <pointLight position={[-6, 4, -4]} color="#818cf8" intensity={0.8} />
 
+        {/* Orbit Controls (Aktif saat tidak sedang memegang balok dengan tangan) */}
         <OrbitControls
-          enableZoom={!isHandActive}
-          enableRotate={!isHandActive}
-          autoRotate={autoRotate && !isHandActive}
-          autoRotateSpeed={1.5}
-          maxDistance={8}
-          minDistance={1.8}
+          enableZoom={!grabbedBlockIdRef.current}
+          enableRotate={!grabbedBlockIdRef.current && !handTransform?.handDetected}
+          maxPolarAngle={Math.PI / 2 - 0.05} // Tidak bisa tembus ke bawah meja
+          minDistance={2.5}
+          maxDistance={12}
         />
 
-        <Float
-          speed={isHandActive ? 0 : 2}
-          rotationIntensity={isHandActive ? 0 : 0.4}
-          floatIntensity={isHandActive ? 0 : 0.6}
-        >
-          <HandControlledModel handTransform={handTransform}>
-            {modelType === "atom" && <AtomModel wireframe={wireframe} isControlled={isHandActive} />}
-            {modelType === "planet" && <PlanetModel wireframe={wireframe} isControlled={isHandActive} />}
-            {modelType === "geometry" && <GeometryModel wireframe={wireframe} isControlled={isHandActive} />}
-          </HandControlledModel>
-        </Float>
+        {/* Meja / Grid Platform Sandbox */}
+        <SandboxTable />
 
-        {!isHandActive && (
-          <Stars radius={50} depth={30} count={600} factor={4} fade speed={1} />
-        )}
+        {/* Kumpulan Objek Balok Interaktif */}
+        <SandboxSimulation
+          blocks={blocks}
+          setBlocks={setBlocks}
+          handTransform={handTransform}
+          grabbedBlockIdRef={grabbedBlockIdRef}
+          wireframe={wireframe}
+        />
       </Canvas>
     </div>
+  );
+}
+
+// Komponen Platform Meja Belajar (Grid & Boundary)
+function SandboxTable() {
+  return (
+    <group position={[0, 0, 0]}>
+      {/* Lantai Meja Kayu/Matte */}
+      <mesh position={[0, -0.05, 0]} receiveShadow>
+        <boxGeometry args={[8, 0.1, 6]} />
+        <meshStandardMaterial color="#1e1e24" roughness={0.6} metalness={0.2} />
+      </mesh>
+
+      {/* Grid Garis Panduan */}
+      <gridHelper args={[8, 16, "#6366f1", "#312e81"]} position={[0, 0.005, 0]} />
+
+      {/* Bingkai Neon Pembatas Meja */}
+      <mesh position={[0, 0.05, -3]}>
+        <boxGeometry args={[8, 0.1, 0.05]} />
+        <meshStandardMaterial color="#6366f1" emissive="#4f46e5" emissiveIntensity={0.6} />
+      </mesh>
+      <mesh position={[0, 0.05, 3]}>
+        <boxGeometry args={[8, 0.1, 0.05]} />
+        <meshStandardMaterial color="#6366f1" emissive="#4f46e5" emissiveIntensity={0.6} />
+      </mesh>
+      <mesh position={[-4, 0.05, 0]}>
+        <boxGeometry args={[0.05, 0.1, 6]} />
+        <meshStandardMaterial color="#6366f1" emissive="#4f46e5" emissiveIntensity={0.6} />
+      </mesh>
+      <mesh position={[4, 0.05, 0]}>
+        <boxGeometry args={[0.05, 0.1, 6]} />
+        <meshStandardMaterial color="#6366f1" emissive="#4f46e5" emissiveIntensity={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+// Simulasi Fisika: Memegang, Memindahkan, dan Menumpuk Balok
+function SandboxSimulation({
+  blocks,
+  setBlocks,
+  handTransform,
+  grabbedBlockIdRef,
+  wireframe,
+}: {
+  blocks: SandboxBlock[];
+  setBlocks: React.Dispatch<React.SetStateAction<SandboxBlock[]>>;
+  handTransform?: HandTransform;
+  grabbedBlockIdRef: React.MutableRefObject<string | null>;
+  wireframe: boolean;
+}) {
+  const handSphereRef = useRef<THREE.Mesh>(null);
+  const blocksRef = useRef<SandboxBlock[]>(blocks);
+  blocksRef.current = blocks;
+
+  // Track pointer hover/grab for mouse fallback
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  // Main Physics & Hand Interaction Loop (60 FPS)
+  useFrame((_, delta) => {
+    const isHandActive = Boolean(handTransform && handTransform.handDetected);
+    const handPos = handTransform?.handPosition3D;
+    const isGrabbing = Boolean(handTransform?.isGrabbing);
+
+    // Update Virtual Hand Indicator
+    if (handSphereRef.current) {
+      if (isHandActive && handPos) {
+        handSphereRef.current.visible = true;
+        handSphereRef.current.position.set(handPos.x, handPos.y, handPos.z);
+        // Animate pulse when grabbing
+        const s = isGrabbing ? 0.28 : 0.2;
+        handSphereRef.current.scale.lerp(new THREE.Vector3(s, s, s), 0.2);
+      } else {
+        handSphereRef.current.visible = false;
+      }
+    }
+
+    // ==========================================
+    // LOGIKA MEMEGANG & MENUMPUK BALOK DENGAN TANGAN
+    // ==========================================
+    if (isHandActive && handPos) {
+      if (isGrabbing) {
+        // Jika belum ada balok yang dipegang, cari balok terdekat dengan tangan
+        if (!grabbedBlockIdRef.current) {
+          let closestId: string | null = null;
+          let minDist = 1.6; // Radius jangkauan tangan meraih balok
+
+          blocksRef.current.forEach((block) => {
+            const dist = Math.hypot(
+              block.position[0] - handPos.x,
+              block.position[1] - handPos.y,
+              block.position[2] - handPos.z
+            );
+            if (dist < minDist) {
+              minDist = dist;
+              closestId = block.id;
+            }
+          });
+
+          if (closestId) {
+            grabbedBlockIdRef.current = closestId;
+          }
+        }
+      } else {
+        // Tangan membuka (lepas cubitan / lepas kepalan) -> Lepaskan balok
+        if (grabbedBlockIdRef.current) {
+          grabbedBlockIdRef.current = null;
+        }
+      }
+    }
+
+    // Update posisi semua balok (Gravitasi & Stacking)
+    setBlocks((prev) => {
+      let hasMovement = false;
+
+      const updated = prev.map((block) => {
+        const isGrabbed = block.id === grabbedBlockIdRef.current;
+
+        if (isGrabbed && handPos) {
+          // Balok yang sedang dipegang bergerak mengikuti tangan secara presisi
+          const newX = THREE.MathUtils.lerp(block.position[0], handPos.x, Math.min(delta * 20, 1));
+          const newY = THREE.MathUtils.lerp(block.position[1], Math.max(handPos.y, block.size[1] / 2), Math.min(delta * 20, 1));
+          const newZ = THREE.MathUtils.lerp(block.position[2], handPos.z, Math.min(delta * 20, 1));
+
+          if (
+            Math.abs(newX - block.position[0]) > 0.001 ||
+            Math.abs(newY - block.position[1]) > 0.001 ||
+            Math.abs(newZ - block.position[2]) > 0.001 ||
+            !block.isGrabbed
+          ) {
+            hasMovement = true;
+          }
+
+          return {
+            ...block,
+            position: [newX, newY, newZ] as [number, number, number],
+            isGrabbed: true,
+          };
+        } else {
+          // ==========================================
+          // KALKULASI MENUMPUK (STACKING PHYSICS)
+          // ==========================================
+          // Cari balok lain yang berada tepat di bawah balok ini
+          let supportY = block.size[1] / 2; // Posisi dasar meja
+
+          prev.forEach((other) => {
+            if (other.id !== block.id) {
+              const dx = Math.abs(block.position[0] - other.position[0]);
+              const dz = Math.abs(block.position[2] - other.position[2]);
+              const overlapX = (block.size[0] + other.size[0]) / 2.2;
+              const overlapZ = (block.size[2] + other.size[2]) / 2.2;
+
+              // Jika berada di atas balok lain dalam batas toleransi horizontal
+              if (dx < overlapX && dz < overlapZ && other.position[1] < block.position[1]) {
+                const surfaceY = other.position[1] + other.size[1] / 2 + block.size[1] / 2;
+                if (surfaceY > supportY && surfaceY <= block.position[1] + 0.6) {
+                  supportY = surfaceY;
+                }
+              }
+            }
+          });
+
+          // Gravitasi: balok turun ke alas / tumpukan di bawahnya
+          let currentY = block.position[1];
+          if (currentY > supportY + 0.005) {
+            currentY = THREE.MathUtils.lerp(currentY, supportY, Math.min(delta * 12, 1));
+            hasMovement = true;
+          } else if (currentY !== supportY) {
+            currentY = supportY;
+            hasMovement = true;
+          }
+
+          if (block.isGrabbed) {
+            hasMovement = true;
+          }
+
+          return {
+            ...block,
+            position: [block.position[0], currentY, block.position[2]] as [number, number, number],
+            isGrabbed: false,
+          };
+        }
+      });
+
+      // Optimasi performa: Jika tidak ada pergerakan, skip re-render
+      return hasMovement ? updated : prev;
+    });
+  });
+
+  return (
+    <group>
+      {/* Bola Hologram Indikator Posisi Tangan Pengguna di Dunia 3D */}
+      <mesh ref={handSphereRef} visible={false}>
+        <sphereGeometry args={[0.2, 24, 24]} />
+        <meshStandardMaterial
+          color={handTransform?.isGrabbing ? "#f59e0b" : "#38bdf8"}
+          emissive={handTransform?.isGrabbing ? "#f59e0b" : "#0284c7"}
+          emissiveIntensity={1.2}
+          transparent
+          opacity={0.8}
+          wireframe
+        />
+      </mesh>
+
+      {/* Render Setiap Balok */}
+      {blocks.map((block) => (
+        <BlockMesh
+          key={block.id}
+          block={block}
+          wireframe={wireframe}
+          isHovered={hoveredId === block.id}
+          onPointerOver={() => setHoveredId(block.id)}
+          onPointerOut={() => setHoveredId(null)}
+          onPointerDown={() => {
+            // Mouse click-drag support
+            grabbedBlockIdRef.current = block.id;
+          }}
+          onPointerUp={() => {
+            if (grabbedBlockIdRef.current === block.id) {
+              grabbedBlockIdRef.current = null;
+            }
+          }}
+        />
+      ))}
+    </group>
+  );
+}
+
+// Render Komponen Mesh Balok Individual
+function BlockMesh({
+  block,
+  wireframe,
+  isHovered,
+  onPointerOver,
+  onPointerOut,
+  onPointerDown,
+  onPointerUp,
+}: {
+  block: SandboxBlock;
+  wireframe: boolean;
+  isHovered: boolean;
+  onPointerOver: () => void;
+  onPointerOut: () => void;
+  onPointerDown: () => void;
+  onPointerUp: () => void;
+}) {
+  const meshRef = useRef<THREE.Group>(null);
+  const { shape, position, size, color, label, isGrabbed } = block;
+
+  return (
+    <group
+      ref={meshRef}
+      position={position}
+      onPointerOver={onPointerOver}
+      onPointerOut={onPointerOut}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+    >
+      {/* 1. Bentuk Balok Kubus */}
+      {shape === "cube" && (
+        <RoundedBox args={size} radius={0.06} smoothness={4} castShadow receiveShadow>
+          <meshStandardMaterial
+            color={color}
+            roughness={0.3}
+            metalness={0.1}
+            wireframe={wireframe}
+            emissive={isGrabbed ? "#f59e0b" : isHovered ? "#6366f1" : "#000000"}
+            emissiveIntensity={isGrabbed ? 0.6 : isHovered ? 0.3 : 0}
+          />
+        </RoundedBox>
+      )}
+
+      {/* 2. Bentuk Balok Persegi Panjang */}
+      {shape === "rectangle" && (
+        <RoundedBox args={size} radius={0.06} smoothness={4} castShadow receiveShadow>
+          <meshStandardMaterial
+            color={color}
+            roughness={0.3}
+            metalness={0.1}
+            wireframe={wireframe}
+            emissive={isGrabbed ? "#f59e0b" : isHovered ? "#6366f1" : "#000000"}
+            emissiveIntensity={isGrabbed ? 0.6 : isHovered ? 0.3 : 0}
+          />
+        </RoundedBox>
+      )}
+
+      {/* 3. Bentuk Silinder */}
+      {shape === "cylinder" && (
+        <mesh castShadow receiveShadow>
+          <cylinderGeometry args={[size[0] / 2, size[0] / 2, size[1], 32]} />
+          <meshStandardMaterial
+            color={color}
+            roughness={0.3}
+            metalness={0.1}
+            wireframe={wireframe}
+            emissive={isGrabbed ? "#f59e0b" : isHovered ? "#6366f1" : "#000000"}
+            emissiveIntensity={isGrabbed ? 0.6 : isHovered ? 0.3 : 0}
+          />
+        </mesh>
+      )}
+
+      {/* 4. Bentuk Piramida / Atap */}
+      {shape === "pyramid" && (
+        <mesh castShadow receiveShadow>
+          <coneGeometry args={[size[0] / 1.4, size[1], 4]} />
+          <meshStandardMaterial
+            color={color}
+            roughness={0.3}
+            metalness={0.1}
+            wireframe={wireframe}
+            emissive={isGrabbed ? "#f59e0b" : isHovered ? "#6366f1" : "#000000"}
+            emissiveIntensity={isGrabbed ? 0.6 : isHovered ? 0.3 : 0}
+          />
+        </mesh>
+      )}
+
+      {/* Label Huruf / Angka Edukasi di Atas Balok */}
+      {label && (
+        <Text
+          position={[0, 0, size[2] / 2 + 0.02]}
+          fontSize={size[1] * 0.45}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {label}
+        </Text>
+      )}
+
+      {/* Efek Garis Outline saat Dipegang */}
+      {isGrabbed && (
+        <mesh scale={1.08}>
+          <boxGeometry args={size} />
+          <meshBasicMaterial color="#f59e0b" wireframe transparent opacity={0.8} />
+        </mesh>
+      )}
+    </group>
   );
 }

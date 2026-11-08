@@ -12,6 +12,7 @@ export interface HandTransform {
   isGrabbing: boolean;
   handDetected: boolean;
   activeMode: "rotate" | "zoom" | "dual";
+  handPosition3D?: { x: number; y: number; z: number };
 }
 
 interface HandGestureTrackerProps {
@@ -153,6 +154,9 @@ export default function HandGestureTracker({
 
     let rightHandDetected = false;
     let leftHandDetected = false;
+    let primaryHand3D: { x: number; y: number; z: number } | undefined = undefined;
+    let isAnyGrabbing = false;
+    let isAnyPinching = false;
 
     if (results.landmarks && results.landmarks.length > 0) {
       for (let i = 0; i < results.landmarks.length; i++) {
@@ -160,19 +164,39 @@ export default function HandGestureTracker({
         const handednessInfo = results.handedness[i]?.[0];
 
         // Karena video dicerminkan (mirror):
-        // Handedness MediaPipe "Right" adalah tangan kanan fisik pengguna (tampil di sisi kanan layar cermin)
-        // Handedness MediaPipe "Left" adalah tangan kiri fisik pengguna (tampil di sisi kiri layar cermin)
         const isRightHand = handednessInfo ? handednessInfo.categoryName === "Right" : landmarks[0].x > 0.5;
+
+        // Calculate 3D position of the hand
+        const palm = landmarks[9];
+        const h3D = {
+          x: (0.5 - palm.x) * 8.5,
+          y: Math.max((1 - palm.y) * 4.2 + 0.2, 0.3),
+          z: (palm.z || 0) * 5,
+        };
+
+        // Pinch & Fist detection (for Grab in 3D Sandbox)
+        const pinchDist = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
+        const pinching = pinchDist < 0.085;
+        const fist = landmarks[8].y > landmarks[6].y && landmarks[12].y > landmarks[10].y && landmarks[16].y > landmarks[14].y;
+        const grabbing = pinching || fist;
+
+        if (grabbing) isAnyGrabbing = true;
+        if (pinching) isAnyPinching = true;
+
+        if (isRightHand || !primaryHand3D) {
+          primaryHand3D = h3D;
+        }
 
         if (isRightHand) {
           // ==========================================
-          // ✋ TANGAN KANAN: MEMUTAR OBJEK 3D (ROTASI)
+          // ✋ TANGAN KANAN: MEMUTAR OBJEK 3D (ROTASI) & MEMEGANG OBJEK
           // ==========================================
           rightHandDetected = true;
           lostRightCounterRef.current = 0;
 
           // Gambar tulang tangan kanan (Warna Neon Hijau/Cyan)
-          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, "#10b981", "#34d399", "✋ Kanan: Rotasi");
+          const rightLabel = grabbing ? "✊ Memegang Objek" : "✋ Kanan: Rotasi";
+          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, grabbing ? "#f59e0b" : "#10b981", grabbing ? "#fbbf24" : "#34d399", rightLabel);
 
           const palmCenter = landmarks[9]; // Pangkal jari tengah
 
@@ -189,7 +213,7 @@ export default function HandGestureTracker({
             }
           }
           prevRightHandPosRef.current = { x: palmCenter.x, y: palmCenter.y };
-          setRightHandStatus("✋ Tangan Kanan Aktif: Memutar Objek");
+          setRightHandStatus(grabbing ? "✊ Tangan Kanan: Memegang Objek" : "✋ Tangan Kanan: Siap Memegang / Putar");
         } else {
           // ==========================================
           // 🔍 TANGAN KIRI: ZOOM IN / ZOOM OUT (SKALA)
@@ -200,27 +224,18 @@ export default function HandGestureTracker({
           // Gambar tulang tangan kiri (Warna Neon Pink/Ungu)
           drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, "#ec4899", "#f43f5e", "🔍 Kiri: Zoom");
 
-          // Zoom diatur secara intuitif oleh Ketinggian Tangan Kiri (Posisi Y) & Jarak Jari
-          // Ketinggian Y di video: 0.1 (atas) hingga 0.9 (bawah)
           const wrist = landmarks[0];
           const thumbTip = landmarks[4];
           const indexTip = landmarks[8];
 
-          // Jarak bukaan jempol & telunjuk tangan kiri
-          const dx = thumbTip.x - indexTip.x;
-          const dy = thumbTip.y - indexTip.y;
-          const pinchDist = Math.sqrt(dx * dx + dy * dy);
-
-          // Kombinasi: Naikkan tangan kiri (Y lebih kecil) = Zoom In; Turunkan tangan kiri = Zoom Out
-          // Normalisasi rentang Y (0.2 atas -> skala 2.2x, 0.8 bawah -> skala 0.5x)
+          const pDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
           const normalizedY = 1 - Math.min(Math.max((wrist.y - 0.15) / 0.65, 0), 1);
-          const targetScale = 0.5 + normalizedY * 1.8 + Math.min(pinchDist * 2, 0.5);
+          const targetScale = 0.5 + normalizedY * 1.8 + Math.min(pDist * 2, 0.5);
 
-          // Smooth interpolation
           currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.18;
           setCurrentScale(currentScaleRef.current);
 
-          setLeftHandStatus(`🔍 Tangan Kiri Aktif: Zoom (${currentScaleRef.current.toFixed(2)}x)`);
+          setLeftHandStatus(`🔍 Tangan Kiri: Zoom (${currentScaleRef.current.toFixed(2)}x)`);
         }
       }
     }
@@ -249,10 +264,11 @@ export default function HandGestureTracker({
       rotationX: currentRotationRef.current.x,
       rotationY: currentRotationRef.current.y,
       scale: currentScaleRef.current,
-      isPinching: false,
-      isGrabbing: rightHandDetected,
+      isPinching: isAnyPinching,
+      isGrabbing: isAnyGrabbing,
       handDetected: anyHand,
       activeMode: mode,
+      handPosition3D: anyHand ? primaryHand3D : undefined,
     });
 
     animationFrameRef.current = requestAnimationFrame(detectHands);
