@@ -39,99 +39,8 @@ export interface ReactionDetail {
   reactionPosition?: [number, number, number];
 }
 
-// Built-in Knowledge Base of Science & Chemistry Reactions (SD, SMP, SMA)
-export const BUILTIN_REACTIONS: ReactionDetail[] = [
-  // 1. SD: Cuka + Baking Soda
-  {
-    id: "rx_sd_1",
-    title: "Reaksi Asam-Basa Menghasilkan Gas CO2",
-    equation: "CH₃COOH (Cuka) + NaHCO₃ (Baking Soda) → CH₃COONa + H₂O + CO₂↑",
-    substanceA: "CH3COOH",
-    substanceB: "NaHCO3",
-    resultName: "Natrium Asetat Berbuih",
-    resultFormula: "CH₃COONa + CO₂",
-    resultColor: "#f8fafc",
-    effectType: "bubbles",
-    temperatureChange: -4,
-    explanation: "Reaksi antara asam cuka dan soda kue menghasilkan gas Karbondioksida (CO₂) yang meluap membentuk gelembung busa tebal dan menyerap kalor.",
-    level: "SD",
-  },
-  // 2. SD: Minyak + Air
-  {
-    id: "rx_sd_2",
-    title: "Heterogenitas Massa Jenis Polar & Non-Polar",
-    equation: "H₂O (Air) + Lipid (Minyak) → Emulsi Dua Fase (Tidak Bercampur)",
-    substanceA: "H2O",
-    substanceB: "LIPID",
-    resultName: "Campuran Berlapis (Massa Jenis)",
-    resultFormula: "H₂O // Lipid",
-    resultColor: "#facc15",
-    effectType: "color_change",
-    temperatureChange: 0,
-    explanation: "Air dan minyak goreng tidak dapat menyatu karena perbedaan kepolaran molekul (air polar, minyak non-polar) dan massa jenis minyak lebih ringan.",
-    level: "SD",
-  },
-  // 3. SMP: Asam Klorida + Natrium Hidroksida (Netralisasi)
-  {
-    id: "rx_smp_1",
-    title: "Reaksi Netralisasi Asam Kuat & Basa Kuat",
-    equation: "HCl (Asam Klorida) + NaOH (Soda Api) → NaCl (Garam Dapur) + H₂O + Kalor",
-    substanceA: "HCl",
-    substanceB: "NaOH",
-    resultName: "Larutan Garam Netral",
-    resultFormula: "NaCl + H₂O",
-    resultColor: "#10b981",
-    effectType: "steam",
-    temperatureChange: 18,
-    explanation: "Ion hidrogen (H+) dari asam dan ion hidroksida (OH-) dari basa bersatu membentuk molekul air netral dan garam dapur dengan pelepasan energi kalor.",
-    level: "SMP",
-  },
-  // 4. SMP: Tembaga Sulfat + Natrium Hidroksida
-  {
-    id: "rx_smp_2",
-    title: "Reaksi Pembentukan Endapan Tembaga(II) Hidroksida",
-    equation: "CuSO₄ (Tembaga Sulfat) + 2NaOH → Cu(OH)₂↓ (Endapan Biru Tua) + Na₂SO₄",
-    substanceA: "CuSO4",
-    substanceB: "NaOH",
-    resultName: "Endapan Biru Cu(OH)₂",
-    resultFormula: "Cu(OH)₂↓ + Na₂SO₄",
-    resultColor: "#1e40af",
-    effectType: "precipitate",
-    temperatureChange: 4,
-    explanation: "Pertukaran ion membentuk tembaga(II) hidroksida yang tidak larut dalam air, menghasilkan endapan seperti gel berwarna biru safir tua.",
-    level: "SMP",
-  },
-  // 5. SMA: Timbal Nitrat + Kalium Iodida (Golden Rain)
-  {
-    id: "rx_sma_1",
-    title: "Fenomena Hujan Emas (Golden Rain Precipitation)",
-    equation: "Pb(NO₃)₂ (Timbal Nitrat) + 2KI (Kalium Iodida) → PbI₂↓ (Kristal Emas) + 2KNO₃",
-    substanceA: "Pb(NO3)2",
-    substanceB: "KI",
-    resultName: "Kristal Hujan Emas PbI₂",
-    resultFormula: "PbI₂↓ (Golden Rain)",
-    resultColor: "#fbbf24",
-    effectType: "spark",
-    temperatureChange: 2,
-    explanation: "Dua larutan tanpa warna bereaksi seketika memicu presipitasi kristal heksagonal timbal iodida yang berpendar kuning keemasan seperti hujan emas.",
-    level: "SMA",
-  },
-  // 6. SMA: Kalium Permanganat + Gliserin
-  {
-    id: "rx_sma_2",
-    title: "Reaksi Redoks Spontan Eksotermik",
-    equation: "14KMnO₄ + 4C₃H₅(OH)₃ → 7K₂CO₃ + 7Mn₂O₃ + 5CO₂↑ + 16H₂O + Energi Panas",
-    substanceA: "KMnO4",
-    substanceB: "GLYCERIN",
-    resultName: "Residu Mangan Dioksida & Panas",
-    resultFormula: "Mn₂O₃ + K₂CO₃",
-    resultColor: "#581c87",
-    effectType: "steam",
-    temperatureChange: 45,
-    explanation: "KMnO4 adalah oksidator sangat kuat yang mengoksidasi senyawa organik gliserin secara spontan, melepaskan uap panas tebal dan nyala eksotermik.",
-    level: "SMA",
-  },
-];
+// Dynamic reactions loaded from MySQL database / API
+export const BUILTIN_REACTIONS: ReactionDetail[] = [];
 
 export const INITIAL_VESSELS: ChemicalVessel[] = [
   {
@@ -226,6 +135,7 @@ interface ChemistryLabSceneProps {
   vessels: ChemicalVessel[];
   setVessels: React.Dispatch<React.SetStateAction<ChemicalVessel[]>>;
   activeReaction: ReactionDetail | null;
+  reactions?: ReactionDetail[];
 }
 
 export default function ChemistryLabScene({
@@ -234,6 +144,7 @@ export default function ChemistryLabScene({
   vessels,
   setVessels,
   activeReaction,
+  reactions,
 }: ChemistryLabSceneProps) {
   const grabbedIdRef = useRef<string | null>(null);
 
@@ -271,6 +182,7 @@ export default function ChemistryLabScene({
           grabbedIdRef={grabbedIdRef}
           onReactionDetected={onReactionDetected}
           activeReaction={activeReaction}
+          reactions={reactions}
         />
       </Canvas>
     </div>
@@ -325,6 +237,7 @@ function VesselsSimulation({
   grabbedIdRef,
   onReactionDetected,
   activeReaction,
+  reactions: initialReactions,
 }: {
   vessels: ChemicalVessel[];
   setVessels: React.Dispatch<React.SetStateAction<ChemicalVessel[]>>;
@@ -332,10 +245,32 @@ function VesselsSimulation({
   grabbedIdRef: React.MutableRefObject<string | null>;
   onReactionDetected?: (reaction: ReactionDetail, vesselA: ChemicalVessel, vesselB: ChemicalVessel) => void;
   activeReaction: ReactionDetail | null;
+  reactions?: ReactionDetail[];
 }) {
   const handSphereRef = useRef<THREE.Mesh>(null);
   const vesselsRef = useRef<ChemicalVessel[]>(vessels);
   vesselsRef.current = vessels;
+
+  const [dbReactions, setDbReactions] = useState<ReactionDetail[]>(initialReactions || []);
+
+  useEffect(() => {
+    if (initialReactions && initialReactions.length > 0) {
+      setDbReactions(initialReactions);
+    }
+  }, [initialReactions]);
+
+  useEffect(() => {
+    fetch("/api/lab/reactions")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.reactions) && data.reactions.length > 0) {
+          setDbReactions(data.reactions);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch chemical reactions from database:", err);
+      });
+  }, []);
 
   const [targetedId, setTargetedId] = useState<string | null>(null);
   const [pouringTargetId, setPouringTargetId] = useState<string | null>(null);
@@ -490,8 +425,8 @@ function VesselsSimulation({
       vesselB.position[2],
     ];
 
-    // Step 1: Match in local catalog first if available
-    const matched = BUILTIN_REACTIONS.find(
+    // Step 1: Match in dynamic database reactions
+    const matched = dbReactions.find(
       (rx) =>
         (rx.substanceA === vesselA.formula && rx.substanceB === vesselB.formula) ||
         (rx.substanceA === vesselB.formula && rx.substanceB === vesselA.formula)
@@ -557,6 +492,9 @@ function VesselsSimulation({
           level: aiRx.level || "SMA",
           reactionPosition: rxPos,
         };
+
+        // Cache into local state for future instant lookups
+        setDbReactions((prev) => [...prev, dynamicReaction]);
 
         // Transform target vessel B with AI predicted color and volume
         setVessels((prev) =>

@@ -66,6 +66,29 @@ export default function SmartScienceLabViewer() {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [vessels, setVessels] = useState<ChemicalVessel[]>(INITIAL_VESSELS);
   const [activeReaction, setActiveReaction] = useState<ReactionDetail | null>(null);
+  const [chemicalCatalog, setChemicalCatalog] = useState(CHEMICAL_CATALOG);
+  const [reactionsList, setReactionsList] = useState<ReactionDetail[]>([]);
+
+  // Fetch live chemical catalog & reaction rules from MySQL database
+  useEffect(() => {
+    fetch("/api/lab/chemicals")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.chemicals) && data.chemicals.length > 0) {
+          setChemicalCatalog(data.chemicals);
+        }
+      })
+      .catch((e) => console.warn("Failed fetching dynamic chemicals:", e));
+
+    fetch("/api/lab/reactions")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.reactions) && data.reactions.length > 0) {
+          setReactionsList(data.reactions);
+        }
+      })
+      .catch((e) => console.warn("Failed fetching dynamic reactions:", e));
+  }, []);
 
   // Modals & Quiz State
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
@@ -117,7 +140,7 @@ export default function SmartScienceLabViewer() {
 
     // Build vessels only from chemicals assigned by the teacher
     const taskVessels: ChemicalVessel[] = (task.chemicalIds || []).map((chemId, index) => {
-      const chem = CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
+      const chem = chemicalCatalog.find((c) => c.id === chemId) || CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
         id: chemId,
         name: "Bahan Kimia",
         formula: "Reagen",
@@ -554,6 +577,7 @@ export default function SmartScienceLabViewer() {
                     vessels={vessels}
                     setVessels={setVessels}
                     activeReaction={activeReaction}
+                    reactions={reactionsList}
                   />
                 </div>
 

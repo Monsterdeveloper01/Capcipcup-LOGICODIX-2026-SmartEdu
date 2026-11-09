@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
+import { query } from "@/lib/db";
 
 export async function POST(req: Request) {
   try {
@@ -92,28 +93,63 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown, contoh:
 
     const parsed = JSON.parse(cleanJson);
 
+    // Auto-save reaction discovery into MySQL database if valid
+    if (parsed && parsed.isReacting) {
+      try {
+        const id = `rx_ai_${formulaA}_${formulaB}`.toLowerCase().replace(/[^a-z0-9_]/g, "");
+        const reactantAId = `ch_${String(formulaA).toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+        const reactantBId = `ch_${String(formulaB).toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+
+        await query(
+          `
+          INSERT INTO chemical_reactions (
+            id, reactant_a_id, reactant_b_id, reactant_a_formula, reactant_b_formula,
+            title, equation, product_name, product_formula, product_color,
+            visual_effect, temperature_change_c, explanation, grade_level
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            title=VALUES(title), equation=VALUES(equation), product_name=VALUES(product_name),
+            product_formula=VALUES(product_formula), product_color=VALUES(product_color),
+            visual_effect=VALUES(visual_effect), temperature_change_c=VALUES(temperature_change_c),
+            explanation=VALUES(explanation)
+        `,
+          [
+            id,
+            reactantAId,
+            reactantBId,
+            formulaA,
+            formulaB,
+            parsed.title || `Reaksi ${formulaA} + ${formulaB}`,
+            parsed.equation || `${formulaA} + ${formulaB} → ${parsed.productFormula}`,
+            parsed.productName || "Zat Baru",
+            parsed.productFormula || "Produk Reaksi",
+            parsed.productColor || "#38bdf8",
+            parsed.visualEffect || "bubbles",
+            parsed.temperatureChangeC || 0,
+            parsed.explanation || "",
+            parsed.level || "SMA",
+          ]
+        );
+      } catch (saveDbErr) {
+        // Non-blocking error logging
+        console.warn("Failed to auto-cache reaction to DB:", saveDbErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       reaction: parsed,
     });
   } catch (err: any) {
     console.error("AI Dynamic Reaction Error:", err);
-    return NextResponse.json({
-      success: true,
-      reaction: {
-        isReacting: true,
-        title: "Interaksi Kimia Dinamis",
-        equation: "Zat A + Zat B → Produk Interaksi Larutan",
-        productName: "Larutan Campuran Baru",
-        productFormula: "Reaksi Kompleks",
-        productColor: "#06b6d4",
-        visualEffect: "bubbles",
-        temperatureChangeC: 3,
-        dangerWarning: null,
-        explanation: "Kedua zat bereaksi membentuk molekul baru dalam larutan.",
-        level: "SMP",
+    return NextResponse.json(
+      {
+        error: "Gagal memproses simulasi reaksi kimia AI.",
+        details: err?.message,
       },
-    });
+      { status: 500 }
+    );
   }
 }
 
