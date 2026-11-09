@@ -139,11 +139,6 @@ export default function SmartScienceLabViewer() {
   const handleReactionDetected = (reaction: ReactionDetail) => {
     setActiveReaction(reaction);
     setIsTaskReactionDone(true);
-
-    // Prompt student to take the AI Quiz after experiencing the reaction
-    setTimeout(() => {
-      setIsQuizModalOpen(true);
-    }, 2800);
   };
 
   const handleSubmitQuiz = async (score: number, answers: any[]) => {
@@ -283,7 +278,8 @@ export default function SmartScienceLabViewer() {
 
       {/* 3. VIEW 1: Meja Lab 3D Interaktif */}
       {activeTab === "lab" && (
-        <div className="border-4 border-black bg-zinc-950 shadow-[8px_8px_0px_#000000] relative overflow-hidden h-[540px] sm:h-[620px]">
+        <div className="space-y-4">
+          <div className="border-4 border-black bg-zinc-950 shadow-[8px_8px_0px_#000000] relative overflow-hidden h-[540px] sm:h-[620px]">
           {/* Layer 0: Camera Feed (Webcam background for AR immersion) */}
           {isCameraActive && (
             <div className="absolute inset-0 z-0 opacity-45 pointer-events-none">
@@ -347,46 +343,79 @@ export default function SmartScienceLabViewer() {
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Layer 4: Floating Reaction Alert Card */}
-          {activeReaction && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 max-w-lg w-[90%] pointer-events-auto animate-bounce-short">
-              <div className="bg-[#facc15] border-4 border-black p-4 text-black shadow-[6px_6px_0px_#000000] font-mono space-y-2">
-                <div className="flex items-center justify-between border-b-2 border-black pb-2">
-                  <div className="flex items-center gap-2 font-black text-sm">
-                    <Sparkles className="w-5 h-5" />
-                    <span>⚡ REAKSI BERHASIL: [{activeReaction.title}]</span>
-                  </div>
-                  <span className="text-xs font-black bg-black text-white px-2 py-0.5 uppercase">
-                    {activeReaction.level}
-                  </span>
-                </div>
+        {/* Dedicated Reaction Observation Panel (BELOW THE 3D CANVAS, NEVER COVERS CAMERA/WORKBENCH) */}
+        {activeReaction && (
+          <div className="bg-[#facc15] border-4 border-black p-4 sm:p-5 text-black shadow-[6px_6px_0px_#000000] font-mono space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-2.5">
+              <div className="flex items-center gap-2.5 font-black text-sm sm:text-base">
+                <Sparkles className="w-5 h-5 text-black flex-shrink-0" />
+                <span>⚡ REAKSI BERHASIL TERDETEKSI: [{activeReaction.title}]</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black bg-black text-[#facc15] px-2.5 py-0.5 uppercase border border-black">
+                  JENJANG {activeReaction.level}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveReaction(null)}
+                  className="p-1 px-2.5 bg-black text-white hover:bg-zinc-800 text-xs font-black transition-colors"
+                  title="Tutup panel observasi"
+                >
+                  ✕ TUTUP
+                </button>
+              </div>
+            </div>
 
-                <div className="p-2 bg-white border-2 border-black text-xs font-bold font-mono">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-stretch">
+              <div className="md:col-span-2 space-y-2">
+                <div className="p-2.5 bg-white border-2 border-black text-xs sm:text-sm font-bold font-mono overflow-x-auto">
                   <code>{activeReaction.equation}</code>
                 </div>
-
-                <p className="text-xs font-medium text-zinc-900 leading-relaxed">
+                <p className="text-xs font-bold text-zinc-900 leading-relaxed">
                   {activeReaction.explanation}
                 </p>
+              </div>
 
-                <div className="flex items-center justify-between text-[11px] font-black border-t-2 border-black pt-1.5">
-                  <span>
-                    SUHU: {activeReaction.temperatureChange > 0 ? `+${activeReaction.temperatureChange}°C (Eksotermik)` : activeReaction.temperatureChange < 0 ? `${activeReaction.temperatureChange}°C (Endotermik)` : "Netral"}
-                  </span>
+              <div className="p-3 bg-white border-2 border-black space-y-2.5 flex flex-col justify-between">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black text-zinc-500 uppercase">Perubahan Suhu Termal:</span>
+                  <div className="text-sm font-black text-black">
+                    {activeReaction.temperatureChange > 0
+                      ? `+${activeReaction.temperatureChange}°C (Eksotermik / Melepas Panas)`
+                      : activeReaction.temperatureChange < 0
+                      ? `${activeReaction.temperatureChange}°C (Endotermik / Menyerap Panas)`
+                      : "Suhu Stabil (Netral)"}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  {currentTask?.questions && currentTask.questions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsQuizModalOpen(true)}
+                      className="bg-black text-[#facc15] hover:bg-zinc-900 px-4 py-2 font-black text-xs uppercase flex items-center justify-center gap-2 shadow-[2px_2px_0px_#000000] transition-colors"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span>LANJUT KE KUIS AI →</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setIsQuizModalOpen(true)}
-                    className="bg-black text-[#facc15] px-3 py-1 font-black text-xs uppercase"
+                    onClick={() => setIsAiAssistantOpen(true)}
+                    className="bg-white text-black hover:bg-zinc-100 border-2 border-black px-3 py-1.5 font-black text-xs uppercase flex items-center justify-center gap-1.5"
                   >
-                    LANJUT KE KUIS AI →
+                    <Sparkles className="w-3.5 h-3.5 text-black" />
+                    <span>KONSULTASI DENGAN AI</span>
                   </button>
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
+    )}
 
       {/* 4. VIEW 2: Daftar Tugas Kelas Siswa */}
       {activeTab === "tasks" && (
