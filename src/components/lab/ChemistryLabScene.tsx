@@ -37,6 +37,7 @@ export interface ReactionDetail {
   explanation: string;
   level: "SD" | "SMP" | "SMA";
   reactionPosition?: [number, number, number];
+  targetVesselId?: string;
 }
 
 // Dynamic reactions loaded from MySQL database / API
@@ -481,7 +482,7 @@ function VesselsSimulation({
         })
       );
 
-      onReactionDetected?.({ ...matched, reactionPosition: rxPos }, vesselA, vesselB);
+      onReactionDetected?.({ ...matched, reactionPosition: rxPos, targetVesselId: vesselB.id }, vesselA, vesselB);
       return;
     }
 
@@ -518,6 +519,7 @@ function VesselsSimulation({
           explanation: aiRx.explanation || "Reaksi kimia menghasilkan interaksi molekuler baru.",
           level: aiRx.level || "SMA",
           reactionPosition: rxPos,
+          targetVesselId: vesselB.id,
         };
 
         // Cache into local state for future instant lookups
@@ -612,6 +614,9 @@ function VesselsSimulation({
         const isGrabbed = vessel.id === (mouseDraggedId || grabbedIdRef.current);
         const isTargeted = vessel.id === targetedId;
         const isBeingPouredInto = vessel.id === pouringTargetId;
+        const isReacting =
+          activeReaction?.targetVesselId === vessel.id ||
+          (Boolean(activeReaction && !activeReaction.targetVesselId) && Boolean(vessel.isReacted));
 
         return (
           <ChemicalVesselItem
@@ -623,19 +628,11 @@ function VesselsSimulation({
             wristAngle={isGrabbed ? handTransform?.wristAngle || 0 : 0}
             isHandActive={Boolean(handTransform && handTransform.handDetected)}
             targetPosition={targetVessel?.position}
+            activeReactionEffect={isReacting ? activeReaction : null}
             onPointerDown={(e) => handlePointerDown(vessel.id, e)}
           />
         );
       })}
-
-      {/* Particle Effect when Active Reaction Occurs */}
-      {activeReaction && (
-        <ReactionVisualEffects
-          effectType={activeReaction.effectType}
-          colorHex={activeReaction.resultColor}
-          position={activeReaction.reactionPosition || [0, 1.2, 0]}
-        />
-      )}
     </group>
   );
 }
@@ -725,6 +722,7 @@ function ChemicalVesselItem({
   wristAngle,
   isHandActive,
   targetPosition,
+  activeReactionEffect,
   onPointerDown,
 }: {
   vessel: ChemicalVessel;
@@ -734,6 +732,7 @@ function ChemicalVesselItem({
   wristAngle: number;
   isHandActive: boolean;
   targetPosition?: [number, number, number];
+  activeReactionEffect?: ReactionDetail | null;
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
 }) {
   const meshGroupRef = useRef<THREE.Group>(null);
@@ -832,6 +831,16 @@ function ChemicalVesselItem({
           isPouringRight={isPouringRight}
           color={isClear ? "#e0f7fa" : vessel.color}
           vesselType={vessel.type}
+        />
+      )}
+
+      {/* Synchronized Reaction Visual Effects (Anchored directly inside vessel group!) */}
+      {activeReactionEffect && (
+        <ReactionVisualEffects
+          effectType={activeReactionEffect.effectType}
+          colorHex={activeReactionEffect.resultColor}
+          vesselType={vessel.type}
+          liquidLevel={vessel.liquidLevel || 0.65}
         />
       )}
 
@@ -1439,50 +1448,92 @@ function PouringLiquidJet({
 }
 
 // 5. MULTI-LAYERED REAL-WORLD SCIENTIFIC REACTION VISUAL EFFECTS
+// (Firmly anchored inside the vessel group - 100% moves and follows the glassware!)
 function ReactionVisualEffects({
   effectType,
   colorHex,
-  position,
+  vesselType = "beaker",
+  liquidLevel = 0.65,
 }: {
   effectType: string;
   colorHex: string;
-  position: [number, number, number];
+  vesselType?: VesselType;
+  liquidLevel?: number;
 }) {
+  const rimHeight = vesselType === "test_tube" ? 1.32 : vesselType === "flask" ? 1.03 : 0.95;
+  const liquidSurfaceY =
+    vesselType === "test_tube"
+      ? 1.1 * liquidLevel + 0.22
+      : vesselType === "flask"
+      ? 1.03 * liquidLevel
+      : 0.95 * liquidLevel + 0.035;
+  const openingRadius = vesselType === "flask" ? 0.22 : vesselType === "test_tube" ? 0.20 : 0.40;
+  const bodyRadius = vesselType === "flask" ? 0.45 : vesselType === "test_tube" ? 0.20 : 0.40;
+
   return (
-    <group position={position}>
-      {/* 1. Dynamic Exothermic Reaction Luminescence Core */}
-      <ReactionCoreLight effectType={effectType} colorHex={colorHex} />
+    <group position={[0, 0, 0]}>
+      {/* 1. Dynamic Exothermic Reaction Luminescence Core (Deep inside fluid) */}
+      <ReactionCoreLight
+        effectType={effectType}
+        colorHex={colorHex}
+        position={[0, Math.max(0.15, liquidSurfaceY * 0.5), 0]}
+      />
 
       {/* 2. Specific Physical Reaction Phenomenon */}
       {effectType === "bubbles" ? (
-        <EffervescenceBubbles colorHex={colorHex} />
+        <EffervescenceBubbles
+          colorHex={colorHex}
+          rimHeight={rimHeight}
+          liquidSurfaceY={liquidSurfaceY}
+          openingRadius={openingRadius}
+          bodyRadius={bodyRadius}
+          vesselType={vesselType}
+        />
       ) : effectType === "steam" ? (
-        <TurbulentThermalSteam colorHex={colorHex} />
+        <TurbulentThermalSteam
+          colorHex={colorHex}
+          rimHeight={rimHeight}
+          openingRadius={openingRadius}
+        />
       ) : effectType === "spark" ? (
-        <GoldenRainSparkles colorHex={colorHex} />
+        <GoldenRainSparkles
+          colorHex={colorHex}
+          liquidSurfaceY={liquidSurfaceY}
+          bodyRadius={bodyRadius}
+        />
       ) : effectType === "precipitate" ? (
-        <ColloidalPrecipitateSwirl colorHex={colorHex} />
+        <ColloidalPrecipitateSwirl
+          colorHex={colorHex}
+          liquidSurfaceY={liquidSurfaceY}
+          bodyRadius={bodyRadius}
+        />
       ) : (
-        <ColorDiffusionSwirl colorHex={colorHex} />
+        <ColorDiffusionSwirl
+          colorHex={colorHex}
+          liquidSurfaceY={liquidSurfaceY}
+          bodyRadius={bodyRadius}
+        />
       )}
     </group>
   );
 }
 
-// 5A. Reaction Core Light (Flickers & Illuminates the Lab)
+// 5A. Reaction Core Light (Flickers & Illuminates the Glassware from Inside)
 function ReactionCoreLight({
   effectType,
   colorHex,
+  position = [0, 0.4, 0],
 }: {
   effectType: string;
   colorHex: string;
+  position?: [number, number, number];
 }) {
   const lightRef = useRef<THREE.PointLight>(null);
 
   useFrame(() => {
     if (!lightRef.current) return;
-    const flicker = Math.sin(Date.now() * 0.02) * 1.2;
-    lightRef.current.intensity = 3.6 + flicker;
+    const flicker = Math.sin(Date.now() * 0.02) * 0.8;
+    lightRef.current.intensity = 2.8 + flicker;
   });
 
   const isWarmExothermic = effectType === "steam" || effectType === "spark";
@@ -1491,48 +1542,67 @@ function ReactionCoreLight({
   return (
     <pointLight
       ref={lightRef}
+      position={position}
       color={lightColor}
-      intensity={3.8}
-      distance={4.5}
+      intensity={3.0}
+      distance={3.5}
       decay={2}
     />
   );
 }
 
 // 5B. Effervescence: Internal Bubbles, Surface Froth Cap & Sputtering Droplets (e.g. Cuka + Soda Kue)
-function EffervescenceBubbles({ colorHex }: { colorHex: string }) {
+function EffervescenceBubbles({
+  colorHex,
+  rimHeight,
+  liquidSurfaceY,
+  openingRadius,
+  bodyRadius,
+  vesselType,
+}: {
+  colorHex: string;
+  rimHeight: number;
+  liquidSurfaceY: number;
+  openingRadius: number;
+  bodyRadius: number;
+  vesselType: VesselType;
+}) {
   const bubblesRef = useRef<THREE.Points>(null);
   const dropletsRef = useRef<THREE.Points>(null);
   const foamRef = useRef<THREE.Group>(null);
 
-  const bubbleCount = 140;
+  const bubbleCount = 120;
   const dropletCount = 45;
 
   const [bubblePos, bubbleVel] = useMemo(() => {
     const pos = new Float32Array(bubbleCount * 3);
     const vel = new Float32Array(bubbleCount);
     for (let i = 0; i < bubbleCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 0.45;
-      pos[i * 3 + 1] = Math.random() * 0.8;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.45;
-      vel[i] = 0.8 + Math.random() * 1.4;
+      const r = Math.random() * (bodyRadius * 0.82);
+      const theta = Math.random() * Math.PI * 2;
+      pos[i * 3] = r * Math.cos(theta);
+      pos[i * 3 + 1] = 0.08 + Math.random() * Math.max(0.1, liquidSurfaceY - 0.08);
+      pos[i * 3 + 2] = r * Math.sin(theta);
+      vel[i] = 0.6 + Math.random() * 1.2;
     }
     return [pos, vel];
-  }, [bubbleCount]);
+  }, [bubbleCount, bodyRadius, liquidSurfaceY]);
 
   const [dropletPos, dropletVel] = useMemo(() => {
     const pos = new Float32Array(dropletCount * 3);
     const vel = new Float32Array(dropletCount * 3);
     for (let i = 0; i < dropletCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 0.35;
-      pos[i * 3 + 1] = 0.85;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.35;
-      vel[i * 3] = (Math.random() - 0.5) * 0.9;
-      vel[i * 3 + 1] = 1.2 + Math.random() * 1.5;
-      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.9;
+      const r = Math.random() * (openingRadius * 0.8);
+      const theta = Math.random() * Math.PI * 2;
+      pos[i * 3] = r * Math.cos(theta);
+      pos[i * 3 + 1] = liquidSurfaceY + 0.02;
+      pos[i * 3 + 2] = r * Math.sin(theta);
+      vel[i * 3] = (Math.random() - 0.5) * 0.6;
+      vel[i * 3 + 1] = 1.0 + Math.random() * 1.6;
+      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.6;
     }
     return [pos, vel];
-  }, [dropletCount]);
+  }, [dropletCount, openingRadius, liquidSurfaceY]);
 
   useFrame((_, delta) => {
     // 1. Rising in-fluid bubbles
@@ -1541,11 +1611,13 @@ function EffervescenceBubbles({ colorHex }: { colorHex: string }) {
       const arr = posAttr.array as Float32Array;
       for (let i = 0; i < bubbleCount; i++) {
         arr[i * 3 + 1] += delta * bubbleVel[i];
-        arr[i * 3] += Math.sin(Date.now() * 0.005 + i) * 0.004;
-        if (arr[i * 3 + 1] > 0.88) {
-          arr[i * 3 + 1] = 0.05;
-          arr[i * 3] = (Math.random() - 0.5) * 0.4;
-          arr[i * 3 + 2] = (Math.random() - 0.5) * 0.4;
+        arr[i * 3] += Math.sin(Date.now() * 0.005 + i) * 0.003;
+        if (arr[i * 3 + 1] > liquidSurfaceY) {
+          arr[i * 3 + 1] = 0.08;
+          const r = Math.random() * (bodyRadius * 0.8);
+          const theta = Math.random() * Math.PI * 2;
+          arr[i * 3] = r * Math.cos(theta);
+          arr[i * 3 + 2] = r * Math.sin(theta);
         }
       }
       posAttr.needsUpdate = true;
@@ -1559,13 +1631,17 @@ function EffervescenceBubbles({ colorHex }: { colorHex: string }) {
         arr[i * 3] += dropletVel[i * 3] * delta;
         arr[i * 3 + 1] += dropletVel[i * 3 + 1] * delta;
         arr[i * 3 + 2] += dropletVel[i * 3 + 2] * delta;
-        dropletVel[i * 3 + 1] -= delta * 4.2; // Gravity pull
+        dropletVel[i * 3 + 1] -= delta * 4.5; // Gravity pull
 
-        if (arr[i * 3 + 1] < 0.6) {
-          arr[i * 3] = (Math.random() - 0.5) * 0.3;
-          arr[i * 3 + 1] = 0.85;
-          arr[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
-          dropletVel[i * 3 + 1] = 1.2 + Math.random() * 1.4;
+        if (arr[i * 3 + 1] < liquidSurfaceY) {
+          const r = Math.random() * (openingRadius * 0.8);
+          const theta = Math.random() * Math.PI * 2;
+          arr[i * 3] = r * Math.cos(theta);
+          arr[i * 3 + 1] = liquidSurfaceY + 0.02;
+          arr[i * 3 + 2] = r * Math.sin(theta);
+          dropletVel[i * 3] = (Math.random() - 0.5) * 0.6;
+          dropletVel[i * 3 + 1] = 1.0 + Math.random() * 1.5;
+          dropletVel[i * 3 + 2] = (Math.random() - 0.5) * 0.6;
         }
       }
       posAttr.needsUpdate = true;
@@ -1573,104 +1649,118 @@ function EffervescenceBubbles({ colorHex }: { colorHex: string }) {
 
     // 3. Surface foam cap organic pulsation
     if (foamRef.current) {
-      const wobble = 1 + Math.sin(Date.now() * 0.01) * 0.08;
-      foamRef.current.scale.set(wobble, wobble * 0.9, wobble);
+      const wobble = 1 + Math.sin(Date.now() * 0.008) * 0.06;
+      foamRef.current.scale.set(wobble, wobble * 0.85, wobble);
     }
   });
 
+  // Foam sits right at the liquid meniscus or rim opening
+  const foamY = Math.min(rimHeight - 0.02, liquidSurfaceY);
+  const foamRadius = openingRadius * 1.02;
+
   return (
     <group>
-      {/* Accelerating Rising Bubbles */}
+      {/* Accelerating Rising Bubbles inside fluid */}
       <points ref={bubblesRef}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[bubblePos, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={0.065} color="#ffffff" transparent opacity={0.9} />
+        <pointsMaterial size={0.045} color="#ffffff" transparent opacity={0.88} />
       </points>
 
-      {/* Surface Froth / Foam Cap Dome */}
-      <group ref={foamRef} position={[0, 0.86, 0]}>
+      {/* Surface Froth / Foam Cap Dome - Perched directly on the fluid meniscus/rim */}
+      <group ref={foamRef} position={[0, foamY, 0]}>
         <mesh>
-          <sphereGeometry args={[0.38, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshPhysicalMaterial
+          <sphereGeometry args={[foamRadius, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial
             color="#ffffff"
-            transmission={0.75}
-            roughness={0.2}
+            emissive="#ffffff"
+            emissiveIntensity={0.25}
+            roughness={0.4}
+            metalness={0.05}
             opacity={0.88}
             transparent
           />
         </mesh>
       </group>
 
-      {/* Ballistic Sputtering Droplets */}
+      {/* Ballistic Sputtering Droplets popping out of the foam */}
       <points ref={dropletsRef}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[dropletPos, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={0.045} color={colorHex || "#ffffff"} transparent opacity={0.9} />
+        <pointsMaterial size={0.038} color={colorHex || "#ffffff"} transparent opacity={0.9} />
       </points>
     </group>
   );
 }
 
 // 5C. Convective Turbulent Steam Clouds (e.g. Asam Klorida + Soda Api Eksotermik)
-function TurbulentThermalSteam({ colorHex }: { colorHex: string }) {
+function TurbulentThermalSteam({
+  colorHex,
+  rimHeight,
+  openingRadius,
+}: {
+  colorHex: string;
+  rimHeight: number;
+  openingRadius: number;
+}) {
   const innerSteamRef = useRef<THREE.Points>(null);
   const outerSteamRef = useRef<THREE.Points>(null);
 
-  const innerCount = 80;
-  const outerCount = 120;
+  const innerCount = 70;
+  const outerCount = 110;
 
   const [innerPos] = useMemo(() => {
     const pos = new Float32Array(innerCount * 3);
     for (let i = 0; i < innerCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 0.25;
-      pos[i * 3 + 1] = 0.2 + Math.random() * 1.2;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.25;
+      pos[i * 3] = (Math.random() - 0.5) * (openingRadius * 0.9);
+      pos[i * 3 + 1] = rimHeight + Math.random() * 1.0;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * (openingRadius * 0.9);
     }
     return [pos];
-  }, [innerCount]);
+  }, [innerCount, rimHeight, openingRadius]);
 
   const [outerPos] = useMemo(() => {
     const pos = new Float32Array(outerCount * 3);
     for (let i = 0; i < outerCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 0.6;
-      pos[i * 3 + 1] = 0.5 + Math.random() * 1.8;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.6;
+      pos[i * 3] = (Math.random() - 0.5) * (openingRadius * 1.5);
+      pos[i * 3 + 1] = rimHeight + 0.3 + Math.random() * 1.5;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * (openingRadius * 1.5);
     }
     return [pos];
-  }, [outerCount]);
+  }, [outerCount, rimHeight, openingRadius]);
 
   useFrame((_, delta) => {
-    // 1. Fast rising thermal core
+    // 1. Fast rising thermal core straight from vessel rim
     if (innerSteamRef.current) {
       const posAttr = innerSteamRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const arr = posAttr.array as Float32Array;
       for (let i = 0; i < innerCount; i++) {
-        arr[i * 3 + 1] += delta * 1.6;
-        arr[i * 3] += Math.sin(Date.now() * 0.003 + i) * 0.006;
-        if (arr[i * 3 + 1] > 2.4) {
-          arr[i * 3 + 1] = 0.2;
-          arr[i * 3] = (Math.random() - 0.5) * 0.2;
-          arr[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
+        arr[i * 3 + 1] += delta * 1.5;
+        arr[i * 3] += Math.sin(Date.now() * 0.003 + i) * 0.004;
+        if (arr[i * 3 + 1] > rimHeight + 1.8) {
+          arr[i * 3 + 1] = rimHeight;
+          arr[i * 3] = (Math.random() - 0.5) * (openingRadius * 0.8);
+          arr[i * 3 + 2] = (Math.random() - 0.5) * (openingRadius * 0.8);
         }
       }
       posAttr.needsUpdate = true;
     }
 
-    // 2. Billowing atmospheric vapor wisps
+    // 2. Billowing atmospheric vapor wisps expanding outwards as they rise
     if (outerSteamRef.current) {
       const posAttr = outerSteamRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const arr = posAttr.array as Float32Array;
       for (let i = 0; i < outerCount; i++) {
-        arr[i * 3 + 1] += delta * 1.1;
+        arr[i * 3 + 1] += delta * 1.0;
         const angle = Date.now() * 0.0015 + i;
-        arr[i * 3] += Math.cos(angle) * 0.008;
-        arr[i * 3 + 2] += Math.sin(angle) * 0.008;
-        if (arr[i * 3 + 1] > 3.2) {
-          arr[i * 3 + 1] = 0.5;
-          arr[i * 3] = (Math.random() - 0.5) * 0.35;
-          arr[i * 3 + 2] = (Math.random() - 0.5) * 0.35;
+        arr[i * 3] += Math.cos(angle) * 0.006;
+        arr[i * 3 + 2] += Math.sin(angle) * 0.006;
+        if (arr[i * 3 + 1] > rimHeight + 2.5) {
+          arr[i * 3 + 1] = rimHeight + 0.2;
+          arr[i * 3] = (Math.random() - 0.5) * (openingRadius * 1.1);
+          arr[i * 3 + 2] = (Math.random() - 0.5) * (openingRadius * 1.1);
         }
       }
       posAttr.needsUpdate = true;
@@ -1685,7 +1775,7 @@ function TurbulentThermalSteam({ colorHex }: { colorHex: string }) {
           <bufferAttribute attach="attributes-position" args={[innerPos, 3]} />
         </bufferGeometry>
         <pointsMaterial
-          size={0.14}
+          size={0.12}
           color="#fef3c7"
           transparent
           opacity={0.65}
@@ -1699,7 +1789,7 @@ function TurbulentThermalSteam({ colorHex }: { colorHex: string }) {
           <bufferAttribute attach="attributes-position" args={[outerPos, 3]} />
         </bufferGeometry>
         <pointsMaterial
-          size={0.22}
+          size={0.18}
           color="#f8fafc"
           transparent
           opacity={0.35}
@@ -1711,9 +1801,17 @@ function TurbulentThermalSteam({ colorHex }: { colorHex: string }) {
 }
 
 // 5D. Golden Rain & Incandescent Chemical Sparks (e.g. PbI2 Golden Rain & Redox Flare)
-function GoldenRainSparkles({ colorHex }: { colorHex: string }) {
+function GoldenRainSparkles({
+  colorHex,
+  liquidSurfaceY,
+  bodyRadius,
+}: {
+  colorHex: string;
+  liquidSurfaceY: number;
+  bodyRadius: number;
+}) {
   const pointsRef = useRef<THREE.Points>(null);
-  const count = 180;
+  const count = 160;
 
   const [positions, velocities, colors] = useMemo(() => {
     const pos = new Float32Array(count * 3);
@@ -1723,13 +1821,15 @@ function GoldenRainSparkles({ colorHex }: { colorHex: string }) {
     const goldColor = new THREE.Color("#f59e0b");
 
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 0.4;
-      pos[i * 3 + 1] = 0.2 + Math.random() * 1.5;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.4;
+      const r = Math.random() * (bodyRadius * 0.85);
+      const th = Math.random() * Math.PI * 2;
+      pos[i * 3] = r * Math.cos(th);
+      pos[i * 3 + 1] = 0.08 + Math.random() * Math.max(0.1, liquidSurfaceY - 0.05);
+      pos[i * 3 + 2] = r * Math.sin(th);
 
-      vel[i * 3] = (Math.random() - 0.5) * 0.6;
-      vel[i * 3 + 1] = -0.4 - Math.random() * 0.8; // Fluttering downward
-      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.6;
+      vel[i * 3] = (Math.random() - 0.5) * 0.4;
+      vel[i * 3 + 1] = -0.15 - Math.random() * 0.45; // Fluttering downward
+      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.4;
 
       const c = i % 2 === 0 ? baseColor : goldColor;
       col[i * 3] = c.r;
@@ -1737,7 +1837,7 @@ function GoldenRainSparkles({ colorHex }: { colorHex: string }) {
       col[i * 3 + 2] = c.b;
     }
     return [pos, vel, col];
-  }, [count, colorHex]);
+  }, [count, colorHex, liquidSurfaceY, bodyRadius]);
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
@@ -1746,14 +1846,15 @@ function GoldenRainSparkles({ colorHex }: { colorHex: string }) {
 
     for (let i = 0; i < count; i++) {
       arr[i * 3 + 1] += velocities[i * 3 + 1] * delta;
-      // Gentle flutter oscillation (like falling gold leaf flakes)
-      arr[i * 3] += Math.sin(Date.now() * 0.008 + i) * 0.006;
-      arr[i * 3 + 2] += Math.cos(Date.now() * 0.008 + i) * 0.006;
+      arr[i * 3] += Math.sin(Date.now() * 0.008 + i) * 0.004;
+      arr[i * 3 + 2] += Math.cos(Date.now() * 0.008 + i) * 0.004;
 
-      if (arr[i * 3 + 1] < 0.05) {
-        arr[i * 3 + 1] = 1.8;
-        arr[i * 3] = (Math.random() - 0.5) * 0.5;
-        arr[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+      if (arr[i * 3 + 1] < 0.06) {
+        arr[i * 3 + 1] = liquidSurfaceY;
+        const r = Math.random() * (bodyRadius * 0.85);
+        const th = Math.random() * Math.PI * 2;
+        arr[i * 3] = r * Math.cos(th);
+        arr[i * 3 + 2] = r * Math.sin(th);
       }
     }
     posAttr.needsUpdate = true;
@@ -1766,7 +1867,7 @@ function GoldenRainSparkles({ colorHex }: { colorHex: string }) {
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.075}
+        size={0.06}
         vertexColors
         transparent
         opacity={0.92}
@@ -1777,23 +1878,31 @@ function GoldenRainSparkles({ colorHex }: { colorHex: string }) {
 }
 
 // 5E. Swirling Insoluble Precipitate Cloud (e.g. CuSO4 + NaOH Endapan Gel Biru Cu(OH)2)
-function ColloidalPrecipitateSwirl({ colorHex }: { colorHex: string }) {
+function ColloidalPrecipitateSwirl({
+  colorHex,
+  liquidSurfaceY,
+  bodyRadius,
+}: {
+  colorHex: string;
+  liquidSurfaceY: number;
+  bodyRadius: number;
+}) {
   const pointsRef = useRef<THREE.Points>(null);
-  const count = 150;
+  const count = 140;
 
   const [positions, targetY] = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const ty = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      const radius = Math.random() * 0.35;
+      const radius = Math.random() * (bodyRadius * 0.8);
       const theta = Math.random() * Math.PI * 2;
       pos[i * 3] = radius * Math.cos(theta);
-      pos[i * 3 + 1] = 0.2 + Math.random() * 0.65;
+      pos[i * 3 + 1] = 0.08 + Math.random() * Math.max(0.1, liquidSurfaceY - 0.08);
       pos[i * 3 + 2] = radius * Math.sin(theta);
-      ty[i] = 0.05 + Math.random() * 0.25; // Sinks to bottom
+      ty[i] = 0.05 + Math.random() * 0.20; // Sinks to bottom
     }
     return [pos, ty];
-  }, [count]);
+  }, [count, bodyRadius, liquidSurfaceY]);
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
@@ -1801,17 +1910,15 @@ function ColloidalPrecipitateSwirl({ colorHex }: { colorHex: string }) {
     const arr = posAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
-      // Swirling vortex rotation inside fluid
       const x = arr[i * 3];
       const z = arr[i * 3 + 2];
       const r = Math.sqrt(x * x + z * z);
-      const angle = Math.atan2(z, x) + delta * 2.2;
+      const angle = Math.atan2(z, x) + delta * 2.0;
       arr[i * 3] = r * Math.cos(angle);
       arr[i * 3 + 2] = r * Math.sin(angle);
 
-      // Gradual settling of sediment
       if (arr[i * 3 + 1] > targetY[i]) {
-        arr[i * 3 + 1] -= delta * 0.18;
+        arr[i * 3 + 1] -= delta * 0.15;
       }
     }
     posAttr.needsUpdate = true;
@@ -1823,7 +1930,7 @@ function ColloidalPrecipitateSwirl({ colorHex }: { colorHex: string }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.09}
+        size={0.075}
         color={colorHex || "#1e40af"}
         transparent
         opacity={0.85}
@@ -1834,21 +1941,29 @@ function ColloidalPrecipitateSwirl({ colorHex }: { colorHex: string }) {
 }
 
 // 5F. Color Diffusion Swirl (Gradual Fluid Blending Waves)
-function ColorDiffusionSwirl({ colorHex }: { colorHex: string }) {
+function ColorDiffusionSwirl({
+  colorHex,
+  liquidSurfaceY,
+  bodyRadius,
+}: {
+  colorHex: string;
+  liquidSurfaceY: number;
+  bodyRadius: number;
+}) {
   const pointsRef = useRef<THREE.Points>(null);
   const count = 90;
 
   const [positions] = useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      const r = Math.random() * 0.38;
+      const r = Math.random() * (bodyRadius * 0.85);
       const th = Math.random() * Math.PI * 2;
       pos[i * 3] = r * Math.cos(th);
-      pos[i * 3 + 1] = 0.15 + Math.random() * 0.55;
+      pos[i * 3 + 1] = 0.08 + Math.random() * Math.max(0.1, liquidSurfaceY - 0.08);
       pos[i * 3 + 2] = r * Math.sin(th);
     }
     return [pos];
-  }, [count]);
+  }, [count, bodyRadius, liquidSurfaceY]);
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
@@ -1871,7 +1986,7 @@ function ColorDiffusionSwirl({ colorHex }: { colorHex: string }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.065} color={colorHex} transparent opacity={0.78} />
+      <pointsMaterial size={0.06} color={colorHex} transparent opacity={0.78} />
     </points>
   );
 }
