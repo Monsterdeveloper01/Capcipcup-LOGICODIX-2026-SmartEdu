@@ -1,11 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useParams } from "next/navigation";
 import { Users, Trophy, Play, RefreshCw, ArrowLeft, Terminal, Copy, Check, BarChart2 } from "lucide-react";
 import Link from "next/link";
 
 export default function TeacherLiveRoomPage() {
+  return (
+    <Suspense fallback={<div className="p-8 font-mono text-center">Loading room...</div>}>
+      <TeacherLiveRoomContent />
+    </Suspense>
+  );
+}
+
+function TeacherLiveRoomContent() {
   const params = useParams();
   const roomCode = (params.code as string).toUpperCase();
 
@@ -164,4 +172,5 @@ export default function TeacherLiveRoomPage() {
     </div>
   );
 }
+
 

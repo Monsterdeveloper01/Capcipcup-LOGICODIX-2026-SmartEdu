@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Trophy, ArrowLeft, RotateCcw, CheckCircle2, AlertCircle, Sparkles, Terminal } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
 
 export default function ResultPage() {
+  return (
+    <Suspense fallback={<div className="p-8 font-mono text-center">Loading result...</div>}>
+      <ResultContent />
+    </Suspense>
+  );
+}
+
+function ResultContent() {
   const params = useParams();
   const subId = params.subId as string;
 
@@ -214,4 +222,5 @@ export default function ResultPage() {
     </div>
   );
 }
+
 

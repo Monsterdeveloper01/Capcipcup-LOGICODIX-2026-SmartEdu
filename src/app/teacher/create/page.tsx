@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, ArrowLeft, Sparkles, Plus, Trash2, CheckCircle2, BookOpen, Layers } from "lucide-react";
 import Link from "next/link";
@@ -21,7 +21,11 @@ export default function TeacherCreateRoomPage() {
   const [topic, setTopic] = useState("Eco-Friendly Hospitality & Sustainable Living");
   const [gradeLevel, setGradeLevel] = useState("SMK Kelas 11 (Perhotelan & Pariwisata)");
   const [difficultyLevel, setDifficultyLevel] = useState("B1");
-  const [roomCode, setRoomCode] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
+  const [roomCode, setRoomCode] = useState("EDU889");
+
+  useEffect(() => {
+    setRoomCode(Math.random().toString(36).substring(2, 8).toUpperCase());
+  }, []);
 
   // Builder Mode: "ai_assisted" or "manual"
   const [builderMode, setBuilderMode] = useState<"ai_assisted" | "manual">("ai_assisted");

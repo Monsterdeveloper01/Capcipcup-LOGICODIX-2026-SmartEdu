@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import QuizStage from "@/components/game/QuizStage";
 import CameraScanner from "@/components/game/CameraScanner";
@@ -12,6 +12,14 @@ import Link from "next/link";
 type GameStage = "quiz" | "scanner" | "arena" | "submitting";
 
 export default function PlayQuestPage() {
+  return (
+    <Suspense fallback={<div className="p-8 font-mono text-center">Loading quest...</div>}>
+      <PlayQuestContent />
+    </Suspense>
+  );
+}
+
+function PlayQuestContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -236,4 +244,5 @@ export default function PlayQuestPage() {
     </div>
   );
 }
+
 
