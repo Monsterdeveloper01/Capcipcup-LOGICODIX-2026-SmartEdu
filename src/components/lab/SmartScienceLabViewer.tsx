@@ -148,7 +148,8 @@ export default function SmartScienceLabViewer() {
         level: task.level,
       };
 
-      const posX = (index - ((task.chemicalIds.length - 1) / 2)) * 1.35;
+      // Spacing 2.3m antar bejana agar leluasa di atas meja praktik tanpa bertabrakan
+      const posX = (index - ((task.chemicalIds.length - 1) / 2)) * 2.3;
       return {
         id: `v_${chem.id}_${index}`,
         name: chem.name,
@@ -156,7 +157,7 @@ export default function SmartScienceLabViewer() {
         type: index % 2 === 0 ? "beaker" : "flask",
         color: chem.color,
         initialColor: chem.color,
-        position: [posX, 0.55, 0],
+        position: [posX, 0.55, 0.25],
         level: task.level,
         liquidLevel: 0.7,
         temperatureC: 25,

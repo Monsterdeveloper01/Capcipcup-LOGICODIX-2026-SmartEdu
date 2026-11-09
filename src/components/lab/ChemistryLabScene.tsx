@@ -49,9 +49,9 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Asam Klorida (HCl)",
     formula: "HCl",
     type: "beaker",
-    color: "#38bdf8", // Luminous glacial cyan (sangat jelas terlihat & menyala)
+    color: "#38bdf8", // Luminous glacial cyan
     initialColor: "#38bdf8",
-    position: [-1.8, 0.5, 0],
+    position: [-2.4, 0.55, 0.25],
     level: "SMP",
     liquidLevel: 0.65,
     temperatureC: 25,
@@ -60,10 +60,10 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     id: "v_naoh",
     name: "Natrium Hidroksida (NaOH)",
     formula: "NaOH",
-    type: "beaker",
+    type: "flask", // Flask in center
     color: "#22d3ee", // Luminous crystal turquoise alkali
     initialColor: "#22d3ee",
-    position: [-0.6, 0.5, 0],
+    position: [0, 0.55, 0.25],
     level: "SMP",
     liquidLevel: 0.65,
     temperatureC: 25,
@@ -72,10 +72,10 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     id: "v_cuso4",
     name: "Tembaga Sulfat (CuSO4)",
     formula: "CuSO4",
-    type: "flask",
+    type: "beaker",
     color: "#0284c7", // Radiant royal azure blue
     initialColor: "#0284c7",
-    position: [0.6, 0.5, 0],
+    position: [2.4, 0.55, 0.25],
     level: "SMP",
     liquidLevel: 0.7,
     temperatureC: 24,
@@ -87,7 +87,7 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     type: "flask",
     color: "#facc15", // Radiant golden amber
     initialColor: "#facc15",
-    position: [1.8, 0.5, 0],
+    position: [-2.4, 0.55, -0.95],
     level: "SD",
     liquidLevel: 0.75,
     temperatureC: 25,
@@ -99,7 +99,7 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     type: "test_tube",
     color: "#e2e8f0", // Luminous pearl white suspension
     initialColor: "#e2e8f0",
-    position: [-1.2, 0.6, -1.5],
+    position: [-0.8, 0.6, -0.95],
     level: "SD",
     liquidLevel: 0.55,
     temperatureC: 25,
@@ -111,7 +111,7 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     type: "test_tube",
     color: "#818cf8", // Luminous crystal periwinkle
     initialColor: "#818cf8",
-    position: [0, 0.6, -1.5],
+    position: [0.8, 0.6, -0.95],
     level: "SMA",
     liquidLevel: 0.6,
     temperatureC: 25,
@@ -123,7 +123,7 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     type: "test_tube",
     color: "#67e8f9", // Luminous crystal sky
     initialColor: "#67e8f9",
-    position: [1.2, 0.6, -1.5],
+    position: [2.4, 0.6, -0.95],
     level: "SMA",
     liquidLevel: 0.6,
     temperatureC: 25,
@@ -513,6 +513,7 @@ function VesselsSimulation({
   // Cooldown to avoid multi-triggering the same reaction
   const reactionCooldownRef = useRef<{ [pairKey: string]: number }>({});
   const isSimulatingAiRef = useRef<boolean>(false);
+  const grabbedTiltRef = useRef<number>(0);
 
   // 60 FPS Animation & Proximity Loop
   useFrame((state, delta) => {
@@ -585,14 +586,14 @@ function VesselsSimulation({
     // 4. Position Update & Physical Pouring Proximity
     const activeGrabbedId = mouseDraggedId || grabbedIdRef.current;
     const isPhysicallyTilting = isHandActive
-      ? Math.abs(wristAngle) > 0.40 // Rotasi pergelangan tangan melebihi ~23 derajat
+      ? Math.abs(wristAngle) > 0.35 // Rotasi pergelangan tangan melebihi ~20 derajat
       : Boolean(mouseDraggedId);
 
     if (activeGrabbedId) {
       const activeVessel = vesselsRef.current.find((v) => v.id === activeGrabbedId);
       if (activeVessel) {
         let nearestOtherId: string | null = null;
-        let minProximity = 2.1; // Jarak jangkauan untuk menuangkan
+        let minProximity = 2.8; // Jarak jangkauan nyaman untuk menuangkan
 
         vesselsRef.current.forEach((other) => {
           if (other.id === activeGrabbedId) return;
@@ -608,6 +609,19 @@ function VesselsSimulation({
 
         setPouringTargetId(nearestOtherId);
 
+        // Update physical tilt angle of grabbed vessel
+        let targetTilt = 0;
+        if (isHandActive) {
+          targetTilt = THREE.MathUtils.clamp(-wristAngle * 1.15, -1.35, 1.35);
+        } else if (nearestOtherId) {
+          const targetV = vesselsRef.current.find((v) => v.id === nearestOtherId);
+          if (targetV) {
+            const dx = targetV.position[0] - activeVessel.position[0];
+            targetTilt = dx > 0 ? -0.85 : 0.85;
+          }
+        }
+        grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, targetTilt, 0.25);
+
         // HANYA memicu reaksi kimia jika pengguna BENAR-BENAR MEMUTAR / MEMIRINGKAN TANGANNYA!
         if (nearestOtherId && isPhysicallyTilting) {
           const targetVessel = vesselsRef.current.find((v) => v.id === nearestOtherId);
@@ -618,6 +632,7 @@ function VesselsSimulation({
       }
     } else {
       setPouringTargetId(null);
+      grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, 0, 0.2);
     }
 
     // Move grabbed vessel with hand palm center
@@ -792,6 +807,7 @@ function VesselsSimulation({
   };
 
   const targetVessel = pouringTargetId ? vessels.find((v) => v.id === pouringTargetId) : null;
+  const activeGrabbedId = mouseDraggedId || grabbedIdRef.current;
 
   return (
     <group onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
@@ -837,6 +853,16 @@ function VesselsSimulation({
           />
         );
       })}
+
+      {/* World-Space Smooth Gravitational Pouring Stream */}
+      {activeGrabbedId && (
+        <RealisticFluidPouringStream
+          sourceId={activeGrabbedId}
+          targetId={pouringTargetId}
+          vesselsRef={vesselsRef}
+          grabbedTiltRef={grabbedTiltRef}
+        />
+      )}
     </group>
   );
 }
@@ -1026,15 +1052,6 @@ function ChemicalVesselItem({
           liquidMaterialRef={liquidMaterialRef}
           isClear={isClear}
           isBeingPouredInto={isBeingPouredInto}
-        />
-      )}
-
-      {/* Dynamic Liquid Jet Stream during Physical Pouring */}
-      {isPouring && (
-        <PouringLiquidJet
-          isPouringRight={isPouringRight}
-          color={isClear ? "#e0f7fa" : vessel.color}
-          vesselType={vessel.type}
         />
       )}
 
@@ -1587,72 +1604,176 @@ function TestTubeModel({
   );
 }
 
-// 4. DYNAMIC POURING JET STREAM WITH IMPACT DROPLETS
-function PouringLiquidJet({
-  isPouringRight,
-  color,
-  vesselType,
+// 4. REALISTIC GRAVITATIONAL FLUID POURING STREAM & SPLASH DYNAMICS
+function RealisticFluidPouringStream({
+  sourceId,
+  targetId,
+  vesselsRef,
+  grabbedTiltRef,
 }: {
-  isPouringRight: boolean;
-  color: string;
-  vesselType: VesselType;
+  sourceId: string;
+  targetId: string | null;
+  vesselsRef: React.MutableRefObject<ChemicalVessel[]>;
+  grabbedTiltRef: React.MutableRefObject<number>;
 }) {
-  const originX =
-    (vesselType === "flask" ? 0.25 : vesselType === "test_tube" ? 0.2 : 0.44) *
-    (isPouringRight ? 1 : -1);
-  const originY = vesselType === "test_tube" ? 1.15 : 0.94;
+  const meshRef = useRef<THREE.Mesh>(null);
+  const splashRef = useRef<THREE.Points>(null);
+  const rippleRef = useRef<THREE.Mesh>(null);
+  const streamMatRef = useRef<THREE.MeshStandardMaterial>(null);
 
-  const pointsRef = useRef<THREE.Points>(null);
-  const count = 35;
-
-  const [positions] = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 0.08;
-      pos[i * 3 + 1] = -Math.random() * 1.2;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.08;
+  const splashCount = 32;
+  const [splashPositions, splashVelocities] = useMemo(() => {
+    const pos = new Float32Array(splashCount * 3);
+    const vel = new Float32Array(splashCount * 3);
+    for (let i = 0; i < splashCount; i++) {
+      pos[i * 3] = 0;
+      pos[i * 3 + 1] = 0;
+      pos[i * 3 + 2] = 0;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.25 + Math.random() * 0.65;
+      vel[i * 3] = Math.cos(angle) * speed;
+      vel[i * 3 + 1] = 0.8 + Math.random() * 1.2;
+      vel[i * 3 + 2] = Math.sin(angle) * speed;
     }
-    return [pos];
-  }, []);
+    return [pos, vel];
+  }, [splashCount]);
 
   useFrame((_, delta) => {
-    if (!pointsRef.current) return;
-    const pos = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
-    const arr = pos.array as Float32Array;
+    const source = vesselsRef.current.find((v) => v.id === sourceId);
+    const tilt = grabbedTiltRef.current;
 
-    for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] -= delta * 3.2;
-      if (arr[i * 3 + 1] < -1.4) {
-        arr[i * 3 + 1] = 0;
-      }
+    // Only render fluid stream when beaker is physically tilted > ~18 degrees
+    const isActivelyPouring = Boolean(source && Math.abs(tilt) > 0.32);
+
+    if (meshRef.current) {
+      meshRef.current.visible = isActivelyPouring;
     }
-    pos.needsUpdate = true;
+    if (splashRef.current) {
+      splashRef.current.visible = isActivelyPouring && Boolean(targetId);
+    }
+    if (rippleRef.current) {
+      rippleRef.current.visible = isActivelyPouring && Boolean(targetId);
+    }
+
+    if (!isActivelyPouring || !source) return;
+
+    const isPouringRight = tilt < 0;
+    const dir = isPouringRight ? 1 : -1;
+    const mouthR = source.type === "flask" ? 0.22 : source.type === "test_tube" ? 0.20 : 0.42;
+    const mouthH = source.type === "flask" ? 1.03 : source.type === "test_tube" ? 1.32 : 0.95;
+
+    // 1. Spout departure origin in world-space
+    const localSpout = new THREE.Vector3(dir * mouthR * 0.92, mouthH, 0);
+    localSpout.applyAxisAngle(new THREE.Vector3(0, 0, 1), tilt);
+    const startPos = new THREE.Vector3(...source.position).add(localSpout);
+
+    // 2. Target mouth entrance in world-space
+    const target = targetId ? vesselsRef.current.find((v) => v.id === targetId) : null;
+    let endPos: THREE.Vector3;
+    let targetRadius = 0.3;
+
+    if (target) {
+      const targetH = target.type === "flask" ? 1.03 : target.type === "test_tube" ? 1.32 : 0.95;
+      targetRadius = target.type === "flask" ? 0.22 : target.type === "test_tube" ? 0.20 : 0.40;
+      endPos = new THREE.Vector3(
+        target.position[0],
+        target.position[1] + targetH - 0.04,
+        target.position[2]
+      );
+    } else {
+      endPos = new THREE.Vector3(startPos.x + dir * 0.45, 0.02, startPos.z);
+    }
+
+    // 3. Smooth gravitational catenary curve
+    const dist = Math.hypot(startPos.x - endPos.x, startPos.z - endPos.z);
+    const midX = THREE.MathUtils.lerp(startPos.x, endPos.x, 0.45);
+    const midZ = THREE.MathUtils.lerp(startPos.z, endPos.z, 0.45);
+    // Gravity pulls stream down naturally
+    const midY = Math.max(endPos.y + 0.08, THREE.MathUtils.lerp(startPos.y, endPos.y, 0.4) - Math.min(0.2, dist * 0.12));
+
+    const p1 = new THREE.Vector3(startPos.x + dir * 0.10, startPos.y - 0.03, startPos.z);
+    const p2 = new THREE.Vector3(midX, midY, midZ);
+    const p3 = new THREE.Vector3(endPos.x, endPos.y + 0.06, endPos.z);
+
+    const curve = new THREE.CatmullRomCurve3([startPos, p1, p2, p3, endPos]);
+    const geom = new THREE.TubeGeometry(curve, 16, 0.032, 10, false);
+
+    if (meshRef.current) {
+      meshRef.current.geometry.dispose();
+      meshRef.current.geometry = geom;
+    }
+
+    // Update stream fluid color
+    if (streamMatRef.current) {
+      const isClear = checkIsClearLiquid(source.formula, source.name, source.color);
+      const fluidCol = new THREE.Color(isClear ? "#e0f7fa" : source.color);
+      streamMatRef.current.color.copy(fluidCol);
+      streamMatRef.current.emissive.copy(fluidCol);
+    }
+
+    // 4. Ballistic splashing droplets at landing point
+    if (splashRef.current && splashRef.current.visible) {
+      splashRef.current.position.copy(endPos);
+      const posAttr = splashRef.current.geometry.attributes.position as THREE.BufferAttribute;
+      const arr = posAttr.array as Float32Array;
+      for (let i = 0; i < splashCount; i++) {
+        arr[i * 3] += splashVelocities[i * 3] * delta;
+        arr[i * 3 + 1] += splashVelocities[i * 3 + 1] * delta;
+        arr[i * 3 + 2] += splashVelocities[i * 3 + 2] * delta;
+        splashVelocities[i * 3 + 1] -= delta * 4.8; // Gravity
+
+        if (arr[i * 3 + 1] < 0) {
+          arr[i * 3] = (Math.random() - 0.5) * (targetRadius * 0.4);
+          arr[i * 3 + 1] = 0.02;
+          arr[i * 3 + 2] = (Math.random() - 0.5) * (targetRadius * 0.4);
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 0.25 + Math.random() * 0.65;
+          splashVelocities[i * 3] = Math.cos(angle) * speed;
+          splashVelocities[i * 3 + 1] = 0.6 + Math.random() * 1.1;
+          splashVelocities[i * 3 + 2] = Math.sin(angle) * speed;
+        }
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    // 5. Pulsing impact ripple on receiver liquid surface
+    if (rippleRef.current && rippleRef.current.visible) {
+      rippleRef.current.position.set(endPos.x, endPos.y + 0.01, endPos.z);
+      const scale = 1 + Math.sin(Date.now() * 0.018) * 0.25;
+      rippleRef.current.scale.set(scale, scale, scale);
+    }
   });
 
   return (
-    <group position={[originX, originY, 0]}>
-      {/* Curved Liquid Jet */}
-      <mesh
-        position={[isPouringRight ? 0.18 : -0.18, -0.65, 0]}
-        rotation={[0, 0, isPouringRight ? -0.42 : 0.42]}
-      >
-        <cylinderGeometry args={[0.035, 0.055, 1.4, 16]} />
+    <group>
+      {/* Curved Fluid Tube Mesh */}
+      <mesh ref={meshRef}>
+        <tubeGeometry args={[new THREE.LineCurve3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)), 4, 0.02, 8, false]} />
         <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.8}
+          ref={streamMatRef}
+          color="#38bdf8"
+          emissive="#38bdf8"
+          emissiveIntensity={0.65}
+          roughness={0.08}
+          metalness={0.15}
           transparent
           opacity={0.88}
         />
       </mesh>
 
-      {/* Sputtering Splash Droplets */}
-      <points ref={pointsRef}>
+      {/* Impact Splash Droplets */}
+      <points ref={splashRef}>
         <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+          <bufferAttribute attach="attributes-position" args={[splashPositions, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={0.045} color={color} transparent opacity={0.85} />
+        <pointsMaterial size={0.035} color="#38bdf8" transparent opacity={0.85} />
       </points>
+
+      {/* Impact Meniscus Ripple */}
+      <mesh ref={rippleRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.04, 0.14, 24]} />
+        <meshBasicMaterial color="#38bdf8" transparent opacity={0.65} />
+      </mesh>
     </group>
   );
 }
