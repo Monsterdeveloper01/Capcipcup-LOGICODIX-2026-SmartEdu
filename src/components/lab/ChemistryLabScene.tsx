@@ -48,8 +48,8 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Asam Klorida (HCl)",
     formula: "HCl",
     type: "beaker",
-    color: "#e0f2fe", // Bening transparan jernih khas larutan asam klorida
-    initialColor: "#e0f2fe",
+    color: "#38bdf8", // Luminous glacial cyan (sangat jelas terlihat & menyala)
+    initialColor: "#38bdf8",
     position: [-1.8, 0.5, 0],
     level: "SMP",
     liquidLevel: 0.65,
@@ -60,8 +60,8 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Natrium Hidroksida (NaOH)",
     formula: "NaOH",
     type: "beaker",
-    color: "#f8fafc", // Bening transparan jernih khas basa kuat
-    initialColor: "#f8fafc",
+    color: "#22d3ee", // Luminous crystal turquoise alkali
+    initialColor: "#22d3ee",
     position: [-0.6, 0.5, 0],
     level: "SMP",
     liquidLevel: 0.65,
@@ -72,7 +72,7 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Tembaga Sulfat (CuSO4)",
     formula: "CuSO4",
     type: "flask",
-    color: "#0284c7", // Larutan biru safir transparan
+    color: "#0284c7", // Radiant royal azure blue
     initialColor: "#0284c7",
     position: [0.6, 0.5, 0],
     level: "SMP",
@@ -84,8 +84,8 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Cuka Dapur (CH3COOH)",
     formula: "CH3COOH",
     type: "flask",
-    color: "#fef9c3", // Bening kekuningan pucat khas cuka asam asetat
-    initialColor: "#fef9c3",
+    color: "#facc15", // Radiant golden amber
+    initialColor: "#facc15",
     position: [1.8, 0.5, 0],
     level: "SD",
     liquidLevel: 0.75,
@@ -96,8 +96,8 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Baking Soda (NaHCO3)",
     formula: "NaHCO3",
     type: "test_tube",
-    color: "#f1f5f9", // Putih suspensi halus tembus pandang
-    initialColor: "#f1f5f9",
+    color: "#e2e8f0", // Luminous pearl white suspension
+    initialColor: "#e2e8f0",
     position: [-1.2, 0.6, -1.5],
     level: "SD",
     liquidLevel: 0.55,
@@ -108,8 +108,8 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Kalium Iodida (KI)",
     formula: "KI",
     type: "test_tube",
-    color: "#f8fafc", // Larutan bening jernih tanpa warna
-    initialColor: "#f8fafc",
+    color: "#818cf8", // Luminous crystal periwinkle
+    initialColor: "#818cf8",
     position: [0, 0.6, -1.5],
     level: "SMA",
     liquidLevel: 0.6,
@@ -120,8 +120,8 @@ export const INITIAL_VESSELS: ChemicalVessel[] = [
     name: "Timbal Nitrat (Pb(NO3)2)",
     formula: "Pb(NO3)2",
     type: "test_tube",
-    color: "#f8fafc", // Larutan bening jernih (menghasilkan Hujan Emas jika bertemu KI!)
-    initialColor: "#f8fafc",
+    color: "#67e8f9", // Luminous crystal sky
+    initialColor: "#67e8f9",
     position: [1.2, 0.6, -1.5],
     level: "SMA",
     liquidLevel: 0.6,
@@ -155,12 +155,14 @@ export default function ChemistryLabScene({
         gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
         shadows
       >
-        {/* Laboratory Illumination */}
-        <ambientLight intensity={0.9} />
-        <directionalLight position={[6, 12, 8]} intensity={1.8} castShadow shadow-mapSize={[1024, 1024]} />
-        <pointLight position={[-5, 4, -3]} color="#60a5fa" intensity={1.2} />
-        <pointLight position={[5, 4, -3]} color="#f472b6" intensity={0.9} />
-        <pointLight position={[0, 6, 2]} color="#ffffff" intensity={1.5} />
+        {/* Bright Laboratory Studio Illumination */}
+        <ambientLight intensity={1.5} color="#ffffff" />
+        <directionalLight position={[0, 10, 4]} intensity={2.6} castShadow color="#ffffff" shadow-mapSize={[1024, 1024]} />
+        <directionalLight position={[2, 4, 6]} intensity={1.8} color="#f8fafc" />
+        <directionalLight position={[-4, 6, -5]} intensity={2.2} color="#38bdf8" />
+        <pointLight position={[0, 3, 0]} color="#ffffff" intensity={2.0} distance={10} />
+        <pointLight position={[-5, 4, -2]} color="#60a5fa" intensity={1.8} distance={8} />
+        <pointLight position={[5, 4, -2]} color="#38bdf8" intensity={1.8} distance={8} />
 
         {/* Orbit Controls (Disabled when manipulating an object with hand or mouse) */}
         <OrbitControls
@@ -193,37 +195,62 @@ export default function ChemistryLabScene({
 function LabWorkbench() {
   return (
     <group position={[0, 0, 0]}>
-      {/* Matte Black Granite Countertop */}
+      {/* Sleek Slate Laboratory Countertop */}
       <mesh position={[0, -0.06, 0]} receiveShadow>
-        <boxGeometry args={[9, 0.12, 6.5]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.6} />
+        <boxGeometry args={[9.5, 0.12, 6.5]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.3} metalness={0.5} />
       </mesh>
 
       {/* Laboratory Grid Coordinate Guide */}
-      <gridHelper args={[9, 18, "#38bdf8", "#1e293b"]} position={[0, 0.002, 0]} />
+      <gridHelper args={[9.5, 19, "#00f5ff", "#1e293b"]} position={[0, 0.002, 0]} />
+
+      {/* Illuminated Ceramic Laboratory Observation Mat (Backlights Beakers & Liquids!) */}
+      <mesh position={[0, 0.006, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[7.2, 2.5]} />
+        <meshStandardMaterial
+          color="#f8fafc"
+          emissive="#e0f2fe"
+          emissiveIntensity={0.25}
+          roughness={0.15}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Luminous Neon Border on the Ceramic Mat */}
+      <mesh position={[0, 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[3.6, 3.64, 4]} />
+        <meshBasicMaterial color="#38bdf8" />
+      </mesh>
+
+      {/* Laboratory Frosted Backlight Panel Behind the Vessels */}
+      <mesh position={[0, 0.85, -1.8]}>
+        <planeGeometry args={[7.5, 1.6]} />
+        <meshStandardMaterial
+          color="#38bdf8"
+          emissive="#0284c7"
+          emissiveIntensity={0.35}
+          transparent
+          opacity={0.35}
+          roughness={0.2}
+        />
+      </mesh>
 
       {/* Workbench Cyber Edge Strips */}
       <mesh position={[0, 0.02, -3.25]}>
-        <boxGeometry args={[9, 0.05, 0.04]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.8} />
+        <boxGeometry args={[9.5, 0.05, 0.04]} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
       </mesh>
       <mesh position={[0, 0.02, 3.25]}>
-        <boxGeometry args={[9, 0.05, 0.04]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.8} />
+        <boxGeometry args={[9.5, 0.05, 0.04]} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
       </mesh>
-      <mesh position={[-4.5, 0.02, 0]}>
+      <mesh position={[-4.75, 0.02, 0]}>
         <boxGeometry args={[0.04, 0.05, 6.5]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.8} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
       </mesh>
-      <mesh position={[4.5, 0.02, 0]}>
+      <mesh position={[4.75, 0.02, 0]}>
         <boxGeometry args={[0.04, 0.05, 6.5]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.8} />
-      </mesh>
-
-      {/* Safety Splash Mat Area in Center */}
-      <mesh position={[0, 0.005, 0]} receiveShadow>
-        <planeGeometry args={[6.5, 3.8]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.8} transparent opacity={0.7} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
       </mesh>
     </group>
   );
@@ -868,7 +895,7 @@ function BeakerModel({
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
-  liquidMaterialRef: React.RefObject<THREE.MeshPhysicalMaterial | null>;
+  liquidMaterialRef: React.RefObject<any>;
   isClear: boolean;
   isBeingPouredInto: boolean;
 }) {
@@ -878,39 +905,50 @@ function BeakerModel({
 
   return (
     <group>
-      {/* Borosilicate Glass Cylinder Body */}
+      {/* 0. Illuminated Laboratory Observation Pod (Provides bright backlight through the liquid!) */}
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[radius * 1.15, 32]} />
+        <meshStandardMaterial
+          color="#ffffff"
+          emissive="#ffffff"
+          emissiveIntensity={0.8}
+          roughness={0.2}
+        />
+      </mesh>
+      {/* Upward Liquid Illumination */}
+      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={2.2} distance={2.5} />
+
+      {/* 1. Crystal Clear Borosilicate Glass Cylinder Body */}
       <mesh castShadow position={[0, height / 2, 0]}>
         <cylinderGeometry args={[radius, radius * 0.96, height, 36, 1, true]} />
         <meshPhysicalMaterial
-          color="#f8fafc"
-          transmission={0.96}
-          opacity={1}
+          color="#ffffff"
           transparent
-          roughness={0.03}
-          ior={1.52}
-          thickness={0.28}
-          reflectivity={0.75}
+          opacity={0.35}
+          roughness={0.04}
+          metalness={0.1}
+          reflectivity={0.9}
           clearcoat={1.0}
-          clearcoatRoughness={0.02}
+          clearcoatRoughness={0.03}
         />
       </mesh>
 
       {/* Glass Base Bottom */}
       <mesh position={[0, 0.025, 0]}>
         <cylinderGeometry args={[radius * 0.96, radius * 0.96, 0.05, 36]} />
-        <meshPhysicalMaterial color="#f8fafc" transmission={0.94} transparent roughness={0.05} />
+        <meshPhysicalMaterial color="#f8fafc" transparent opacity={0.65} roughness={0.08} metalness={0.1} />
       </mesh>
 
       {/* Rolled Beaker Glass Lip Rim */}
       <mesh position={[0, height, 0]}>
         <torusGeometry args={[radius, 0.024, 16, 36]} />
-        <meshPhysicalMaterial color="#f8fafc" transmission={0.94} transparent roughness={0.04} />
+        <meshPhysicalMaterial color="#ffffff" transparent opacity={0.7} roughness={0.05} metalness={0.1} />
       </mesh>
 
       {/* Pouring Spout Notch at Top Lip */}
       <mesh position={[-radius * 0.95, height - 0.01, 0]} rotation={[0, 0, 0.45]}>
         <coneGeometry args={[0.07, 0.12, 16, 1, true]} />
-        <meshPhysicalMaterial color="#f8fafc" transmission={0.92} transparent roughness={0.05} />
+        <meshPhysicalMaterial color="#ffffff" transparent opacity={0.65} roughness={0.05} />
       </mesh>
 
       {/* Graduation Marks: 50, 100, 150, 200 ml */}
@@ -924,7 +962,7 @@ function BeakerModel({
           <group key={mark.label} position={[0, mark.y, 0]}>
             <mesh position={[-0.12, 0, 0]}>
               <boxGeometry args={[0.12, 0.008, 0.01]} />
-              <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
+              <meshBasicMaterial color="#ffffff" transparent opacity={0.9} />
             </mesh>
             <Text
               position={[0.04, 0, 0]}
@@ -941,7 +979,7 @@ function BeakerModel({
         <Text
           position={[0, 0.12, 0]}
           fontSize={0.045}
-          color="#94a3b8"
+          color="#cbd5e1"
           anchorX="center"
           anchorY="middle"
         >
@@ -949,7 +987,7 @@ function BeakerModel({
         </Text>
       </group>
 
-      {/* Dynamic Liquid Body */}
+      {/* 2. Luminous Radiant Liquid Body (Vibrantly Visible!) */}
       <mesh
         ref={liquidMeshRef as any}
         position={[0, liquidHeight / 2 + 0.035, 0]}
@@ -957,32 +995,29 @@ function BeakerModel({
         <cylinderGeometry
           args={[radius * 0.93, radius * 0.90, liquidHeight, 32]}
         />
-        <meshPhysicalMaterial
+        <meshStandardMaterial
           ref={liquidMaterialRef}
-          color={isClear ? "#e0f7fa" : vessel.color}
-          emissive={isClear ? "#bae6fd" : vessel.color}
-          emissiveIntensity={isClear ? 0.08 : 0.3}
-          transmission={isClear ? 0.95 : 0.65}
-          opacity={isClear ? 0.4 : 0.85}
+          color={vessel.color}
+          emissive={vessel.color}
+          emissiveIntensity={0.55}
+          roughness={0.12}
+          metalness={0.1}
           transparent
-          roughness={isClear ? 0.02 : 0.08}
-          ior={isClear ? 1.333 : 1.44}
-          reflectivity={isClear ? 0.85 : 0.6}
-          clearcoat={1.0}
+          opacity={0.88}
         />
       </mesh>
 
       {/* Liquid Top Meniscus Gloss Surface */}
       <mesh position={[0, liquidHeight + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[radius * 0.92, 32]} />
-        <meshPhysicalMaterial
-          color={isClear ? "#e0f7fa" : vessel.color}
-          transmission={isClear ? 0.9 : 0.55}
-          opacity={isClear ? 0.55 : 0.9}
+        <meshStandardMaterial
+          color={vessel.color}
+          emissive={vessel.color}
+          emissiveIntensity={0.65}
+          roughness={0.04}
+          metalness={0.2}
           transparent
-          roughness={0.02}
-          reflectivity={0.9}
-          clearcoat={1.0}
+          opacity={0.95}
         />
       </mesh>
 
@@ -1002,7 +1037,7 @@ function ErlenmeyerFlaskModel({
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
-  liquidMaterialRef: React.RefObject<THREE.MeshPhysicalMaterial | null>;
+  liquidMaterialRef: React.RefObject<any>;
   isClear: boolean;
   isBeingPouredInto: boolean;
 }) {
@@ -1015,38 +1050,47 @@ function ErlenmeyerFlaskModel({
 
   return (
     <group>
-      {/* Conical Lower Body */}
+      {/* 0. Illuminated Laboratory Observation Pod */}
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[baseRadius * 1.15, 32]} />
+        <meshStandardMaterial
+          color="#ffffff"
+          emissive="#ffffff"
+          emissiveIntensity={0.8}
+          roughness={0.2}
+        />
+      </mesh>
+      {/* Upward Liquid Illumination */}
+      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={2.2} distance={2.5} />
+
+      {/* 1. Conical Lower Body Glass */}
       <mesh castShadow position={[0, coneHeight / 2 + 0.03, 0]}>
         <cylinderGeometry
           args={[neckRadius, baseRadius, coneHeight, 36, 1, true]}
         />
         <meshPhysicalMaterial
-          color="#f8fafc"
-          transmission={0.96}
-          opacity={1}
+          color="#ffffff"
           transparent
-          roughness={0.03}
-          ior={1.52}
-          thickness={0.28}
-          reflectivity={0.75}
+          opacity={0.35}
+          roughness={0.04}
+          metalness={0.1}
+          reflectivity={0.9}
           clearcoat={1.0}
         />
       </mesh>
 
-      {/* Cylindrical Neck */}
+      {/* Cylindrical Neck Glass */}
       <mesh castShadow position={[0, coneHeight + neckHeight / 2 + 0.03, 0]}>
         <cylinderGeometry
           args={[neckRadius, neckRadius, neckHeight, 36, 1, true]}
         />
         <meshPhysicalMaterial
-          color="#f8fafc"
-          transmission={0.96}
-          opacity={1}
+          color="#ffffff"
           transparent
-          roughness={0.03}
-          ior={1.52}
-          thickness={0.28}
-          reflectivity={0.75}
+          opacity={0.35}
+          roughness={0.04}
+          metalness={0.1}
+          reflectivity={0.9}
           clearcoat={1.0}
         />
       </mesh>
@@ -1054,13 +1098,13 @@ function ErlenmeyerFlaskModel({
       {/* Flared Rim Lip */}
       <mesh position={[0, totalHeight + 0.03, 0]}>
         <torusGeometry args={[neckRadius * 1.15, 0.022, 16, 36]} />
-        <meshPhysicalMaterial color="#f8fafc" transmission={0.94} transparent roughness={0.04} />
+        <meshPhysicalMaterial color="#ffffff" transparent opacity={0.7} roughness={0.05} metalness={0.1} />
       </mesh>
 
       {/* Base Bottom */}
       <mesh position={[0, 0.03, 0]}>
         <cylinderGeometry args={[baseRadius * 0.98, baseRadius * 0.98, 0.05, 36]} />
-        <meshPhysicalMaterial color="#f8fafc" transmission={0.94} transparent roughness={0.05} />
+        <meshPhysicalMaterial color="#f8fafc" transparent opacity={0.65} roughness={0.08} metalness={0.1} />
       </mesh>
 
       {/* Erlenmeyer Graduation Marks */}
@@ -1103,17 +1147,15 @@ function ErlenmeyerFlaskModel({
               32,
             ]}
           />
-          <meshPhysicalMaterial
+          <meshStandardMaterial
             ref={liquidMaterialRef}
-            color={isClear ? "#e0f7fa" : vessel.color}
-            emissive={isClear ? "#bae6fd" : vessel.color}
-            emissiveIntensity={isClear ? 0.08 : 0.3}
-            transmission={isClear ? 0.95 : 0.65}
-            opacity={isClear ? 0.4 : 0.85}
+            color={vessel.color}
+            emissive={vessel.color}
+            emissiveIntensity={0.55}
+            roughness={0.12}
+            metalness={0.1}
             transparent
-            roughness={isClear ? 0.02 : 0.08}
-            ior={isClear ? 1.333 : 1.44}
-            clearcoat={1.0}
+            opacity={0.88}
           />
         </mesh>
       ) : (
@@ -1123,17 +1165,15 @@ function ErlenmeyerFlaskModel({
             <cylinderGeometry
               args={[neckRadius * 0.92, baseRadius * 0.94, coneHeight, 32]}
             />
-            <meshPhysicalMaterial
+            <meshStandardMaterial
               ref={liquidMaterialRef}
-              color={isClear ? "#e0f7fa" : vessel.color}
-              emissive={isClear ? "#bae6fd" : vessel.color}
-              emissiveIntensity={isClear ? 0.08 : 0.3}
-              transmission={isClear ? 0.95 : 0.65}
-              opacity={isClear ? 0.4 : 0.85}
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.55}
+              roughness={0.12}
+              metalness={0.1}
               transparent
-              roughness={isClear ? 0.02 : 0.08}
-              ior={isClear ? 1.333 : 1.44}
-              clearcoat={1.0}
+              opacity={0.88}
             />
           </mesh>
           {/* Neck Liquid Portion */}
@@ -1149,16 +1189,14 @@ function ErlenmeyerFlaskModel({
                 32,
               ]}
             />
-            <meshPhysicalMaterial
-              color={isClear ? "#e0f7fa" : vessel.color}
-              emissive={isClear ? "#bae6fd" : vessel.color}
-              emissiveIntensity={isClear ? 0.08 : 0.3}
-              transmission={isClear ? 0.95 : 0.65}
-              opacity={isClear ? 0.4 : 0.85}
+            <meshStandardMaterial
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.55}
+              roughness={0.12}
+              metalness={0.1}
               transparent
-              roughness={isClear ? 0.02 : 0.08}
-              ior={isClear ? 1.333 : 1.44}
-              clearcoat={1.0}
+              opacity={0.88}
             />
           </mesh>
         </group>
@@ -1175,13 +1213,14 @@ function ErlenmeyerFlaskModel({
             32,
           ]}
         />
-        <meshPhysicalMaterial
-          color={isClear ? "#e0f7fa" : vessel.color}
-          transmission={isClear ? 0.9 : 0.55}
-          opacity={isClear ? 0.55 : 0.9}
+        <meshStandardMaterial
+          color={vessel.color}
+          emissive={vessel.color}
+          emissiveIntensity={0.65}
+          roughness={0.04}
+          metalness={0.2}
           transparent
-          roughness={0.02}
-          reflectivity={0.9}
+          opacity={0.95}
         />
       </mesh>
 
@@ -1200,7 +1239,7 @@ function TestTubeModel({
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
-  liquidMaterialRef: React.RefObject<THREE.MeshPhysicalMaterial | null>;
+  liquidMaterialRef: React.RefObject<any>;
   isClear: boolean;
   isBeingPouredInto: boolean;
 }) {
@@ -1210,41 +1249,52 @@ function TestTubeModel({
 
   return (
     <group>
-      {/* Cylindrical Tube Wall */}
+      {/* 0. Illuminated Laboratory Observation Pod */}
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.38, 32]} />
+        <meshStandardMaterial
+          color="#ffffff"
+          emissive="#ffffff"
+          emissiveIntensity={0.8}
+          roughness={0.2}
+        />
+      </mesh>
+      {/* Upward Liquid Illumination */}
+      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={2.0} distance={2.5} />
+
+      {/* 1. Cylindrical Tube Wall Glass */}
       <mesh castShadow position={[0, tubeHeight / 2 + radius, 0]}>
         <cylinderGeometry args={[radius, radius, tubeHeight, 32, 1, true]} />
         <meshPhysicalMaterial
-          color="#f8fafc"
-          transmission={0.96}
-          opacity={1}
+          color="#ffffff"
           transparent
-          roughness={0.03}
-          ior={1.52}
-          thickness={0.25}
-          reflectivity={0.8}
+          opacity={0.35}
+          roughness={0.04}
+          metalness={0.1}
+          reflectivity={0.9}
           clearcoat={1.0}
         />
       </mesh>
 
-      {/* Hemispherical Round Bottom Dome */}
+      {/* Hemispherical Round Bottom Dome Glass */}
       <mesh position={[0, radius, 0]} rotation={[Math.PI, 0, 0]}>
         <sphereGeometry
           args={[radius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]}
         />
         <meshPhysicalMaterial
-          color="#f8fafc"
-          transmission={0.96}
-          opacity={1}
+          color="#ffffff"
           transparent
-          roughness={0.03}
-          ior={1.52}
+          opacity={0.35}
+          roughness={0.04}
+          metalness={0.1}
+          reflectivity={0.9}
         />
       </mesh>
 
       {/* Flared Glass Top Lip Rim */}
       <mesh position={[0, tubeHeight + radius, 0]}>
         <torusGeometry args={[radius * 1.08, 0.018, 16, 32]} />
-        <meshPhysicalMaterial color="#f8fafc" transmission={0.94} transparent roughness={0.04} />
+        <meshPhysicalMaterial color="#ffffff" transparent opacity={0.7} roughness={0.05} metalness={0.1} />
       </mesh>
 
       {/* Laboratory Acrylic Stabilizer Stand Collar */}
@@ -1263,7 +1313,7 @@ function TestTubeModel({
         <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.2} />
       </mesh>
 
-      {/* Test Tube Fluid Cylinder */}
+      {/* 2. Luminous Radiant Liquid Inside */}
       <mesh
         ref={liquidMeshRef as any}
         position={[0, liquidHeight / 2 + radius, 0]}
@@ -1271,17 +1321,15 @@ function TestTubeModel({
         <cylinderGeometry
           args={[radius * 0.92, radius * 0.92, liquidHeight, 32]}
         />
-        <meshPhysicalMaterial
+        <meshStandardMaterial
           ref={liquidMaterialRef}
-          color={isClear ? "#e0f7fa" : vessel.color}
-          emissive={isClear ? "#bae6fd" : vessel.color}
-          emissiveIntensity={isClear ? 0.08 : 0.3}
-          transmission={isClear ? 0.95 : 0.65}
-          opacity={isClear ? 0.4 : 0.85}
+          color={vessel.color}
+          emissive={vessel.color}
+          emissiveIntensity={0.55}
+          roughness={0.12}
+          metalness={0.1}
           transparent
-          roughness={isClear ? 0.02 : 0.08}
-          ior={isClear ? 1.333 : 1.44}
-          clearcoat={1.0}
+          opacity={0.88}
         />
       </mesh>
 
@@ -1290,26 +1338,28 @@ function TestTubeModel({
         <sphereGeometry
           args={[radius * 0.92, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]}
         />
-        <meshPhysicalMaterial
-          color={isClear ? "#e0f7fa" : vessel.color}
-          emissive={isClear ? "#bae6fd" : vessel.color}
-          emissiveIntensity={isClear ? 0.08 : 0.3}
-          transmission={isClear ? 0.95 : 0.65}
-          opacity={isClear ? 0.4 : 0.85}
+        <meshStandardMaterial
+          color={vessel.color}
+          emissive={vessel.color}
+          emissiveIntensity={0.55}
+          roughness={0.12}
+          metalness={0.1}
           transparent
-          roughness={isClear ? 0.02 : 0.08}
+          opacity={0.88}
         />
       </mesh>
 
       {/* Top Meniscus Disk */}
       <mesh position={[0, liquidHeight + radius, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[radius * 0.92, 32]} />
-        <meshPhysicalMaterial
-          color={isClear ? "#e0f7fa" : vessel.color}
-          transmission={isClear ? 0.9 : 0.55}
-          opacity={isClear ? 0.55 : 0.9}
+        <meshStandardMaterial
+          color={vessel.color}
+          emissive={vessel.color}
+          emissiveIntensity={0.65}
+          roughness={0.04}
+          metalness={0.2}
           transparent
-          roughness={0.02}
+          opacity={0.95}
         />
       </mesh>
 
