@@ -17,7 +17,7 @@ export interface ChemicalVessel {
   initialColor: string;
   position: [number, number, number];
   level: "SD" | "SMP" | "SMA";
-  liquidLevel: number; // 0.1 to 0.9
+  liquidLevel: number; // 0.1 to 0.95
   isReacted?: boolean;
   reactionNote?: string;
   temperatureC?: number;
@@ -36,6 +36,7 @@ export interface ReactionDetail {
   temperatureChange: number; // + or -
   explanation: string;
   level: "SD" | "SMP" | "SMA";
+  reactionPosition?: [number, number, number];
 }
 
 // Built-in Knowledge Base of Science & Chemistry Reactions (SD, SMP, SMA)
@@ -51,7 +52,7 @@ export const BUILTIN_REACTIONS: ReactionDetail[] = [
     resultFormula: "CH₃COONa + CO₂",
     resultColor: "#f8fafc",
     effectType: "bubbles",
-    temperatureChange: -4, // Endoterm (terasa dingin)
+    temperatureChange: -4,
     explanation: "Reaksi antara asam cuka dan soda kue menghasilkan gas Karbondioksida (CO₂) yang meluap membentuk gelembung busa tebal dan menyerap kalor.",
     level: "SD",
   },
@@ -67,7 +68,7 @@ export const BUILTIN_REACTIONS: ReactionDetail[] = [
     resultColor: "#facc15",
     effectType: "color_change",
     temperatureChange: 0,
-    explanation: "Air dan minyak goreng tidak dapat menyatu karena perbedaan kepolaran molekul (air polar, minyak non-polar) dan massa jenis minyak lebih ringan sehingga mengapung di atas.",
+    explanation: "Air dan minyak goreng tidak dapat menyatu karena perbedaan kepolaran molekul (air polar, minyak non-polar) dan massa jenis minyak lebih ringan.",
     level: "SD",
   },
   // 3. SMP: Asam Klorida + Natrium Hidroksida (Netralisasi)
@@ -79,9 +80,9 @@ export const BUILTIN_REACTIONS: ReactionDetail[] = [
     substanceB: "NaOH",
     resultName: "Larutan Garam Netral",
     resultFormula: "NaCl + H₂O",
-    resultColor: "#10b981", // Hijau indikator netral
+    resultColor: "#10b981",
     effectType: "steam",
-    temperatureChange: 18, // Eksoterm (hangat/panas)
+    temperatureChange: 18,
     explanation: "Ion hidrogen (H+) dari asam dan ion hidroksida (OH-) dari basa bersatu membentuk molekul air netral dan garam dapur dengan pelepasan energi kalor.",
     level: "SMP",
   },
@@ -94,9 +95,9 @@ export const BUILTIN_REACTIONS: ReactionDetail[] = [
     substanceB: "NaOH",
     resultName: "Endapan Biru Cu(OH)₂",
     resultFormula: "Cu(OH)₂↓ + Na₂SO₄",
-    resultColor: "#1e40af", // Biru tua pekat
+    resultColor: "#1e40af",
     effectType: "precipitate",
-    temperatureChange: 5,
+    temperatureChange: 4,
     explanation: "Pertukaran ion membentuk tembaga(II) hidroksida yang tidak larut dalam air, menghasilkan endapan seperti gel berwarna biru safir tua.",
     level: "SMP",
   },
@@ -109,7 +110,7 @@ export const BUILTIN_REACTIONS: ReactionDetail[] = [
     substanceB: "KI",
     resultName: "Kristal Hujan Emas PbI₂",
     resultFormula: "PbI₂↓ (Golden Rain)",
-    resultColor: "#eab308", // Emas berkilau
+    resultColor: "#fbbf24",
     effectType: "spark",
     temperatureChange: 2,
     explanation: "Dua larutan tanpa warna bereaksi seketika memicu presipitasi kristal heksagonal timbal iodida yang berpendar kuning keemasan seperti hujan emas.",
@@ -124,7 +125,7 @@ export const BUILTIN_REACTIONS: ReactionDetail[] = [
     substanceB: "GLYCERIN",
     resultName: "Residu Mangan Dioksida & Panas",
     resultFormula: "Mn₂O₃ + K₂CO₃",
-    resultColor: "#581c87", // Ungu tua gelap berasap
+    resultColor: "#581c87",
     effectType: "steam",
     temperatureChange: 45,
     explanation: "KMnO4 adalah oksidator sangat kuat yang mengoksidasi senyawa organik gliserin secara spontan, melepaskan uap panas tebal dan nyala eksotermik.",
@@ -244,7 +245,7 @@ export default function ChemistryLabScene({
         shadows
       >
         {/* Laboratory Illumination */}
-        <ambientLight intensity={0.8} />
+        <ambientLight intensity={0.9} />
         <directionalLight position={[6, 12, 8]} intensity={1.8} castShadow shadow-mapSize={[1024, 1024]} />
         <pointLight position={[-5, 4, -3]} color="#60a5fa" intensity={1.2} />
         <pointLight position={[5, 4, -3]} color="#f472b6" intensity={0.9} />
@@ -341,11 +342,10 @@ function VesselsSimulation({
 
   // Mouse Drag Fallback State
   const [mouseDraggedId, setMouseDraggedId] = useState<string | null>(null);
-  const dragPlaneRef = useRef<THREE.Plane>(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.5));
-  const planeIntersectionRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
   // Cooldown to avoid multi-triggering the same reaction
   const reactionCooldownRef = useRef<{ [pairKey: string]: number }>({});
+  const isSimulatingAiRef = useRef<boolean>(false);
 
   // 60 FPS Animation & Proximity Loop
   useFrame((state, delta) => {
@@ -402,9 +402,8 @@ function VesselsSimulation({
     if (activeGrabbedId) {
       const activeVessel = vesselsRef.current.find((v) => v.id === activeGrabbedId);
       if (activeVessel) {
-        // Find nearest neighboring vessel to check if user is attempting to pour/mix!
         let nearestOtherId: string | null = null;
-        let minProximity = 1.35; // Mixing distance threshold
+        let minProximity = 1.45; // Mixing proximity distance threshold
 
         vesselsRef.current.forEach((other) => {
           if (other.id === activeGrabbedId) return;
@@ -453,16 +452,21 @@ function VesselsSimulation({
   });
 
   // Reaction Matcher (Local Catalog + Real-Time Gemini AI Fallback)
-  const isSimulatingAiRef = useRef<boolean>(false);
-
   const checkAndTriggerReaction = async (vesselA: ChemicalVessel, vesselB: ChemicalVessel) => {
     const pairKey = [vesselA.formula, vesselB.formula].sort().join("+");
     const now = Date.now();
 
-    // Prevent re-triggering within 4 seconds
-    if (reactionCooldownRef.current[pairKey] && now - reactionCooldownRef.current[pairKey] < 4000) {
+    // Prevent re-triggering within 3 seconds
+    if (reactionCooldownRef.current[pairKey] && now - reactionCooldownRef.current[pairKey] < 3000) {
       return;
     }
+
+    // Target vessel position for localized particles
+    const rxPos: [number, number, number] = [
+      vesselB.position[0],
+      vesselB.position[1] + 0.6,
+      vesselB.position[2],
+    ];
 
     // Step 1: Match in local catalog first if available
     const matched = BUILTIN_REACTIONS.find(
@@ -474,7 +478,7 @@ function VesselsSimulation({
     if (matched) {
       reactionCooldownRef.current[pairKey] = now;
 
-      // Transform target vessel B's appearance (color and volume)
+      // Transform target vessel B's appearance (color, volume, note)
       setVessels((prev) =>
         prev.map((v) => {
           if (v.id === vesselB.id) {
@@ -483,7 +487,7 @@ function VesselsSimulation({
               color: matched.resultColor,
               name: matched.resultName,
               formula: matched.resultFormula,
-              liquidLevel: Math.min(0.9, v.liquidLevel + 0.15),
+              liquidLevel: Math.min(0.95, v.liquidLevel + 0.2),
               temperatureC: (v.temperatureC || 25) + matched.temperatureChange,
               isReacted: true,
               reactionNote: matched.title,
@@ -493,7 +497,7 @@ function VesselsSimulation({
         })
       );
 
-      onReactionDetected?.(matched, vesselA, vesselB);
+      onReactionDetected?.({ ...matched, reactionPosition: rxPos }, vesselA, vesselB);
       return;
     }
 
@@ -529,9 +533,10 @@ function VesselsSimulation({
           temperatureChange: Number(aiRx.temperatureChangeC) || 0,
           explanation: aiRx.explanation || "Reaksi kimia menghasilkan interaksi molekuler baru.",
           level: aiRx.level || "SMA",
+          reactionPosition: rxPos,
         };
 
-        // Transform target vessel B with AI predicted color and values
+        // Transform target vessel B with AI predicted color and volume
         setVessels((prev) =>
           prev.map((v) => {
             if (v.id === vesselB.id) {
@@ -540,7 +545,7 @@ function VesselsSimulation({
                 color: dynamicReaction.resultColor,
                 name: dynamicReaction.resultName,
                 formula: dynamicReaction.resultFormula,
-                liquidLevel: Math.min(0.9, v.liquidLevel + 0.15),
+                liquidLevel: Math.min(0.95, v.liquidLevel + 0.2),
                 temperatureC: (v.temperatureC || 25) + dynamicReaction.temperatureChange,
                 isReacted: true,
                 reactionNote: dynamicReaction.title,
@@ -593,6 +598,8 @@ function VesselsSimulation({
     }
   };
 
+  const targetVessel = pouringTargetId ? vessels.find((v) => v.id === pouringTargetId) : null;
+
   return (
     <group onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
       {/* 3D Hand Tracking Cursor */}
@@ -606,7 +613,6 @@ function VesselsSimulation({
           transparent
           opacity={0.85}
         />
-        {/* Glowing Aura Ring around Hand */}
         <pointLight
           color={handTransform?.isGrabbing ? "#f59e0b" : "#38bdf8"}
           intensity={1.8}
@@ -629,24 +635,32 @@ function VesselsSimulation({
             isTargeted={isTargeted}
             isBeingPouredInto={isBeingPouredInto}
             isPouring={isPouring}
+            targetPosition={targetVessel?.position}
             onPointerDown={(e) => handlePointerDown(vessel.id, e)}
           />
         );
       })}
 
       {/* Particle Effect when Active Reaction Occurs */}
-      {activeReaction && <ReactionParticles effectType={activeReaction.effectType} />}
+      {activeReaction && (
+        <ReactionVisualEffects
+          effectType={activeReaction.effectType}
+          colorHex={activeReaction.resultColor}
+          position={activeReaction.reactionPosition || [0, 1.2, 0]}
+        />
+      )}
     </group>
   );
 }
 
-// Individual 3D Chemical Vessel (Glass Cylinder/Beaker with Colored Liquid)
+// Individual 3D Chemical Vessel with Realistic Glass & Glowing Dynamic Liquid
 function ChemicalVesselItem({
   vessel,
   isGrabbed,
   isTargeted,
   isBeingPouredInto,
   isPouring,
+  targetPosition,
   onPointerDown,
 }: {
   vessel: ChemicalVessel;
@@ -654,27 +668,50 @@ function ChemicalVesselItem({
   isTargeted: boolean;
   isBeingPouredInto: boolean;
   isPouring: boolean;
+  targetPosition?: [number, number, number];
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
 }) {
   const meshGroupRef = useRef<THREE.Group>(null);
+  const liquidMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const liquidMeshRef = useRef<THREE.Mesh>(null);
 
-  // Smooth tilt animation when pouring
+  // Smooth color morphing to the new reaction color!
   useFrame((_, delta) => {
     if (!meshGroupRef.current) return;
-    const targetRotZ = isPouring ? -0.75 : 0; // Tilt ~45 degrees when pouring
-    meshGroupRef.current.rotation.z = THREE.MathUtils.lerp(meshGroupRef.current.rotation.z, targetRotZ, 0.15);
 
-    // Liquid surface pulse
+    // 1. Pouring Tilt Angle towards target
+    if (isPouring && targetPosition) {
+      const dx = targetPosition[0] - vessel.position[0];
+      const targetTilt = dx > 0 ? -0.85 : 0.85; // Miringkan ke arah bejana target
+      meshGroupRef.current.rotation.z = THREE.MathUtils.lerp(meshGroupRef.current.rotation.z, targetTilt, 0.18);
+    } else {
+      meshGroupRef.current.rotation.z = THREE.MathUtils.lerp(meshGroupRef.current.rotation.z, 0, 0.18);
+    }
+
+    // 2. Liquid Color Morphing (Lerp smoothly to new color)
+    if (liquidMaterialRef.current) {
+      const targetColor = new THREE.Color(vessel.color);
+      liquidMaterialRef.current.color.lerp(targetColor, 0.08);
+      liquidMaterialRef.current.emissive.lerp(targetColor, 0.08);
+
+      // Bubbling boiling pulse if being poured into or recently reacted
+      if (isBeingPouredInto || vessel.isReacted) {
+        liquidMaterialRef.current.emissiveIntensity = 0.5 + Math.sin(Date.now() * 0.008) * 0.3;
+      } else {
+        liquidMaterialRef.current.emissiveIntensity = 0.25;
+      }
+    }
+
+    // 3. Liquid level expansion wave
     if (liquidMeshRef.current) {
-      const scaleX = 1 + Math.sin(Date.now() * 0.005) * 0.015;
-      liquidMeshRef.current.scale.set(scaleX, 1, scaleX);
+      const pulse = isBeingPouredInto ? 1 + Math.sin(Date.now() * 0.012) * 0.03 : 1;
+      liquidMeshRef.current.scale.set(pulse, 1, pulse);
     }
   });
 
   const radius = vessel.type === "test_tube" ? 0.22 : vessel.type === "flask" ? 0.45 : 0.4;
-  const height = vessel.type === "test_tube" ? 1.1 : 0.95;
-  const liquidHeight = height * vessel.liquidLevel;
+  const height = vessel.type === "test_tube" ? 1.15 : 0.98;
+  const liquidHeight = Math.max(0.15, height * vessel.liquidLevel);
 
   return (
     <group
@@ -710,28 +747,34 @@ function ChemicalVesselItem({
         <meshPhysicalMaterial color="#ffffff" transmission={0.9} transparent roughness={0.1} />
       </mesh>
 
-      {/* 2. Liquid Contents Inside */}
+      {/* 2. Liquid Contents Inside (Morphs Color & Pulses) */}
       <mesh ref={liquidMeshRef} position={[0, liquidHeight / 2 + 0.04, 0]}>
         <cylinderGeometry args={[radius * 0.92, radius * 0.88, liquidHeight, 32]} />
         <meshStandardMaterial
+          ref={liquidMaterialRef}
           color={vessel.color}
           emissive={vessel.color}
-          emissiveIntensity={isBeingPouredInto ? 0.8 : 0.25}
-          roughness={0.2}
+          emissiveIntensity={0.25}
+          roughness={0.15}
           transparent
           opacity={0.88}
         />
       </mesh>
 
-      {/* 3. Pouring Stream Effect (when pouring into another vessel) */}
+      {/* 3. Dynamic Pouring Liquid Stream (Falling Stream from Spout) */}
       {isPouring && (
-        <mesh position={[-radius * 1.2, height * 0.6, 0]} rotation={[0, 0, 0.5]}>
-          <cylinderGeometry args={[0.03, 0.05, 0.8, 16]} />
-          <meshStandardMaterial color={vessel.color} emissive={vessel.color} emissiveIntensity={1} />
-        </mesh>
+        <group position={[targetPosition && targetPosition[0] > vessel.position[0] ? radius * 1.1 : -radius * 1.1, height * 0.7, 0]}>
+          {/* Liquid Jet Stream */}
+          <mesh rotation={[0, 0, targetPosition && targetPosition[0] > vessel.position[0] ? -0.4 : 0.4]}>
+            <cylinderGeometry args={[0.04, 0.06, 1.1, 16]} />
+            <meshStandardMaterial color={vessel.color} emissive={vessel.color} emissiveIntensity={0.9} />
+          </mesh>
+          {/* Spout Droplets */}
+          <PouringDroplets color={vessel.color} />
+        </group>
       )}
 
-      {/* 4. Base Glow Ring (Selection Indicator) */}
+      {/* 4. Base Glow Ring (Selection & Proximity Indicator) */}
       <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[radius * 1.1, radius * 1.35, 32]} />
         <meshBasicMaterial
@@ -752,7 +795,6 @@ function ChemicalVesselItem({
       {/* 5. Floating Label: Formula & Name */}
       <Float speed={2} rotationIntensity={0} floatIntensity={0.2}>
         <group position={[0, height + 0.35, 0]}>
-          {/* Formula Text */}
           <Text
             fontSize={0.2}
             color="#ffffff"
@@ -764,7 +806,6 @@ function ChemicalVesselItem({
             {vessel.formula}
           </Text>
 
-          {/* Subtitle Name */}
           <Text
             position={[0, -0.16, 0]}
             fontSize={0.09}
@@ -782,75 +823,112 @@ function ChemicalVesselItem({
   );
 }
 
-// Particle System for Chemical Reactions (Bubbles, Steam, Precipitate Sparks)
-function ReactionParticles({ effectType }: { effectType: string }) {
+// Pouring Stream Falling Droplets
+function PouringDroplets({ color }: { color: string }) {
   const pointsRef = useRef<THREE.Points>(null);
+  const count = 30;
 
-  const particleCount = effectType === "bubbles" ? 80 : 120;
-  const [positions, colors] = useMemo(() => {
-    const pos = new Float32Array(particleCount * 3);
-    const col = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 1.2;
-      pos[i * 3 + 1] = Math.random() * 1.5 + 0.5;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 1.2;
-
-      // Color scheme based on reaction effect
-      if (effectType === "bubbles") {
-        col[i * 3] = 0.9;
-        col[i * 3 + 1] = 0.95;
-        col[i * 3 + 2] = 1.0;
-      } else if (effectType === "steam") {
-        col[i * 3] = 0.8;
-        col[i * 3 + 1] = 0.8;
-        col[i * 3 + 2] = 0.9;
-      } else if (effectType === "spark") {
-        col[i * 3] = 1.0;
-        col[i * 3 + 1] = 0.85;
-        col[i * 3 + 2] = 0.2;
-      } else {
-        col[i * 3] = 0.2;
-        col[i * 3 + 1] = 0.6;
-        col[i * 3 + 2] = 1.0;
-      }
+  const [positions] = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 0.1;
+      pos[i * 3 + 1] = -Math.random() * 0.9;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
     }
-    return [pos, col];
-  }, [effectType, particleCount]);
+    return [pos];
+  }, []);
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
-    const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
-    const array = posAttr.array as Float32Array;
+    const pos = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
+    const arr = pos.array as Float32Array;
 
-    for (let i = 0; i < particleCount; i++) {
-      // Rise upwards
-      array[i * 3 + 1] += delta * 1.2;
-      // Drift slightly
-      array[i * 3] += Math.sin(Date.now() * 0.003 + i) * 0.005;
-
-      // Reset when too high
-      if (array[i * 3 + 1] > 2.8) {
-        array[i * 3 + 1] = 0.5;
-        array[i * 3] = (Math.random() - 0.5) * 1.0;
-        array[i * 3 + 2] = (Math.random() - 0.5) * 1.0;
+    for (let i = 0; i < count; i++) {
+      arr[i * 3 + 1] -= delta * 2.5; // Jatuh ke bawah
+      if (arr[i * 3 + 1] < -1.1) {
+        arr[i * 3 + 1] = 0;
       }
     }
-    posAttr.needsUpdate = true;
+    pos.needsUpdate = true;
   });
 
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
-      <pointsMaterial
-        size={effectType === "spark" ? 0.08 : 0.06}
-        vertexColors
-        transparent
-        opacity={0.85}
-        blending={THREE.AdditiveBlending}
-      />
+      <pointsMaterial size={0.05} color={color} transparent opacity={0.9} />
     </points>
+  );
+}
+
+// Multi-Disciplinary Reaction Visual Effects: Effervescence Bubbles, Steam Clouds, Sparks, Precipitate Clouds
+function ReactionVisualEffects({
+  effectType,
+  colorHex,
+  position,
+}: {
+  effectType: string;
+  colorHex: string;
+  position: [number, number, number];
+}) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const count = effectType === "spark" ? 180 : 140;
+
+  const [positions, scales] = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    const scl = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 0.8;
+      pos[i * 3 + 1] = Math.random() * 1.4;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 0.8;
+      scl[i] = Math.random() * 0.08 + 0.04;
+    }
+    return [pos, scl];
+  }, [count]);
+
+  useFrame((_, delta) => {
+    if (!pointsRef.current) return;
+    const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
+    const array = posAttr.array as Float32Array;
+
+    for (let i = 0; i < count; i++) {
+      // 1. Upward rising velocity
+      const speed = effectType === "spark" ? 2.5 : effectType === "steam" ? 1.6 : 1.2;
+      array[i * 3 + 1] += delta * speed;
+
+      // 2. Swirling / billowing turbulence
+      const angle = Date.now() * 0.003 + i;
+      array[i * 3] += Math.sin(angle) * 0.008;
+      array[i * 3 + 2] += Math.cos(angle) * 0.008;
+
+      // 3. Reset loop
+      if (array[i * 3 + 1] > 2.8) {
+        array[i * 3 + 1] = 0.1;
+        array[i * 3] = (Math.random() - 0.5) * 0.4;
+        array[i * 3 + 2] = (Math.random() - 0.5) * 0.4;
+      }
+    }
+    posAttr.needsUpdate = true;
+  });
+
+  return (
+    <group position={position}>
+      <points ref={pointsRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          size={effectType === "spark" ? 0.09 : 0.08}
+          color={colorHex}
+          transparent
+          opacity={0.88}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+
+      {/* Point Light Glow Burst at reaction center */}
+      <pointLight color={colorHex} intensity={2.5} distance={3.5} />
+    </group>
   );
 }
