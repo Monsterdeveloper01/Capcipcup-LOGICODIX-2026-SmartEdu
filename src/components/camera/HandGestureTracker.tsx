@@ -453,16 +453,29 @@ function drawHandSkeleton(
     [0, 17], // Telapak bawah
   ];
 
-  // Neon glow effect on black background
   ctx.save();
-  ctx.shadowBlur = 12;
-  ctx.shadowColor = lineColor;
 
-  // Draw lines
-  ctx.strokeStyle = lineColor;
-  ctx.lineWidth = 4;
+  // 1. Contrast drop-shadow / dark outline (Ensures 100% visibility against bright white lab tables)
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.75)";
+  ctx.lineWidth = 6;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
+  ctx.shadowBlur = 0;
+
+  for (const [startIdx, endIdx] of connections) {
+    const p1 = landmarks[startIdx];
+    const p2 = landmarks[endIdx];
+    ctx.beginPath();
+    ctx.moveTo(p1.x * width, p1.y * height);
+    ctx.lineTo(p2.x * width, p2.y * height);
+    ctx.stroke();
+  }
+
+  // 2. High-visibility luminous skeleton bone lines
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 3.5;
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = lineColor;
 
   for (const [startIdx, endIdx] of connections) {
     const p1 = landmarks[startIdx];
@@ -503,6 +516,14 @@ function drawHandSkeleton(
 
   const selectorRadius = isGrabbing ? 14 : 19;
   const selectorColor = isGrabbing ? "#f59e0b" : "#00f5ff";
+
+  // Outer ring with contrast dark shadow backing
+  ctx.beginPath();
+  ctx.arc(pcx, pcy, selectorRadius, 0, 2 * Math.PI);
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.75)";
+  ctx.lineWidth = 4.5;
+  ctx.shadowBlur = 0;
+  ctx.stroke();
 
   // Outer glowing pulsing ring
   ctx.beginPath();

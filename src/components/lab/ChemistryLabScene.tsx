@@ -156,14 +156,23 @@ export default function ChemistryLabScene({
         gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
         shadows={{ type: THREE.PCFShadowMap }}
       >
-        {/* Bright Laboratory Studio Illumination */}
-        <ambientLight intensity={1.5} color="#ffffff" />
-        <directionalLight position={[0, 10, 4]} intensity={2.6} castShadow color="#ffffff" shadow-mapSize={[1024, 1024]} />
-        <directionalLight position={[2, 4, 6]} intensity={1.8} color="#f8fafc" />
-        <directionalLight position={[-4, 6, -5]} intensity={2.2} color="#38bdf8" />
-        <pointLight position={[0, 3, 0]} color="#ffffff" intensity={2.0} distance={10} />
-        <pointLight position={[-5, 4, -2]} color="#60a5fa" intensity={1.8} distance={8} />
-        <pointLight position={[5, 4, -2]} color="#38bdf8" intensity={1.8} distance={8} />
+        {/* Clean, Bright Laboratory Studio Atmosphere */}
+        <color attach="background" args={["#f1f5f9"]} />
+        <fog attach="fog" args={["#f1f5f9", 12, 25]} />
+
+        {/* Realistic Modern Laboratory Illumination */}
+        <ambientLight intensity={1.35} color="#ffffff" />
+        <directionalLight
+          position={[2, 10, 4]}
+          intensity={1.9}
+          castShadow
+          color="#ffffff"
+          shadow-mapSize={[1024, 1024]}
+        />
+        <directionalLight position={[-4, 7, 5]} intensity={0.9} color="#f8fafc" />
+        <directionalLight position={[4, 7, 5]} intensity={0.9} color="#f8fafc" />
+        <directionalLight position={[0, 4, -4]} intensity={0.7} color="#e0f2fe" />
+        <pointLight position={[0, 2.5, 0]} color="#ffffff" intensity={1.2} distance={8} />
 
         {/* Orbit Controls (Disabled when manipulating an object with hand or mouse) */}
         <OrbitControls
@@ -174,7 +183,7 @@ export default function ChemistryLabScene({
           maxDistance={12}
         />
 
-        {/* Laboratory Workbench & Table Grid */}
+        {/* Realistic Chemistry Practical Workbench & Lab Room Environment */}
         <LabWorkbench />
 
         {/* Interactive Chemical Vessels Simulation */}
@@ -192,67 +201,262 @@ export default function ChemistryLabScene({
   );
 }
 
-// Laboratory Table Surface with Measurement Marks
+// Realistic School & University Chemistry Practical Workbench & Lab Room Environment
 function LabWorkbench() {
   return (
     <group position={[0, 0, 0]}>
-      {/* Sleek Slate Laboratory Countertop */}
-      <mesh position={[0, -0.06, 0]} receiveShadow>
-        <boxGeometry args={[9.5, 0.12, 6.5]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.3} metalness={0.5} />
+      {/* =========================================================================
+          1. REALISTIC LABORATORY ROOM (WALLS, TILES, CEILING LIGHTS)
+          ========================================================================= */}
+      {/* Light Grey Laboratory Vinyl Floor */}
+      <mesh position={[0, -1.2, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[26, 26]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.35} metalness={0.05} />
+      </mesh>
+      {/* Subtle Floor Tile Grout Lines */}
+      <gridHelper args={[24, 24, "#cbd5e1", "#e2e8f0"]} position={[0, -1.19, 0]} />
+
+      {/* Clean White Laboratory Back Wall */}
+      <mesh position={[0, 3.2, -3.2]} receiveShadow>
+        <planeGeometry args={[22, 9]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.02} />
       </mesh>
 
-      {/* Laboratory Grid Coordinate Guide */}
-      <gridHelper args={[9.5, 19, "#00f5ff", "#1e293b"]} position={[0, 0.002, 0]} />
+      {/* Ceramic Tile Grid on Wall */}
+      <gridHelper args={[20, 20, "#e2e8f0", "#f1f5f9"]} position={[0, 3.2, -3.18]} rotation={[Math.PI / 2, 0, 0]} />
 
-      {/* Illuminated Ceramic Laboratory Observation Mat (Backlights Beakers & Liquids!) */}
-      <mesh position={[0, 0.006, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[7.2, 2.5]} />
+      {/* Laboratory Blue Dado Stripe on Back Wall */}
+      <mesh position={[0, 1.45, -3.16]}>
+        <boxGeometry args={[22, 0.08, 0.02]} />
+        <meshStandardMaterial color="#0284c7" roughness={0.3} />
+      </mesh>
+
+      {/* Lab Safety & Room Banner Header */}
+      <group position={[0, 2.7, -3.15]}>
+        <mesh>
+          <planeGeometry args={[6.2, 0.55]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.2} metalness={0.05} />
+        </mesh>
+        <mesh position={[0, -0.26, 0]}>
+          <planeGeometry args={[6.2, 0.03]} />
+          <meshBasicMaterial color="#0284c7" />
+        </mesh>
+        <Text
+          position={[0, 0.06, 0.01]}
+          fontSize={0.16}
+          color="#0f172a"
+          anchorX="center"
+          anchorY="middle"
+        >
+          LABORATORIUM KIMIA PRAKTIKUM
+        </Text>
+        <Text
+          position={[0, -0.12, 0.01]}
+          fontSize={0.09}
+          color="#64748b"
+          anchorX="center"
+          anchorY="middle"
+        >
+          MEJA PRAKTIK SISWA • KESELAMATAN KERJA UTAMA
+        </Text>
+      </group>
+
+      {/* Overhead Fluorescent Ceiling Light Panels */}
+      <group position={[0, 5.2, 0]}>
+        <mesh position={[-2.4, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[1.2, 3.5]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+        <mesh position={[2.4, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[1.2, 3.5]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+      </group>
+
+      {/* =========================================================================
+          2. THE PRACTICAL LAB BENCH (MEJA PRAKTIK LABORATORIUM)
+          ========================================================================= */}
+      {/* Solid Chemical-Resistant White Epoxy Resin Countertop */}
+      <mesh position={[0, -0.06, 0]} receiveShadow castShadow>
+        <boxGeometry args={[8.6, 0.12, 4.2]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.18} metalness={0.05} />
+      </mesh>
+
+      {/* Countertop Edge Trim Band (Lab Cyan Accent) */}
+      <mesh position={[0, -0.06, 0]}>
+        <boxGeometry args={[8.64, 0.03, 4.24]} />
+        <meshStandardMaterial color="#0284c7" roughness={0.3} metalness={0.2} />
+      </mesh>
+
+      {/* Heavy-Duty Industrial Powder-Coated Steel Frame & Legs */}
+      {[
+        [-3.9, -0.63, -1.8],
+        [3.9, -0.63, -1.8],
+        [-3.9, -0.63, 1.8],
+        [3.9, -0.63, 1.8],
+      ].map(([x, y, z], idx) => (
+        <group key={`leg_${idx}`} position={[x, y, z]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.12, 1.02, 0.12]} />
+            <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.3} />
+          </mesh>
+          {/* Adjustable Leveling Foot */}
+          <mesh position={[0, -0.52, 0]}>
+            <cylinderGeometry args={[0.09, 0.09, 0.05, 16]} />
+            <meshStandardMaterial color="#0f172a" metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Horizontal Steel Support Beams under Tabletop */}
+      <mesh position={[0, -0.16, -1.8]}>
+        <boxGeometry args={[7.7, 0.06, 0.06]} />
+        <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, -0.16, 1.8]}>
+        <boxGeometry args={[7.7, 0.06, 0.06]} />
+        <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.3} />
+      </mesh>
+      <mesh position={[-3.9, -0.16, 0]}>
+        <boxGeometry args={[0.06, 0.06, 3.6]} />
+        <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.3} />
+      </mesh>
+      <mesh position={[3.9, -0.16, 0]}>
+        <boxGeometry args={[0.06, 0.06, 3.6]} />
+        <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.3} />
+      </mesh>
+
+      {/* Practical Observation Area Mat on Center Tabletop */}
+      <mesh position={[0, 0.002, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[7.2, 2.4]} />
         <meshStandardMaterial
-          color="#f8fafc"
-          emissive="#e0f2fe"
-          emissiveIntensity={0.25}
-          roughness={0.15}
-          metalness={0.1}
+          color="#ffffff"
+          roughness={0.25}
+          metalness={0.02}
         />
       </mesh>
 
-      {/* Luminous Neon Border on the Ceramic Mat */}
-      <mesh position={[0, 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[3.6, 3.64, 4]} />
-        <meshBasicMaterial color="#38bdf8" />
+      {/* Delicate Measurement Grid on Practical Mat */}
+      <gridHelper args={[7.2, 18, "#0284c7", "#cbd5e1"]} position={[0, 0.004, 0]} />
+
+      {/* =========================================================================
+          3. REAGENT SERVICE RACK & AUTHENTIC EQUIPMENT (RAK ALAT PRAKTIK)
+          ========================================================================= */}
+      {/* Service Spine Riser at back of bench */}
+      <mesh position={[0, 0.42, -1.8]} receiveShadow castShadow>
+        <boxGeometry args={[8.6, 0.84, 0.22]} />
+        <meshStandardMaterial color="#f1f5f9" roughness={0.25} metalness={0.05} />
       </mesh>
 
-      {/* Laboratory Frosted Backlight Panel Behind the Vessels */}
-      <mesh position={[0, 0.85, -1.8]}>
-        <planeGeometry args={[7.5, 1.6]} />
-        <meshStandardMaterial
-          color="#38bdf8"
-          emissive="#0284c7"
-          emissiveIntensity={0.35}
-          transparent
-          opacity={0.35}
-          roughness={0.2}
-        />
-      </mesh>
+      {/* Dual-Tier Reagent Shelf */}
+      <group position={[0, 0.85, -1.65]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[7.8, 0.04, 0.38]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.2} metalness={0.1} />
+        </mesh>
+        {/* Shelf Front Guard Rail */}
+        <mesh position={[0, 0.04, 0.18]}>
+          <boxGeometry args={[7.8, 0.05, 0.02]} />
+          <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+        </mesh>
+      </group>
 
-      {/* Workbench Cyber Edge Strips */}
-      <mesh position={[0, 0.02, -3.25]}>
-        <boxGeometry args={[9.5, 0.05, 0.04]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
-      </mesh>
-      <mesh position={[0, 0.02, 3.25]}>
-        <boxGeometry args={[9.5, 0.05, 0.04]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
-      </mesh>
-      <mesh position={[-4.75, 0.02, 0]}>
-        <boxGeometry args={[0.04, 0.05, 6.5]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
-      </mesh>
-      <mesh position={[4.75, 0.02, 0]}>
-        <boxGeometry args={[0.04, 0.05, 6.5]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.0} />
-      </mesh>
+      {/* Equipment Props on the Reagent Shelf: */}
+      {/* A. Chrome Goose-Neck Laboratory Water Tap (Kran Leher Angsa) */}
+      <group position={[2.8, 0.88, -1.65]}>
+        {/* Tap Base */}
+        <mesh position={[0, 0.04, 0]}>
+          <cylinderGeometry args={[0.06, 0.08, 0.08, 16]} />
+          <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.1} />
+        </mesh>
+        {/* Vertical Stem */}
+        <mesh position={[0, 0.25, 0]}>
+          <cylinderGeometry args={[0.03, 0.03, 0.38, 16]} />
+          <meshStandardMaterial color="#f8fafc" metalness={0.95} roughness={0.08} />
+        </mesh>
+        {/* Curved Goose-Neck Arch */}
+        <mesh position={[-0.1, 0.45, 0]} rotation={[0, 0, Math.PI / 4]}>
+          <torusGeometry args={[0.12, 0.028, 16, 24, Math.PI]} />
+          <meshStandardMaterial color="#f8fafc" metalness={0.95} roughness={0.08} />
+        </mesh>
+        {/* Faucet Dual Handles */}
+        <mesh position={[0.08, 0.12, 0]}>
+          <boxGeometry args={[0.08, 0.025, 0.025]} />
+          <meshStandardMaterial color="#0284c7" metalness={0.6} roughness={0.3} />
+        </mesh>
+      </group>
+
+      {/* B. Laboratory Wash Bottles (Aquades Spray Bottles) */}
+      <group position={[-2.8, 0.88, -1.65]}>
+        {/* Polyethylene Bottle Body */}
+        <mesh position={[0, 0.14, 0]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.28, 20]} />
+          <meshPhysicalMaterial color="#ffffff" transparent opacity={0.7} roughness={0.15} />
+        </mesh>
+        {/* Screw Cap */}
+        <mesh position={[0, 0.30, 0]}>
+          <cylinderGeometry args={[0.045, 0.045, 0.05, 16]} />
+          <meshStandardMaterial color="#0284c7" roughness={0.3} />
+        </mesh>
+        {/* Angled Dispensing Nozzle */}
+        <mesh position={[-0.04, 0.36, 0]} rotation={[0, 0, 0.4]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.12, 12]} />
+          <meshStandardMaterial color="#0284c7" roughness={0.3} />
+        </mesh>
+        <Text position={[0, 0.14, 0.095]} fontSize={0.04} color="#0284c7" anchorX="center" anchorY="middle">
+          AQUADES
+        </Text>
+      </group>
+
+      {/* C. Secondary Reagent Stock Bottles on Shelf */}
+      {[
+        { x: -1.6, label: "Etanol 96%", color: "#f8fafc", capColor: "#dc2626" },
+        { x: -0.9, label: "H2O Murni", color: "#e0f2fe", capColor: "#0284c7" },
+        { x: -0.2, label: "Indikator PP", color: "#fce7f3", capColor: "#db2777" },
+        { x: 0.6, label: "Buffer pH 7", color: "#fef3c7", capColor: "#d97706" },
+        { x: 1.4, label: "Garam NaCl", color: "#f8fafc", capColor: "#16a34a" },
+      ].map((bottle) => (
+        <group key={bottle.x} position={[bottle.x, 0.88, -1.65]}>
+          {/* Amber or Clear Reagent Bottle */}
+          <mesh position={[0, 0.12, 0]}>
+            <cylinderGeometry args={[0.075, 0.075, 0.24, 20]} />
+            <meshPhysicalMaterial color={bottle.color} transparent opacity={0.65} roughness={0.08} />
+          </mesh>
+          {/* Cap */}
+          <mesh position={[0, 0.26, 0]}>
+            <cylinderGeometry args={[0.04, 0.04, 0.045, 16]} />
+            <meshStandardMaterial color={bottle.capColor} roughness={0.3} />
+          </mesh>
+          {/* Label Card */}
+          <Text
+            position={[0, 0.12, 0.08]}
+            fontSize={0.038}
+            color="#0f172a"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.005}
+            outlineColor="#ffffff"
+          >
+            {bottle.label}
+          </Text>
+        </group>
+      ))}
+
+      {/* D. Electrical Power Socket Box on Service Spine */}
+      <group position={[3.6, 0.25, -1.68]}>
+        <mesh>
+          <boxGeometry args={[0.35, 0.22, 0.05]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.2} />
+        </mesh>
+        <mesh position={[-0.08, 0, 0.03]}>
+          <circleGeometry args={[0.045, 16]} />
+          <meshBasicMaterial color="#334155" />
+        </mesh>
+        <mesh position={[0.08, 0, 0.03]}>
+          <circleGeometry args={[0.045, 16]} />
+          <meshBasicMaterial color="#334155" />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -971,14 +1175,16 @@ function BeakerModel({
           <group key={mark.label} position={[0, mark.y, 0]}>
             <mesh position={[-0.12, 0, 0]}>
               <boxGeometry args={[0.12, 0.008, 0.01]} />
-              <meshBasicMaterial color="#ffffff" transparent opacity={0.9} />
+              <meshBasicMaterial color="#0f172a" transparent opacity={0.85} />
             </mesh>
             <Text
               position={[0.04, 0, 0]}
               fontSize={0.055}
-              color="#ffffff"
+              color="#0f172a"
               anchorX="left"
               anchorY="middle"
+              outlineWidth={0.008}
+              outlineColor="#ffffff"
             >
               {mark.label}
             </Text>
@@ -988,9 +1194,11 @@ function BeakerModel({
         <Text
           position={[0, 0.12, 0]}
           fontSize={0.045}
-          color="#cbd5e1"
+          color="#334155"
           anchorX="center"
           anchorY="middle"
+          outlineWidth={0.006}
+          outlineColor="#ffffff"
         >
           BORO 3.3 • 250ml
         </Text>
@@ -1126,14 +1334,16 @@ function ErlenmeyerFlaskModel({
           <group key={m.label} position={[0, m.y, 0]}>
             <mesh position={[-0.1, 0, 0]}>
               <boxGeometry args={[0.1, 0.007, 0.01]} />
-              <meshBasicMaterial color="#ffffff" transparent opacity={0.75} />
+              <meshBasicMaterial color="#0f172a" transparent opacity={0.85} />
             </mesh>
             <Text
               position={[0.04, 0, 0]}
               fontSize={0.05}
-              color="#ffffff"
+              color="#0f172a"
               anchorX="left"
               anchorY="middle"
+              outlineWidth={0.008}
+              outlineColor="#ffffff"
             >
               {m.label}
             </Text>

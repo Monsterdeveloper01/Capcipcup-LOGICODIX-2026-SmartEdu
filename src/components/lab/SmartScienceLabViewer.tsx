@@ -555,8 +555,8 @@ export default function SmartScienceLabViewer() {
                 </div>
               )}
 
-              {/* 3D Workbench Stage Canvas Container - PURE BLACK VOID BACKGROUND */}
-              <div className="bg-black border border-[#202225] rounded-2xl overflow-hidden relative shadow-2xl h-[480px] sm:h-[540px]">
+              {/* 3D Workbench Stage Canvas Container - Clean Laboratory Environment */}
+              <div className="bg-[#f1f5f9] border border-[#3b3e45] rounded-2xl overflow-hidden relative shadow-2xl h-[490px] sm:h-[560px]">
                 {/* Layer 0: Camera Feed (Visually hidden - runs strictly for MediaPipe vision tracking without showing webcam video) */}
                 {isCameraActive && (
                   <div className="absolute inset-0 opacity-0 pointer-events-none -z-10">
