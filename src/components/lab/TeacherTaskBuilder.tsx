@@ -141,41 +141,44 @@ export default function TeacherTaskBuilder({
   const filteredChemicals = CHEMICAL_CATALOG.filter((c) => c.level === gradeLevel);
 
   return (
-    <div className="bg-white border-4 border-black p-5 sm:p-7 shadow-[8px_8px_0px_#000000] font-mono space-y-6 max-w-4xl mx-auto">
+    <div className="bg-[#313338] border border-[#202225] p-5 sm:p-6 rounded-xl shadow-2xl font-sans text-[#dbdee1] space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="border-b-4 border-black pb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="border-b border-[#202225] pb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-black uppercase bg-[#facc15] text-black px-2.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_#000000]">
-            [ PORTAL GURU // PEMBUATAN TUGAS PRAKTIKUM 3D ]
-          </span>
-          <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-black mt-2">
-            RANCANG TUGAS MEJA LAB & KUIS AI
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase bg-[#5865F2] text-white px-2 py-0.5 rounded">
+              PORTAL GURU
+            </span>
+            <span className="text-xs text-[#949ba4]">Pembuatan Tugas Praktikum 3D</span>
+          </div>
+          <h2 className="text-lg sm:text-xl font-bold text-[#f2f3f5] mt-1">
+            Rancang Tugas Meja Lab & Kuis AI
           </h2>
-          <p className="text-xs text-zinc-600 font-bold">
+          <p className="text-xs text-[#949ba4]">
             Pilih zat kimia dari database, buat instruksi observasi, dan biarkan AI menyusun kuis pemahamannya.
           </p>
         </div>
 
         <div className="text-right">
-          <span className="text-xs font-black text-zinc-500">ROOM KELAS:</span>
-          <div className="text-sm font-black text-black bg-zinc-100 px-3 py-1 border-2 border-black">
+          <span className="text-[10px] font-bold text-[#949ba4] uppercase">ROOM KELAS</span>
+          <div className="text-sm font-bold text-white bg-[#1e1f22] px-3 py-1 rounded border border-[#3b3e45]">
             PIN {roomCode}
           </div>
         </div>
       </div>
 
       {errorMsg && (
-        <div className="p-3 bg-red-100 border-2 border-black text-xs font-bold text-red-900 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+        <div className="p-3 bg-[#ed4245]/20 border border-[#ed4245] text-xs font-semibold text-[#f2f3f5] rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-[#ed4245] flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* 1. Quick Presets (Rekomendasi Cepat Berdasarkan Reaksi Nyata) */}
-      <div className="p-4 bg-zinc-50 border-2 border-black space-y-2">
-        <div className="flex items-center gap-2 text-xs font-black uppercase text-black">
-          <BookOpen className="w-4 h-4 text-cyan-700" />
-          <span>TEMPLAT EKSPERIMEN CEPAT (KLIK UNTUK OTOMATIS MENGISI FORM):</span>
+      {/* 1. Quick Presets */}
+      <div className="p-3.5 bg-[#2b2d31] border border-[#3b3e45] rounded-lg space-y-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#f2f3f5]">
+          <BookOpen className="w-4 h-4 text-[#5865F2]" />
+          <span>Templat Eksperimen Cepat (Klik untuk mengisi form otomatis):</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {REACTION_CATALOG.map((rx) => (
@@ -183,9 +186,10 @@ export default function TeacherTaskBuilder({
               key={rx.id}
               type="button"
               onClick={() => applyPresetReaction(rx.id)}
-              className="px-2.5 py-1 bg-white hover:bg-[#facc15] text-black text-xs font-black border-2 border-black shadow-[2px_2px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 text-left"
+              className="px-2.5 py-1.5 bg-[#1e1f22] hover:bg-[#5865F2] hover:text-white text-[#dbdee1] text-xs font-medium rounded border border-[#3b3e45] transition-colors text-left"
             >
-              [{rx.level}] {rx.title}
+              <span className="text-[#57F287] font-bold mr-1">[{rx.level}]</span>
+              {rx.title}
             </button>
           ))}
         </div>
@@ -194,7 +198,7 @@ export default function TeacherTaskBuilder({
       {/* 2. Informasi Utama Tugas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-1.5">
-          <label className="text-xs font-black uppercase text-black">
+          <label className="text-xs font-bold text-[#f2f3f5] uppercase">
             Judul Tugas Praktikum:
           </label>
           <input
@@ -202,18 +206,18 @@ export default function TeacherTaskBuilder({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Contoh: Reaksi Netralisasi Asam Klorida dan Soda Api"
-            className="w-full p-2.5 bg-white border-2 border-black text-xs font-bold text-black focus:outline-none focus:bg-amber-50"
+            className="w-full p-2.5 bg-[#1e1f22] border border-[#3b3e45] focus:border-[#5865F2] text-xs font-medium text-white rounded-lg outline-none transition-colors"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-black uppercase text-black">
+          <label className="text-xs font-bold text-[#f2f3f5] uppercase">
             Jenjang Kurikulum:
           </label>
           <select
             value={gradeLevel}
             onChange={(e) => setGradeLevel(e.target.value as any)}
-            className="w-full p-2.5 bg-white border-2 border-black text-xs font-black text-black focus:outline-none"
+            className="w-full p-2.5 bg-[#1e1f22] border border-[#3b3e45] focus:border-[#5865F2] text-xs font-semibold text-white rounded-lg outline-none"
           >
             <option value="SD">SD (Sains Dasar & Lingkungan)</option>
             <option value="SMP">SMP (Zat & Asam-Basa Dasar)</option>
@@ -224,25 +228,25 @@ export default function TeacherTaskBuilder({
 
       {/* 3. Instruksi Langkah untuk Siswa */}
       <div className="space-y-1.5">
-        <label className="text-xs font-black uppercase text-black">
+        <label className="text-xs font-bold text-[#f2f3f5] uppercase">
           Instruksi Misi Praktikum (Apa yang harus dilakukan siswa di Meja 3D):
         </label>
         <textarea
           rows={3}
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
-          placeholder="Tuliskan langkah-langkah yang harus dilakukan siswa di meja 3D (misal: 'Ambil tabung A, dekatkan ke tabung B untuk menuang. Perhatikan perubahan warna dan gelembung!')..."
-          className="w-full p-2.5 bg-white border-2 border-black text-xs font-bold text-black focus:outline-none focus:bg-amber-50"
+          placeholder="Tuliskan langkah-langkah yang harus dilakukan siswa di meja 3D (misal: 'Ambil bejana NaOH, tuangkan perlahan ke dalam bejana HCl. Amati perubahan suhu dan warna!')..."
+          className="w-full p-2.5 bg-[#1e1f22] border border-[#3b3e45] focus:border-[#5865F2] text-xs font-medium text-white rounded-lg outline-none transition-colors"
         />
       </div>
 
       {/* 4. Pemilihan Zat Kimia untuk Meja 3D */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-black uppercase text-black">
-            PILIH ZAT KIMIA DARI DATABASE ({selectedChemicalIds.length} Terpilih untuk Meja 3D Siswa):
+          <label className="text-xs font-bold text-[#f2f3f5] uppercase">
+            PILIH ZAT KIMIA ({selectedChemicalIds.length} Terpilih untuk Meja 3D):
           </label>
-          <span className="text-[11px] text-zinc-500 font-bold">
+          <span className="text-[11px] text-[#949ba4]">
             Klik kartu zat untuk mencentang/menghapus
           </span>
         </div>
@@ -255,26 +259,26 @@ export default function TeacherTaskBuilder({
                 key={chem.id}
                 type="button"
                 onClick={() => toggleChemical(chem.id)}
-                className={`p-2.5 border-2 border-black text-left flex flex-col justify-between transition-all ${
+                className={`p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all ${
                   isSelected
-                    ? "bg-[#facc15] shadow-[3px_3px_0px_#000000] scale-[1.02]"
-                    : "bg-white hover:bg-zinc-100 shadow-[1px_1px_0px_#000000] opacity-80"
+                    ? "bg-[#404249] border-[#5865F2] ring-1 ring-[#5865F2]"
+                    : "bg-[#2b2d31] hover:bg-[#35373c] border-[#3b3e45]"
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-black">{chem.formula}</span>
+                  <span className="text-xs font-bold text-white font-mono">{chem.formula}</span>
                   <span
-                    className="w-3.5 h-3.5 rounded-full border border-black"
+                    className="w-3.5 h-3.5 rounded-full border border-black shadow-sm"
                     style={{ backgroundColor: chem.color }}
                   />
                 </div>
-                <div className="text-[11px] font-bold text-zinc-800 truncate mt-1">
+                <div className="text-[11px] text-[#dbdee1] truncate mt-1">
                   {chem.name}
                 </div>
-                <div className="flex items-center justify-between text-[10px] font-black text-zinc-500 mt-2 border-t border-black/20 pt-1">
+                <div className="flex items-center justify-between text-[10px] text-[#949ba4] mt-2 border-t border-[#3b3e45] pt-1">
                   <span>{chem.level}</span>
-                  <span className="font-black text-black">
-                    {isSelected ? "✓ AKTIF" : "+ PILIH"}
+                  <span className={`font-bold ${isSelected ? "text-[#57F287]" : "text-[#949ba4]"}`}>
+                    {isSelected ? "✓ Aktif" : "+ Tambah"}
                   </span>
                 </div>
               </button>
@@ -284,14 +288,14 @@ export default function TeacherTaskBuilder({
       </div>
 
       {/* 5. Generator Kuis AI & Soal Evaluasi */}
-      <div className="p-4 bg-amber-50 border-4 border-black space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-black pb-2">
+      <div className="p-4 bg-[#2b2d31] border border-[#3b3e45] rounded-xl space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#3b3e45] pb-3">
           <div>
-            <h4 className="text-xs sm:text-sm font-black uppercase text-black flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-600" />
-              <span>KUIS EVALUASI PRAKTIKUM ({questions.length} SOAL)</span>
+            <h4 className="text-xs sm:text-sm font-bold text-[#f2f3f5] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#FEE75C]" />
+              <span>Kuis Evaluasi Praktikum ({questions.length} Soal)</span>
             </h4>
-            <p className="text-[11px] text-zinc-600 font-bold">
+            <p className="text-[11px] text-[#949ba4]">
               Kuis ini akan dikerjakan siswa tepat setelah berhasil mempraktikkan reaksi di meja 3D.
             </p>
           </div>
@@ -300,31 +304,31 @@ export default function TeacherTaskBuilder({
             type="button"
             onClick={handleGenerateAiQuiz}
             disabled={isGeneratingAiQuiz}
-            className="brutal-btn-yellow px-4 py-2 text-xs font-black uppercase flex items-center gap-1.5 disabled:opacity-50"
+            className="bg-[#5865F2] hover:bg-[#4752c4] disabled:opacity-50 text-white px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow"
           >
             <Sparkles className="w-4 h-4" />
-            <span>{isGeneratingAiQuiz ? "✨ AI SEDANG MENYUSUN SOAL..." : "✨ GENERATE KUIS DENGAN AI"}</span>
+            <span>{isGeneratingAiQuiz ? "Menyusun Soal AI..." : "Generate Kuis AI"}</span>
           </button>
         </div>
 
         {questions.length === 0 ? (
-          <div className="text-center py-6 text-zinc-500 text-xs font-bold border-2 border-dashed border-black bg-white p-4">
-            Belum ada soal kuis. Klik tombol <strong>&quot;✨ GENERATE KUIS DENGAN AI&quot;</strong> di atas untuk membuat soal observasi otomatis!
+          <div className="text-center py-6 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-lg bg-[#1e1f22] p-4">
+            Belum ada soal kuis. Klik tombol <strong>&quot;Generate Kuis AI&quot;</strong> di atas untuk membuat soal observasi otomatis!
           </div>
         ) : (
           <div className="space-y-3">
             {questions.map((q, idx) => (
-              <div key={q.id || idx} className="p-3 bg-white border-2 border-black text-xs space-y-2">
+              <div key={q.id || idx} className="p-3 bg-[#1e1f22] border border-[#3b3e45] rounded-lg text-xs space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-black text-black">
+                  <span className="font-bold text-white">
                     {idx + 1}. {q.question}
                   </span>
                   <button
                     type="button"
                     onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== idx))}
-                    className="text-red-600 hover:text-red-800 text-[11px] font-black"
+                    className="text-[#ed4245] hover:underline text-[11px] font-semibold"
                   >
-                    [ HAPUS ]
+                    Hapus
                   </button>
                 </div>
 
@@ -332,18 +336,20 @@ export default function TeacherTaskBuilder({
                   {q.options.map((opt, optIdx) => (
                     <div
                       key={optIdx}
-                      className={`p-1.5 border border-black text-[11px] font-bold ${
-                        optIdx === q.correctIndex ? "bg-emerald-100 text-emerald-950 font-black" : "bg-zinc-50"
+                      className={`p-2 rounded border text-[11px] ${
+                        optIdx === q.correctIndex
+                          ? "bg-[#23a55a]/20 border-[#23a55a] text-[#57F287] font-semibold"
+                          : "bg-[#2b2d31] border-[#3b3e45] text-[#dbdee1]"
                       }`}
                     >
-                      {String.fromCharCode(65 + optIdx)}. {opt}{" "}
-                      {optIdx === q.correctIndex && "✓ (Kunci Jawaban)"}
+                      <span className="font-bold mr-1">{String.fromCharCode(65 + optIdx)}.</span> {opt}{" "}
+                      {optIdx === q.correctIndex && "✓ (Kunci)"}
                     </div>
                   ))}
                 </div>
 
-                <div className="text-[10px] text-zinc-600 italic bg-zinc-50 p-1.5 border border-zinc-200">
-                  <strong>Pembahasan Ilmiah:</strong> {q.explanation}
+                <div className="text-[10px] text-[#949ba4] bg-[#2b2d31] p-2 rounded border border-[#3b3e45]">
+                  <strong className="text-[#5865F2]">Pembahasan:</strong> {q.explanation}
                 </div>
               </div>
             ))}
@@ -352,14 +358,14 @@ export default function TeacherTaskBuilder({
       </div>
 
       {/* 6. Action Submit Buttons */}
-      <div className="flex items-center justify-between border-t-4 border-black pt-4">
+      <div className="flex items-center justify-between border-t border-[#202225] pt-4">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="brutal-btn-white px-4 py-2 text-xs font-black uppercase"
+            className="bg-[#4e5058] hover:bg-[#6d6f78] text-white px-4 py-2 text-xs font-semibold rounded-lg transition-colors"
           >
-            [ BATAL ]
+            Batal
           </button>
         )}
 
@@ -367,10 +373,10 @@ export default function TeacherTaskBuilder({
           type="button"
           onClick={handleSaveTask}
           disabled={isSaving}
-          className="brutal-btn-yellow px-6 py-3 text-xs sm:text-sm font-black uppercase flex items-center gap-2 ml-auto shadow-[4px_4px_0px_#000000] disabled:opacity-50"
+          className="bg-[#23a55a] hover:bg-[#1f9250] text-white px-6 py-2.5 text-xs sm:text-sm font-semibold rounded-lg flex items-center gap-2 ml-auto shadow transition-colors disabled:opacity-50"
         >
           <CheckCircle2 className="w-5 h-5" />
-          <span>{isSaving ? "MENYIMPAN TUGAS..." : "TERBITKAN TUGAS PRAKTIKUM KE KELAS"}</span>
+          <span>{isSaving ? "Menyimpan Tugas..." : "Terbitkan Tugas ke Kelas"}</span>
         </button>
       </div>
     </div>

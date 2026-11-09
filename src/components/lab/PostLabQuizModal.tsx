@@ -53,36 +53,47 @@ export default function PostLabQuizModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 font-mono overflow-y-auto">
-      <div className="bg-white border-4 border-black w-full max-w-2xl shadow-[8px_8px_0px_#facc15] my-8 p-6 space-y-5">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-[#313338] border border-[#202225] w-full max-w-2xl rounded-xl shadow-2xl my-8 overflow-hidden text-[#dbdee1] flex flex-col">
         {/* Header */}
-        <div className="border-b-4 border-black pb-3 flex items-center justify-between">
+        <div className="bg-[#2b2d31] px-5 py-4 border-b border-[#202225] flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase bg-[#facc15] text-black px-2 py-0.5 border border-black">
-              [ EVALUASI KONSEPTUAL PASCA-PRAKTIKUM ]
-            </span>
-            <h3 className="text-base sm:text-lg font-black uppercase text-black mt-1">
-              KUIS OBSERVASI SAINS: {taskTitle}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase bg-[#5865F2] text-white px-2 py-0.5 rounded">
+                EVALUASI PASCA-PRAKTIKUM
+              </span>
+              <span className="text-xs text-[#949ba4]">Discord Quest Mode</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-[#f2f3f5] mt-1">
+              Kuis Observasi Sains: {taskTitle}
             </h3>
           </div>
-          {isSubmitted && (
+          {isSubmitted ? (
             <div className="text-right">
-              <span className="text-[10px] font-bold text-zinc-500">NILAI KUIS:</span>
-              <div className="text-2xl font-black text-emerald-600">{score}/100</div>
+              <span className="text-[10px] font-bold text-[#949ba4] uppercase">SKOR AKHIR</span>
+              <div className="text-2xl font-black text-[#57F287]">{score}/100</div>
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded-full transition-colors"
+            >
+              ✕
+            </button>
           )}
         </div>
 
         {/* Questions List */}
-        <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
+        <div className="p-5 space-y-4 max-h-[460px] overflow-y-auto bg-[#313338]">
           {questions.map((q, qIdx) => {
             const selectedOpt = selectedAnswers[qIdx];
             const isAnswered = selectedOpt !== undefined;
 
             return (
-              <div key={q.id || qIdx} className="p-3.5 bg-zinc-50 border-2 border-black space-y-2">
-                <div className="font-black text-xs text-black">
-                  {qIdx + 1}. {q.question}
+              <div key={q.id || qIdx} className="p-4 bg-[#2b2d31] border border-[#3b3e45] rounded-lg space-y-3">
+                <div className="font-semibold text-xs sm:text-sm text-[#f2f3f5]">
+                  <span className="text-[#5865F2] font-bold mr-1.5">{qIdx + 1}.</span> {q.question}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -90,15 +101,15 @@ export default function PostLabQuizModal({
                     const isChosen = selectedOpt === optIdx;
                     const isCorrect = q.correctIndex === optIdx;
 
-                    let btnStyle = "bg-white text-zinc-800 hover:bg-zinc-100 border-black";
+                    let btnStyle = "bg-[#1e1f22] text-[#dbdee1] hover:bg-[#35373c] border-[#3b3e45]";
                     if (isSubmitted) {
                       if (isCorrect) {
-                        btnStyle = "bg-emerald-200 text-emerald-950 font-black border-emerald-700";
+                        btnStyle = "bg-[#23a55a] text-white font-bold border-transparent shadow";
                       } else if (isChosen && !isCorrect) {
-                        btnStyle = "bg-red-200 text-red-950 font-black border-red-700";
+                        btnStyle = "bg-[#ed4245] text-white font-bold border-transparent";
                       }
                     } else if (isChosen) {
-                      btnStyle = "bg-[#facc15] text-black font-black border-black shadow-[2px_2px_0px_#000000]";
+                      btnStyle = "bg-[#5865F2] text-white font-semibold border-transparent shadow";
                     }
 
                     return (
@@ -106,9 +117,11 @@ export default function PostLabQuizModal({
                         key={optIdx}
                         type="button"
                         onClick={() => handleSelectOption(qIdx, optIdx)}
-                        className={`p-2 border-2 text-xs text-left transition-all ${btnStyle}`}
+                        className={`p-3 border rounded-lg text-xs text-left transition-all ${btnStyle}`}
                       >
-                        <span className="font-black mr-1">{String.fromCharCode(65 + optIdx)}.</span>{" "}
+                        <span className="font-bold opacity-80 mr-1.5">
+                          {String.fromCharCode(65 + optIdx)}.
+                        </span>{" "}
                         {opt}
                       </button>
                     );
@@ -117,11 +130,11 @@ export default function PostLabQuizModal({
 
                 {/* Explanation on submit */}
                 {isSubmitted && (
-                  <div className="p-2 bg-white border border-black text-[11px] text-zinc-800 space-y-0.5">
-                    <span className="font-black text-cyan-900 flex items-center gap-1">
+                  <div className="p-3 bg-[#1e1f22] border-l-4 border-[#5865F2] rounded text-xs text-[#dbdee1] space-y-1">
+                    <span className="font-bold text-[#5865F2] flex items-center gap-1.5">
                       <BookOpen className="w-3.5 h-3.5" /> Pembahasan Konsep Sains:
                     </span>
-                    <p>{q.explanation}</p>
+                    <p className="leading-relaxed text-[#949ba4]">{q.explanation}</p>
                   </div>
                 )}
               </div>
@@ -130,34 +143,34 @@ export default function PostLabQuizModal({
         </div>
 
         {/* Bottom Actions */}
-        <div className="border-t-4 border-black pt-3 flex items-center justify-between">
+        <div className="bg-[#2b2d31] px-5 py-3.5 border-t border-[#202225] flex items-center justify-between">
           {!isSubmitted ? (
             <>
-              <span className="text-xs text-zinc-500 font-bold">
+              <span className="text-xs text-[#949ba4] font-medium">
                 Terjawab: {Object.keys(selectedAnswers).length} dari {questions.length} soal
               </span>
               <button
                 type="button"
                 onClick={handleFinishQuiz}
                 disabled={Object.keys(selectedAnswers).length < questions.length}
-                className="brutal-btn-yellow px-5 py-2.5 text-xs font-black uppercase flex items-center gap-2 disabled:opacity-50"
+                className="bg-[#5865F2] hover:bg-[#4752c4] disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors shadow"
               >
-                <span>SELESAIKAN & KIRIM JAWABAN</span>
+                <span>Selesaikan & Kirim Jawaban</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </>
           ) : (
             <>
-              <div className="flex items-center gap-2 text-xs font-black text-emerald-700">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#57F287]">
                 <CheckCircle2 className="w-5 h-5" />
-                <span>NILAI TELAH TERCATAT KE DATABASE GURU!</span>
+                <span>Nilai kuis tersimpan otomatis di database guru!</span>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="brutal-btn-yellow px-6 py-2.5 text-xs font-black uppercase"
+                className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-6 py-2.5 rounded-lg text-xs font-semibold transition-colors shadow"
               >
-                KEMBALI KE MEJA LAB
+                Kembali ke Meja Lab
               </button>
             </>
           )}
