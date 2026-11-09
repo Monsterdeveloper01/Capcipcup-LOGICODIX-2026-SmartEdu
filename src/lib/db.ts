@@ -7,30 +7,18 @@ declare global {
   var __dbConfigKey: string | undefined;
 }
 
+function cleanEnv(val?: string): string {
+  if (val === undefined || val === null) return "";
+  return val.split("#")[0].trim();
+}
+
 function getDbConfig() {
-  const cleanEnv = (val?: string) => (val !== undefined ? val.split("#")[0].trim() : undefined);
-
-  const envPass = cleanEnv(process.env.DB_PASSWORD);
-  const password = envPass !== undefined ? envPass : "6wcWxy7YFwzPLRbc";
-
-  const envUser = cleanEnv(process.env.DB_USER);
-  const user = envUser || (process.env.DB_HOST === "127.0.0.1" || process.env.DB_HOST === "localhost" ? "root" : "capcipcup-db-usr");
-
-  const envHost = cleanEnv(process.env.DB_HOST);
-  const host = envHost || "127.0.0.1";
-
-  const envPort = cleanEnv(process.env.DB_PORT);
-  const port = parseInt(envPort || "3306", 10);
-
-  const envDb = cleanEnv(process.env.DB_NAME);
-  const database = envDb || "capcipcup-db";
-
   return {
-    host,
-    port,
-    database,
-    user,
-    password,
+    host: cleanEnv(process.env.DB_HOST) || "127.0.0.1",
+    port: parseInt(cleanEnv(process.env.DB_PORT) || "3306", 10),
+    database: cleanEnv(process.env.DB_NAME) || "capcipcup-db",
+    user: cleanEnv(process.env.DB_USER) || "root",
+    password: cleanEnv(process.env.DB_PASSWORD),
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,

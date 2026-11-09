@@ -637,3 +637,4 @@ setup().catch((err) => {
   console.error('\n[ERROR SETUP DATABASE]:', err.message);
   process.exit(1);
 });
+
