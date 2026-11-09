@@ -51,19 +51,59 @@ export default function CameraFeed({
 
     let isMounted = true;
 
-    async function startCamera() {
-      try {
-        setError(null);
-        stopAllTracks();
+    async function getCameraStream(facing: "user" | "environment"): Promise<MediaStream> {
+      if (typeof window === "undefined" || !navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("Browser atau perangkat tidak mendukung akses webcam (membutuhkan HTTPS atau localhost).");
+      }
 
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
+      // Tier 1: Ideal facingMode
+      try {
+        return await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode,
+            facingMode: { ideal: facing },
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
           audio: false,
         });
+      } catch (e1: any) {
+        console.warn("CameraFeed Tier 1 failed:", e1);
+        if (e1?.name === "NotAllowedError" || e1?.name === "PermissionDeniedError") {
+          throw new Error("Izin akses kamera ditolak. Silakan izinkan kamera di bilah alamat browser.");
+        }
+      }
+
+      // Tier 2: Opposite facingMode
+      const oppositeFacing = facing === "environment" ? "user" : "environment";
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: oppositeFacing },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch (e2: any) {
+        console.warn("CameraFeed Tier 2 failed:", e2);
+        if (e2?.name === "NotAllowedError" || e2?.name === "PermissionDeniedError") {
+          throw new Error("Izin akses kamera ditolak. Silakan izinkan kamera di bilah alamat browser.");
+        }
+      }
+
+      // Tier 3: Generic video: true
+      return await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+    }
+
+    async function startCamera() {
+      try {
+        setError(null);
+        stopAllTracks();
+
+        const mediaStream = await getCameraStream(facingMode);
 
         if (!isMounted) {
           mediaStream.getTracks().forEach((track) => {
