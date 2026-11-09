@@ -38,6 +38,7 @@ export async function GET(
         room_code: q.room_code,
         creator_name: q.creator_name,
         title: q.title,
+        //test
         target_language: q.target_language,
         difficulty_level: q.difficulty_level,
         case_study_story: q.case_study_story,
