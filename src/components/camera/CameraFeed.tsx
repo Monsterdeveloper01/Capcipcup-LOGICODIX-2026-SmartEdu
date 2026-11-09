@@ -56,13 +56,14 @@ export default function CameraFeed({
         throw new Error("Browser atau perangkat tidak mendukung akses webcam (membutuhkan HTTPS atau localhost).");
       }
 
-      // Tier 1: Ideal facingMode
+      // Tier 1: Ideal facingMode with low-latency streaming
       try {
         return await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: facing },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 960, max: 1280 },
+            height: { ideal: 540, max: 720 },
+            frameRate: { ideal: 60, min: 30 },
           },
           audio: false,
         });
@@ -79,8 +80,9 @@ export default function CameraFeed({
         return await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: oppositeFacing },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 960, max: 1280 },
+            height: { ideal: 540, max: 720 },
+            frameRate: { ideal: 60, min: 30 },
           },
           audio: false,
         });

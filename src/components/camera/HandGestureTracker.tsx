@@ -45,6 +45,7 @@ export default function HandGestureTracker({
   const lostRightCounterRef = useRef<number>(0);
   const lostLeftCounterRef = useRef<number>(0);
   const grabFrameCounterRef = useRef<number>(0);
+  const lastVideoTimeRef = useRef<number>(-1);
 
   // 1. Initialize MediaPipe HandLandmarker with 2 Hands Detection
   useEffect(() => {
@@ -80,9 +81,9 @@ export default function HandGestureTracker({
             },
             runningMode: "VIDEO",
             numHands: 2, // DETEKSI DUA TANGAN (KANAN & KIRI)
-            minHandDetectionConfidence: 0.35,
-            minTrackingConfidence: 0.35,
-            minHandPresenceConfidence: 0.35,
+            minHandDetectionConfidence: 0.55,
+            minTrackingConfidence: 0.55,
+            minHandPresenceConfidence: 0.55,
           });
         } catch {
           landmarker = await HandLandmarker.createFromOptions(vision, {
@@ -92,9 +93,9 @@ export default function HandGestureTracker({
             },
             runningMode: "VIDEO",
             numHands: 2,
-            minHandDetectionConfidence: 0.35,
-            minTrackingConfidence: 0.35,
-            minHandPresenceConfidence: 0.35,
+            minHandDetectionConfidence: 0.55,
+            minTrackingConfidence: 0.55,
+            minHandPresenceConfidence: 0.55,
           });
         }
 
@@ -130,11 +131,20 @@ export default function HandGestureTracker({
       !videoElement ||
       !canvasRef.current ||
       !handLandmarkerRef.current ||
-      videoElement.readyState < 2
+      videoElement.readyState < 2 ||
+      videoElement.videoWidth === 0 ||
+      videoElement.videoHeight === 0
     ) {
       animationFrameRef.current = requestAnimationFrame(detectHands);
       return;
     }
+
+    // Hindari inferensi berulang pada frame video yang sama (sinkronisasi dengan framerate webcam nyata)
+    if (videoElement.currentTime === lastVideoTimeRef.current) {
+      animationFrameRef.current = requestAnimationFrame(detectHands);
+      return;
+    }
+    lastVideoTimeRef.current = videoElement.currentTime;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -255,7 +265,7 @@ export default function HandGestureTracker({
           const rawDy = -(middleMcp.y - wrist.y);
           const rawTiltAngle = Math.atan2(rawDx, rawDy);
 
-          currentWristAngleRef.current += (rawTiltAngle - currentWristAngleRef.current) * 0.28;
+          currentWristAngleRef.current += (rawTiltAngle - currentWristAngleRef.current) * 0.55;
         }
 
         if (handCount === 1 || isRightHand) {
@@ -271,11 +281,10 @@ export default function HandGestureTracker({
 
           drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, lineColor, jointColor, label, isHandGrabbing);
 
-          setRightHandStatus(
-            isHandGrabbing
-              ? "✊ Menggenggam Bejana • Putar tangan untuk menuang"
-              : "✋ Tangan Terbuka • Genggam/tutup tangan untuk ambil"
-          );
+          const newRightStatus = isHandGrabbing
+            ? "✊ Menggenggam Bejana • Putar tangan untuk menuang"
+            : "✋ Tangan Terbuka • Genggam/tutup tangan untuk ambil";
+          setRightHandStatus((prev) => (prev !== newRightStatus ? newRightStatus : prev));
         } else {
           // ==========================================
           // 🔍 TANGAN KEDUA: ZOOM IN / ZOOM OUT (SKALA)
@@ -291,21 +300,22 @@ export default function HandGestureTracker({
           const normalizedY = 1 - Math.min(Math.max((wrist.y - 0.15) / 0.65, 0), 1);
           const targetScale = 0.5 + normalizedY * 1.8 + Math.min(pDist * 2, 0.5);
 
-          currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.18;
-          setCurrentScale(currentScaleRef.current);
-
-          setLeftHandStatus(`🔍 Tangan Kiri: Zoom (${currentScaleRef.current.toFixed(2)}x)`);
+          currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.35;
+          if (Math.abs(currentScaleRef.current - currentScale) > 0.04) {
+            setCurrentScale(currentScaleRef.current);
+            setLeftHandStatus(`🔍 Tangan Kiri: Zoom (${currentScaleRef.current.toFixed(2)}x)`);
+          }
         }
       }
     }
 
-    // Konfirmasi grab dengan debounce: butuh 3 frame tangan benar-benar menggenggam untuk aktif, rilis instan saat membuka
+    // Konfirmasi grab instan: 1 frame langsung aktif jika tangan terdeteksi menggenggam secara anatomis, rilis seketika saat membuka
     if (isAnyGrabbingCandidate) {
-      grabFrameCounterRef.current = Math.min(grabFrameCounterRef.current + 1, 6);
+      grabFrameCounterRef.current = Math.min(grabFrameCounterRef.current + 1, 4);
     } else {
       grabFrameCounterRef.current = 0; // Tangan membuka: rilis seketika tanpa delay
     }
-    const confirmedGrab = grabFrameCounterRef.current >= 3;
+    const confirmedGrab = grabFrameCounterRef.current >= 1;
 
     // Grace period tangan kanan
     if (!rightHandDetected) {

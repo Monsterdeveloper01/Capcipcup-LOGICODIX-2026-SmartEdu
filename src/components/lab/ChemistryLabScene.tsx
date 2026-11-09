@@ -154,7 +154,7 @@ export default function ChemistryLabScene({
       <Canvas
         camera={{ position: [0, 3.8, 6.2], fov: 46 }}
         gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
-        shadows
+        shadows={{ type: THREE.PCFShadowMap }}
       >
         {/* Bright Laboratory Studio Illumination */}
         <ambientLight intensity={1.5} color="#ffffff" />
@@ -339,9 +339,9 @@ function VesselsSimulation({
     if (handSphereRef.current) {
       if (isHandActive && effectiveHandPos) {
         handSphereRef.current.visible = true;
-        handSphereRef.current.position.lerp(effectiveHandPos, 0.45);
+        handSphereRef.current.position.lerp(effectiveHandPos, 0.75);
         const targetScale = isGrabbing ? 0.22 : 0.16;
-        handSphereRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.25);
+        handSphereRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.45);
       } else {
         handSphereRef.current.visible = false;
       }
@@ -424,9 +424,9 @@ function VesselsSimulation({
             return {
               ...v,
               position: [
-                THREE.MathUtils.lerp(v.position[0], effectiveHandPos.x, 0.35),
-                THREE.MathUtils.lerp(v.position[1], Math.max(0.7, effectiveHandPos.y + 0.35), 0.35),
-                THREE.MathUtils.lerp(v.position[2], effectiveHandPos.z, 0.35),
+                THREE.MathUtils.lerp(v.position[0], effectiveHandPos.x, 0.70),
+                THREE.MathUtils.lerp(v.position[1], Math.max(0.7, effectiveHandPos.y + 0.35), 0.70),
+                THREE.MathUtils.lerp(v.position[2], effectiveHandPos.z, 0.70),
               ],
             };
           }
