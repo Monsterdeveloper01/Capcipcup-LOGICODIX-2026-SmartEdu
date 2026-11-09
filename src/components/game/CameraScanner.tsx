@@ -23,7 +23,7 @@ export default function CameraScanner({
   const [selectedDetection, setSelectedDetection] = useState<YoloDetection | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const stopCameraStream = () => {
+  const stopMediaTracks = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
         try { track.stop(); } catch (e) {}
@@ -39,15 +39,48 @@ export default function CameraScanner({
       }
       videoRef.current.srcObject = null;
     }
+  };
+
+  const stopCameraStream = () => {
+    stopMediaTracks();
     setIsCameraActive(false);
+  };
+
+  const getCameraStream = async (): Promise<MediaStream> => {
+    if (typeof window === "undefined" || !navigator?.mediaDevices?.getUserMedia) {
+      throw new Error("Perangkat atau browser tidak mendukung akses webcam (kamera membutuhkan HTTPS atau localhost).");
+    }
+
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+    } catch (e1) {
+      console.warn("CameraScanner Tier 1 failed:", e1);
+    }
+
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+    } catch (e2) {
+      console.warn("CameraScanner Tier 2 failed:", e2);
+    }
+
+    return await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false,
+    });
   };
 
   useEffect(() => {
     let isCancelled = false;
 
     if (isCameraActive) {
-      navigator.mediaDevices
-        ?.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } })
+      setErrorMsg(null);
+      getCameraStream()
         .then((s) => {
           if (isCancelled) {
             s.getTracks().forEach((t) => {
@@ -55,29 +88,28 @@ export default function CameraScanner({
             });
             return;
           }
-          if (streamRef.current && streamRef.current !== s) {
-            streamRef.current.getTracks().forEach((t) => {
-              try { t.stop(); } catch (e) {}
-            });
-          }
+          stopMediaTracks();
           streamRef.current = s;
           if (videoRef.current) {
             videoRef.current.srcObject = s;
-            videoRef.current.play().catch(() => {});
+            videoRef.current.onloadedmetadata = () => {
+              videoRef.current?.play().catch(() => {});
+            };
           }
         })
         .catch((err) => {
+          if (isCancelled) return;
           console.warn("Camera stream error:", err);
-          stopCameraStream();
+          stopMediaTracks();
           setErrorMsg("Izin kamera ditolak atau kamera tidak ditemukan. Anda dapat mengunggah foto.");
         });
     } else {
-      stopCameraStream();
+      stopMediaTracks();
     }
 
     return () => {
       isCancelled = true;
-      stopCameraStream();
+      stopMediaTracks();
     };
   }, [isCameraActive]);
 

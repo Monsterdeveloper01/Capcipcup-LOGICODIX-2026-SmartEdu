@@ -84,12 +84,14 @@ export default function StudentGameView({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [isCameraStarting, setIsCameraStarting] = useState<boolean>(false);
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  // Centralized Bulletproof Camera Killer (Turns off Hardware Light Immediately)
-  const stopCameraStream = () => {
+  // Stop physical hardware media tracks only
+  const stopMediaTracks = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
         try {
@@ -110,8 +112,13 @@ export default function StudentGameView({
       }
       videoRef.current.srcObject = null;
     }
+  };
 
+  // Centralized Bulletproof Camera Killer (Turns off Hardware Light Immediately & Resets State)
+  const stopCameraStream = () => {
+    stopMediaTracks();
     setIsCameraActive(false);
+    setIsCameraStarting(false);
   };
 
   // Quest & Inventory State
@@ -407,13 +414,77 @@ export default function StudentGameView({
     });
   };
 
+  // Resilient multi-tier camera grabber (with automatic progressive fallback for Windows / Mobile)
+  const getCameraStream = async (preferredFacing: "user" | "environment"): Promise<MediaStream> => {
+    if (typeof window === "undefined" || !navigator?.mediaDevices?.getUserMedia) {
+      throw new Error("Perangkat atau browser tidak mendukung akses webcam (kamera membutuhkan HTTPS atau localhost).");
+    }
+
+    // Tier 1: Preferred facingMode with ideal constraints (never strict)
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: preferredFacing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+    } catch (err1: any) {
+      console.warn("Camera Tier 1 (ideal facingMode) failed:", err1?.name || err1);
+      if (err1?.name === "NotAllowedError" || err1?.name === "PermissionDeniedError") {
+        throw new Error("Izin akses kamera ditolak oleh browser. Silakan klik ikon gembok / kamera di bilah alamat browser untuk memberikan izin.");
+      }
+    }
+
+    // Tier 2: Opposite facingMode (e.g. front-facing webcam on laptop when environment requested)
+    const oppositeFacing = preferredFacing === "environment" ? "user" : "environment";
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: oppositeFacing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+    } catch (err2: any) {
+      console.warn("Camera Tier 2 (opposite facingMode) failed:", err2?.name || err2);
+      if (err2?.name === "NotAllowedError" || err2?.name === "PermissionDeniedError") {
+        throw new Error("Izin akses kamera ditolak oleh browser. Silakan klik ikon gembok / kamera di bilah alamat browser untuk memberikan izin.");
+      }
+    }
+
+    // Tier 3: Any video device without any facingMode or resolution constraints (most resilient for PC/webcams)
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+    } catch (err3: any) {
+      console.warn("Camera Tier 3 (fallback generic video: true) failed:", err3);
+      if (err3?.name === "NotAllowedError" || err3?.name === "PermissionDeniedError") {
+        throw new Error("Izin akses kamera ditolak oleh browser. Silakan izinkan kamera di bilah alamat browser Anda.");
+      }
+      if (err3?.name === "NotFoundError" || err3?.name === "DevicesNotFoundError") {
+        throw new Error("Tidak ada perangkat kamera / webcam yang terdeteksi di perangkat Anda.");
+      }
+      if (err3?.name === "NotReadableError" || err3?.name === "TrackStartError") {
+        throw new Error("Kamera sedang digunakan oleh aplikasi lain (Zoom, Teams, OBS, dsb.). Tutup aplikasi tersebut dan coba lagi.");
+      }
+      throw new Error(`Tidak dapat mengaktifkan kamera (${err3?.message || "Error tidak diketahui"}). Anda dapat mengunggah file foto sebagai gantinya.`);
+    }
+  };
+
   // Camera stream handler with automatic hardware shutoff
   useEffect(() => {
     let isCancelled = false;
 
     if (step === "scanning" && isCameraActive && !capturedImage) {
-      navigator.mediaDevices
-        ?.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } })
+      setIsCameraStarting(true);
+      setScanError(null);
+
+      getCameraStream(cameraFacing)
         .then((s) => {
           if (isCancelled) {
             s.getTracks().forEach((track) => {
@@ -422,32 +493,34 @@ export default function StudentGameView({
             return;
           }
 
-          if (streamRef.current && streamRef.current !== s) {
-            streamRef.current.getTracks().forEach((t) => {
-              try { t.stop(); } catch (e) {}
-            });
-          }
-
+          stopMediaTracks();
           streamRef.current = s;
+
           if (videoRef.current) {
             videoRef.current.srcObject = s;
-            videoRef.current.play().catch(() => {});
+            videoRef.current.onloadedmetadata = () => {
+              videoRef.current?.play().catch(() => {});
+            };
           }
+          setIsCameraStarting(false);
         })
-        .catch((err) => {
+        .catch((err: any) => {
+          if (isCancelled) return;
           console.warn("Kamera tidak dapat diakses:", err);
-          stopCameraStream();
-          setScanError("Kamera tidak dapat diakses atau izin ditolak. Anda dapat mengunggah file foto di bawah.");
+          stopMediaTracks();
+          setIsCameraStarting(false);
+          setScanError(err.message || "Kamera tidak dapat diakses atau izin ditolak. Anda dapat mengunggah file foto di bawah.");
         });
     } else {
-      stopCameraStream();
+      stopMediaTracks();
+      setIsCameraStarting(false);
     }
 
     return () => {
       isCancelled = true;
-      stopCameraStream();
+      stopMediaTracks();
     };
-  }, [step, isCameraActive, capturedImage]);
+  }, [step, isCameraActive, capturedImage, cameraFacing]);
 
   // Web Speech API (STT) setup
   useEffect(() => {
@@ -777,13 +850,20 @@ export default function StudentGameView({
           activeClassroom={activeClassroom}
           pokedexCount={pokedexDeck.length}
           videoRef={videoRef}
+          streamRef={streamRef}
           isCameraActive={isCameraActive}
+          isCameraStarting={isCameraStarting}
+          cameraFacing={cameraFacing}
+          onToggleCameraFacing={() => setCameraFacing((prev) => (prev === "environment" ? "user" : "environment"))}
           capturedImage={capturedImage}
           isAnalyzing={isAnalyzing}
           scanError={scanError}
           onReturnToCatalog={handleReturnToClassCatalog}
           onOpenPokedex={() => setShowPokedexModal(true)}
-          onStartCamera={() => setIsCameraActive(true)}
+          onStartCamera={() => {
+            setScanError(null);
+            setIsCameraActive(true);
+          }}
           onSnapFromVideo={handleSnapFromVideo}
           onFileUpload={handleFileUpload}
           onRetake={() => {
