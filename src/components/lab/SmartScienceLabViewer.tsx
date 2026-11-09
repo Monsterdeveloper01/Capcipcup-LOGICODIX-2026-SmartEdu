@@ -466,7 +466,7 @@ export default function SmartScienceLabViewer() {
               >
                 {isCameraActive ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline">
-                  {isCameraActive ? "Kamera Aktif" : "Kamera Nonaktif"}
+                  {isCameraActive ? "🖐️ Sensor Tangan Aktif" : "🖐️ Sensor Nonaktif"}
                 </span>
               </button>
             )}
@@ -531,11 +531,11 @@ export default function SmartScienceLabViewer() {
                 </div>
               )}
 
-              {/* 3D Workbench Stage Canvas Container */}
-              <div className="bg-[#111214] border border-[#202225] rounded-2xl overflow-hidden relative shadow-2xl h-[480px] sm:h-[540px]">
-                {/* Layer 0: Camera Feed (AR overlay) */}
+              {/* 3D Workbench Stage Canvas Container - PURE BLACK VOID BACKGROUND */}
+              <div className="bg-black border border-[#202225] rounded-2xl overflow-hidden relative shadow-2xl h-[480px] sm:h-[540px]">
+                {/* Layer 0: Camera Feed (Visually hidden - runs strictly for MediaPipe vision tracking without showing webcam video) */}
                 {isCameraActive && (
-                  <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
+                  <div className="absolute inset-0 opacity-0 pointer-events-none -z-10">
                     <CameraFeed
                       isActive={isCameraActive}
                       onVideoReady={setVideoElement}
@@ -545,16 +545,7 @@ export default function SmartScienceLabViewer() {
                   </div>
                 )}
 
-                {/* Layer 1: Hand Gesture Tracker */}
-                {isCameraActive && (
-                  <HandGestureTracker
-                    videoElement={videoElement}
-                    isActive={isCameraActive}
-                    onGestureUpdate={handleGestureUpdate}
-                  />
-                )}
-
-                {/* Layer 2: 3D WebGL Canvas */}
+                {/* Layer 1: 3D WebGL Canvas (Beakers, Table, Liquids & Reactions on black background) */}
                 <div className="absolute inset-0 z-10 pointer-events-auto">
                   <ChemistryLabScene
                     handTransform={isCameraActive ? handTransform : undefined}
@@ -565,32 +556,43 @@ export default function SmartScienceLabViewer() {
                   />
                 </div>
 
+                {/* Layer 2: Glowing Hand Skeleton Tracker Canvas (Rendered directly OVER the 3D scene) */}
+                {isCameraActive && (
+                  <div className="absolute inset-0 z-20 pointer-events-none">
+                    <HandGestureTracker
+                      videoElement={videoElement}
+                      isActive={isCameraActive}
+                      onGestureUpdate={handleGestureUpdate}
+                    />
+                  </div>
+                )}
+
                 {/* Layer 3: HUD Status Overlay */}
-                <div className="absolute top-3 left-3 z-20 flex items-center gap-2 pointer-events-none">
+                <div className="absolute top-3 left-3 z-30 flex items-center gap-2 pointer-events-none">
                   <span className="bg-[#1e1f22]/90 backdrop-blur-md text-[#57F287] text-[11px] font-bold px-2.5 py-1 rounded-lg border border-[#35363c] flex items-center gap-1.5 shadow">
                     <span className="w-2 h-2 rounded-full bg-[#57F287] animate-pulse" />
-                    Web-AR 3D Active
+                    Hand Skeleton Tracker Active
                   </span>
                 </div>
 
-                <div className="absolute top-3 right-3 z-20 flex items-center gap-2 pointer-events-none">
+                <div className="absolute top-3 right-3 z-30 flex items-center gap-2 pointer-events-none">
                   <div className="bg-[#1e1f22]/90 backdrop-blur-md border border-[#35363c] px-3 py-1.5 rounded-lg text-xs shadow space-y-0.5 text-right">
                     <div className="flex items-center justify-end gap-1.5 text-xs font-bold text-[#57F287]">
                       <span className={`w-2 h-2 rounded-full ${handTransform.handDetected ? "bg-[#57F287] animate-pulse" : "bg-[#ed4245]"}`} />
-                      <span>{handTransform.handDetected ? "Sensor Tangan: Terdeteksi" : "Sensor: Mencari Tangan..."}</span>
+                      <span>{handTransform.handDetected ? "Sensor Tangan: Terdeteksi" : "Sensor: Arahkan Tangan..."}</span>
                     </div>
                     <div className="text-[10px] text-[#949ba4]">
                       {handTransform.isGrabbing
                         ? "✊ Memegang Bejana Kimia"
                         : handTransform.handDetected
                         ? "✋ Mode Membidik (Hover)"
-                        : "Arahkan tangan ke webcam"}
+                        : "Arahkan tangan ke kamera"}
                     </div>
                   </div>
                 </div>
 
                 {/* Layer 4: Floating Quick Controls */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#1e1f22]/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#35363c] shadow-2xl pointer-events-auto">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-[#1e1f22]/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#35363c] shadow-2xl pointer-events-auto">
                   <button
                     type="button"
                     onClick={() => setIsCameraActive((prev) => !prev)}
@@ -598,7 +600,7 @@ export default function SmartScienceLabViewer() {
                       isCameraActive ? "bg-[#35373c] text-white hover:bg-[#404249]" : "bg-[#ed4245] text-white"
                     }`}
                   >
-                    {isCameraActive ? "Kamera On" : "Kamera Off"}
+                    {isCameraActive ? "🖐️ Sensor: ON" : "🖐️ Sensor: OFF"}
                   </button>
 
                   <button

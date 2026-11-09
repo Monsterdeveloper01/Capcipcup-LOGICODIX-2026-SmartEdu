@@ -396,10 +396,16 @@ function drawHandSkeleton(
     [0, 17], // Telapak bawah
   ];
 
+  // Neon glow effect on black background
+  ctx.save();
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = lineColor;
+
   // Draw lines
   ctx.strokeStyle = lineColor;
-  ctx.lineWidth = 3.5;
+  ctx.lineWidth = 4;
   ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 
   for (const [startIdx, endIdx] of connections) {
     const p1 = landmarks[startIdx];
@@ -410,26 +416,39 @@ function drawHandSkeleton(
     ctx.stroke();
   }
 
-  // Draw joint points
+  // Draw joint points with luminous core
   for (let i = 0; i < landmarks.length; i++) {
     const p = landmarks[i];
+    const isTip = i === 4 || i === 8 || i === 12 || i === 16 || i === 20;
+    
     ctx.beginPath();
-    ctx.arc(p.x * width, p.y * height, i === 4 || i === 8 ? 6 : 4, 0, 2 * Math.PI);
+    ctx.arc(p.x * width, p.y * height, isTip ? 6.5 : 4.5, 0, 2 * Math.PI);
     ctx.fillStyle = jointColor;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = jointColor;
     ctx.fill();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+
+    // Inner bright white spark
+    ctx.beginPath();
+    ctx.arc(p.x * width, p.y * height, isTip ? 2.5 : 1.8, 0, 2 * Math.PI);
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowBlur = 0;
+    ctx.fill();
   }
+
+  ctx.restore();
 
   // Draw floating label badge above wrist
   const wrist = landmarks[0];
   const px = Math.min(Math.max(wrist.x * width - 60, 10), Math.max(width - 200, 10));
   const py = Math.max(wrist.y * height - 20, 25);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+  ctx.fillStyle = "rgba(10, 10, 12, 0.85)";
   ctx.beginPath();
   ctx.roundRect(px - 6, py - 14, 185, 20, 6);
   ctx.fill();
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 1;
+  ctx.stroke();
   ctx.font = "bold 11px sans-serif";
   ctx.fillStyle = lineColor;
   ctx.fillText(label, px, py);
