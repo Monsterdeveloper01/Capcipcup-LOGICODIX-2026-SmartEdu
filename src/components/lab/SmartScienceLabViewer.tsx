@@ -82,6 +82,7 @@ export default function SmartScienceLabViewer() {
     isGrabbing: false,
     handDetected: false,
     activeMode: "rotate",
+    wristAngle: 0,
   });
 
   const handleGestureUpdate = useCallback((transform: HandTransform) => {

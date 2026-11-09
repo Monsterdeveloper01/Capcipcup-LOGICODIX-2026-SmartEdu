@@ -13,6 +13,8 @@ export interface HandTransform {
   handDetected: boolean;
   activeMode: "rotate" | "zoom" | "dual";
   handPosition3D?: { x: number; y: number; z: number };
+  handScreenPos?: { x: number; y: number };
+  wristAngle?: number;
 }
 
 interface HandGestureTrackerProps {
@@ -39,6 +41,7 @@ export default function HandGestureTracker({
   const prevRightHandPosRef = useRef<{ x: number; y: number } | null>(null);
   const currentRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const currentScaleRef = useRef<number>(1);
+  const currentWristAngleRef = useRef<number>(0);
   const lostRightCounterRef = useRef<number>(0);
   const lostLeftCounterRef = useRef<number>(0);
   const grabFrameCounterRef = useRef<number>(0);
@@ -156,6 +159,7 @@ export default function HandGestureTracker({
     let rightHandDetected = false;
     let leftHandDetected = false;
     let primaryHand3D: { x: number; y: number; z: number } | undefined = undefined;
+    let primaryScreenPos: { x: number; y: number } | undefined = undefined;
     let isAnyGrabbingCandidate = false;
     let isAnyPinchingCandidate = false;
 
@@ -179,6 +183,8 @@ export default function HandGestureTracker({
 
         const wrist = landmarks[0];
         const middleMcp = landmarks[9];
+        const indexMcp = landmarks[5];
+        const pinkyMcp = landmarks[17];
         const palmLength = Math.max(dist3D(wrist, middleMcp), 0.08);
 
         // ==========================================
@@ -212,6 +218,24 @@ export default function HandGestureTracker({
         // Tentukan tangan utama untuk interaksi 3D (Jika 1 tangan: gunakan tangan tersebut)
         if (handCount === 1 || isRightHand || !primaryHand3D) {
           primaryHand3D = h3D;
+
+          // Pusat fisik telapak tangan (palm center)
+          const palmCenterX = (wrist.x + middleMcp.x + indexMcp.x + pinkyMcp.x) / 4;
+          const palmCenterY = (wrist.y + middleMcp.y + indexMcp.y + pinkyMcp.y) / 4;
+
+          // Koordinat visual layar (0..1) dengan pencerminan horizontal -scale-x-100
+          primaryScreenPos = {
+            x: 1 - palmCenterX,
+            y: palmCenterY,
+          };
+
+          // Hitung sudut rotasi pergelangan tangan (wrist roll / tilt)
+          // Memiringkan tangan ke kanan (seperti menuang ke kanan) atau ke kiri
+          const rawDx = -(middleMcp.x - wrist.x);
+          const rawDy = -(middleMcp.y - wrist.y);
+          const rawTiltAngle = Math.atan2(rawDx, rawDy);
+
+          currentWristAngleRef.current += (rawTiltAngle - currentWristAngleRef.current) * 0.28;
         }
 
         if (handCount === 1 || isRightHand) {
@@ -221,16 +245,16 @@ export default function HandGestureTracker({
           rightHandDetected = true;
           lostRightCounterRef.current = 0;
 
-          const label = isHandGrabbing ? "✊ Tangan Menutup (Pegang)" : "✋ Tangan Terbuka (Arahkan)";
+          const label = isHandGrabbing ? "✊ Tangan Menutup (Memegang)" : "✋ Tangan Terbuka (Membidik)";
           const lineColor = isHandGrabbing ? "#f59e0b" : "#06b6d4";
           const jointColor = isHandGrabbing ? "#fbbf24" : "#22d3ee";
 
-          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, lineColor, jointColor, label);
+          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, lineColor, jointColor, label, isHandGrabbing);
 
           setRightHandStatus(
             isHandGrabbing
-              ? "✊ Tangan Menutup: Memegang & Menggerakkan Balok"
-              : "✋ Tangan Terbuka: Arahkan ke balok (tutup untuk ambil)"
+              ? "✊ Memegang Bejana • Putar tangan untuk menuang"
+              : "✋ Arahkan telapak ke botol • Tutup tangan untuk ambil"
           );
         } else {
           // ==========================================
@@ -239,7 +263,7 @@ export default function HandGestureTracker({
           leftHandDetected = true;
           lostLeftCounterRef.current = 0;
 
-          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, "#ec4899", "#f43f5e", "🔍 Kiri: Zoom Meja");
+          drawHandSkeleton(ctx, landmarks, canvas.width, canvas.height, "#ec4899", "#f43f5e", "🔍 Kiri: Zoom Meja", false);
 
           const thumbTip = landmarks[4];
           const indexTip = landmarks[8];
@@ -292,6 +316,8 @@ export default function HandGestureTracker({
       handDetected: anyHand,
       activeMode: mode,
       handPosition3D: anyHand ? primaryHand3D : undefined,
+      handScreenPos: anyHand ? primaryScreenPos : undefined,
+      wristAngle: anyHand ? currentWristAngleRef.current : 0,
     });
 
     animationFrameRef.current = requestAnimationFrame(detectHands);
@@ -385,7 +411,8 @@ function drawHandSkeleton(
   height: number,
   lineColor: string,
   jointColor: string,
-  label: string
+  label: string,
+  isGrabbing: boolean = false
 ) {
   const connections = [
     [0, 1], [1, 2], [2, 3], [3, 4], // Jempol
@@ -436,6 +463,50 @@ function drawHandSkeleton(
     ctx.fill();
   }
 
+  // =========================================================================
+  // BULET-BULET SELECTOR RETICLE PERSIS DI TENGAH TELAPAK TANGAN
+  // =========================================================================
+  const palmCenterX = (landmarks[0].x + landmarks[5].x + landmarks[9].x + landmarks[17].x) / 4;
+  const palmCenterY = (landmarks[0].y + landmarks[5].y + landmarks[9].y + landmarks[17].y) / 4;
+  const pcx = palmCenterX * width;
+  const pcy = palmCenterY * height;
+
+  const selectorRadius = isGrabbing ? 14 : 19;
+  const selectorColor = isGrabbing ? "#f59e0b" : "#00f5ff";
+
+  // Outer glowing pulsing ring
+  ctx.beginPath();
+  ctx.arc(pcx, pcy, selectorRadius, 0, 2 * Math.PI);
+  ctx.strokeStyle = selectorColor;
+  ctx.lineWidth = 2.5;
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = selectorColor;
+  ctx.stroke();
+
+  // Crosshair notches around the selector circle
+  const tickLen = 5;
+  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) {
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(pcx + cosA * (selectorRadius - 1), pcy + sinA * (selectorRadius - 1));
+    ctx.lineTo(pcx + cosA * (selectorRadius + tickLen), pcy + sinA * (selectorRadius + tickLen));
+    ctx.stroke();
+  }
+
+  // Inner solid core sphere
+  ctx.beginPath();
+  ctx.arc(pcx, pcy, isGrabbing ? 9 : 7, 0, 2 * Math.PI);
+  ctx.fillStyle = selectorColor;
+  ctx.fill();
+
+  // Center white luminous core
+  ctx.beginPath();
+  ctx.arc(pcx, pcy, 3, 0, 2 * Math.PI);
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowBlur = 0;
+  ctx.fill();
+
   ctx.restore();
 
   // Draw floating label badge above wrist
@@ -444,7 +515,7 @@ function drawHandSkeleton(
   const py = Math.max(wrist.y * height - 20, 25);
   ctx.fillStyle = "rgba(10, 10, 12, 0.85)";
   ctx.beginPath();
-  ctx.roundRect(px - 6, py - 14, 185, 20, 6);
+  ctx.roundRect(px - 6, py - 14, 210, 20, 6);
   ctx.fill();
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1;

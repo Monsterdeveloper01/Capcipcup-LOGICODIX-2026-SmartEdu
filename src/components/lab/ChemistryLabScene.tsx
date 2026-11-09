@@ -352,25 +352,44 @@ function VesselsSimulation({
     const isHandActive = Boolean(handTransform && handTransform.handDetected);
     const handPos = handTransform?.handPosition3D;
     const isGrabbing = Boolean(handTransform?.isGrabbing);
+    const wristAngle = handTransform?.wristAngle || 0;
 
-    // 1. Update 3D Hand Cursor
+    // 1. Calculate Exact Effective 3D Hand Position from Screen Center (Raycasting onto workbench plane)
+    let effectiveHandPos: THREE.Vector3 | null = null;
+    if (isHandActive && handTransform?.handScreenPos) {
+      const ndcX = handTransform.handScreenPos.x * 2 - 1;
+      const ndcY = 1 - handTransform.handScreenPos.y * 2;
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), state.camera);
+      const targetPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.75);
+      const intersect = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(targetPlane, intersect)) {
+        intersect.x = THREE.MathUtils.clamp(intersect.x, -4.5, 4.5);
+        intersect.z = THREE.MathUtils.clamp(intersect.z, -3.0, 3.0);
+        effectiveHandPos = intersect;
+      }
+    } else if (isHandActive && handPos) {
+      effectiveHandPos = new THREE.Vector3(handPos.x, handPos.y, handPos.z);
+    }
+
+    // 2. Update 3D Hand Cursor (Locked directly to palm center)
     if (handSphereRef.current) {
-      if (isHandActive && handPos) {
+      if (isHandActive && effectiveHandPos) {
         handSphereRef.current.visible = true;
-        handSphereRef.current.position.lerp(new THREE.Vector3(handPos.x, handPos.y, handPos.z), 0.35);
-        const targetScale = isGrabbing ? 0.26 : 0.18;
-        handSphereRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.2);
+        handSphereRef.current.position.lerp(effectiveHandPos, 0.45);
+        const targetScale = isGrabbing ? 0.22 : 0.16;
+        handSphereRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.25);
       } else {
         handSphereRef.current.visible = false;
       }
     }
 
-    // 2. Hand Targeting & Grab Detection
+    // 3. Hand Targeting & Grab Detection
     let closestTargetId: string | null = null;
-    if (isHandActive && handPos) {
-      let minDist = 1.25;
+    if (isHandActive && effectiveHandPos) {
+      let minDist = 1.65;
       vesselsRef.current.forEach((v) => {
-        const d = Math.hypot(v.position[0] - handPos.x, v.position[1] - handPos.y, v.position[2] - handPos.z);
+        const d = Math.hypot(v.position[0] - effectiveHandPos.x, v.position[2] - effectiveHandPos.z);
         if (d < minDist) {
           minDist = d;
           closestTargetId = v.id;
@@ -396,14 +415,17 @@ function VesselsSimulation({
 
     setTargetedId(!isGrabbing ? closestTargetId : null);
 
-    // 3. Position Update & Pouring Proximity
+    // 4. Position Update & Physical Pouring Proximity
     const activeGrabbedId = mouseDraggedId || grabbedIdRef.current;
+    const isPhysicallyTilting = isHandActive
+      ? Math.abs(wristAngle) > 0.40 // Rotasi pergelangan tangan melebihi ~23 derajat
+      : Boolean(mouseDraggedId);
 
     if (activeGrabbedId) {
       const activeVessel = vesselsRef.current.find((v) => v.id === activeGrabbedId);
       if (activeVessel) {
         let nearestOtherId: string | null = null;
-        let minProximity = 1.45; // Mixing proximity distance threshold
+        let minProximity = 2.1; // Jarak jangkauan untuk menuangkan
 
         vesselsRef.current.forEach((other) => {
           if (other.id === activeGrabbedId) return;
@@ -419,8 +441,8 @@ function VesselsSimulation({
 
         setPouringTargetId(nearestOtherId);
 
-        // Check if mixing triggers a chemical reaction!
-        if (nearestOtherId) {
+        // HANYA memicu reaksi kimia jika pengguna BENAR-BENAR MEMUTAR / MEMIRINGKAN TANGANNYA!
+        if (nearestOtherId && isPhysicallyTilting) {
           const targetVessel = vesselsRef.current.find((v) => v.id === nearestOtherId);
           if (targetVessel) {
             checkAndTriggerReaction(activeVessel, targetVessel);
@@ -431,17 +453,17 @@ function VesselsSimulation({
       setPouringTargetId(null);
     }
 
-    // Move grabbed vessel with hand (or drop gently to table height)
-    if (grabbedIdRef.current && handPos) {
+    // Move grabbed vessel with hand palm center
+    if (grabbedIdRef.current && effectiveHandPos) {
       setVessels((prev) =>
         prev.map((v) => {
           if (v.id === grabbedIdRef.current) {
             return {
               ...v,
               position: [
-                THREE.MathUtils.lerp(v.position[0], handPos.x, 0.25),
-                THREE.MathUtils.lerp(v.position[1], Math.max(0.65, handPos.y), 0.25),
-                THREE.MathUtils.lerp(v.position[2], handPos.z, 0.25),
+                THREE.MathUtils.lerp(v.position[0], effectiveHandPos.x, 0.35),
+                THREE.MathUtils.lerp(v.position[1], Math.max(0.7, effectiveHandPos.y + 0.35), 0.35),
+                THREE.MathUtils.lerp(v.position[2], effectiveHandPos.z, 0.35),
               ],
             };
           }
@@ -606,17 +628,17 @@ function VesselsSimulation({
       <mesh ref={handSphereRef} visible={false}>
         <sphereGeometry args={[1, 32, 32]} />
         <meshStandardMaterial
-          color={handTransform?.isGrabbing ? "#f59e0b" : "#38bdf8"}
-          emissive={handTransform?.isGrabbing ? "#d97706" : "#0284c7"}
-          emissiveIntensity={1.2}
+          color={handTransform?.isGrabbing ? "#f59e0b" : "#00f5ff"}
+          emissive={handTransform?.isGrabbing ? "#d97706" : "#00f5ff"}
+          emissiveIntensity={1.5}
           roughness={0.2}
           transparent
-          opacity={0.85}
+          opacity={0.8}
         />
         <pointLight
-          color={handTransform?.isGrabbing ? "#f59e0b" : "#38bdf8"}
-          intensity={1.8}
-          distance={2.5}
+          color={handTransform?.isGrabbing ? "#f59e0b" : "#00f5ff"}
+          intensity={2}
+          distance={3}
         />
       </mesh>
 
@@ -625,7 +647,6 @@ function VesselsSimulation({
         const isGrabbed = vessel.id === (mouseDraggedId || grabbedIdRef.current);
         const isTargeted = vessel.id === targetedId;
         const isBeingPouredInto = vessel.id === pouringTargetId;
-        const isPouring = isGrabbed && Boolean(pouringTargetId);
 
         return (
           <ChemicalVesselItem
@@ -634,7 +655,8 @@ function VesselsSimulation({
             isGrabbed={isGrabbed}
             isTargeted={isTargeted}
             isBeingPouredInto={isBeingPouredInto}
-            isPouring={isPouring}
+            wristAngle={isGrabbed ? handTransform?.wristAngle || 0 : 0}
+            isHandActive={Boolean(handTransform && handTransform.handDetected)}
             targetPosition={targetVessel?.position}
             onPointerDown={(e) => handlePointerDown(vessel.id, e)}
           />
@@ -659,7 +681,8 @@ function ChemicalVesselItem({
   isGrabbed,
   isTargeted,
   isBeingPouredInto,
-  isPouring,
+  wristAngle,
+  isHandActive,
   targetPosition,
   onPointerDown,
 }: {
@@ -667,7 +690,8 @@ function ChemicalVesselItem({
   isGrabbed: boolean;
   isTargeted: boolean;
   isBeingPouredInto: boolean;
-  isPouring: boolean;
+  wristAngle: number;
+  isHandActive: boolean;
   targetPosition?: [number, number, number];
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
 }) {
@@ -675,17 +699,24 @@ function ChemicalVesselItem({
   const liquidMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const liquidMeshRef = useRef<THREE.Mesh>(null);
 
-  // Smooth color morphing to the new reaction color!
+  // Smooth color morphing & physical wrist pouring tilt!
   useFrame((_, delta) => {
     if (!meshGroupRef.current) return;
 
-    // 1. Pouring Tilt Angle towards target
-    if (isPouring && targetPosition) {
-      const dx = targetPosition[0] - vessel.position[0];
-      const targetTilt = dx > 0 ? -0.85 : 0.85; // Miringkan ke arah bejana target
-      meshGroupRef.current.rotation.z = THREE.MathUtils.lerp(meshGroupRef.current.rotation.z, targetTilt, 0.18);
+    // 1. Physical Wrist Tilt Rotation!
+    if (isGrabbed) {
+      let targetTilt = 0;
+      if (isHandActive) {
+        // Direct wrist angle tilt (in radians, -wristAngle tilts the beaker in the direction of hand rotation)
+        targetTilt = THREE.MathUtils.clamp(-wristAngle * 1.15, -1.35, 1.35);
+      } else if (targetPosition) {
+        // Mouse fallback tilt towards target
+        const dx = targetPosition[0] - vessel.position[0];
+        targetTilt = dx > 0 ? -0.85 : 0.85;
+      }
+      meshGroupRef.current.rotation.z = THREE.MathUtils.lerp(meshGroupRef.current.rotation.z, targetTilt, 0.25);
     } else {
-      meshGroupRef.current.rotation.z = THREE.MathUtils.lerp(meshGroupRef.current.rotation.z, 0, 0.18);
+      meshGroupRef.current.rotation.z = THREE.MathUtils.lerp(meshGroupRef.current.rotation.z, 0, 0.2);
     }
 
     // 2. Liquid Color Morphing (Lerp smoothly to new color)
@@ -712,6 +743,11 @@ function ChemicalVesselItem({
   const radius = vessel.type === "test_tube" ? 0.22 : vessel.type === "flask" ? 0.45 : 0.4;
   const height = vessel.type === "test_tube" ? 1.15 : 0.98;
   const liquidHeight = Math.max(0.15, height * vessel.liquidLevel);
+
+  // Pouring stream is active when vessel is grabbed and physically tilted > 23 degrees (|tilt| > 0.40)
+  const currentTilt = meshGroupRef.current?.rotation.z || 0;
+  const isPouring = isGrabbed && Math.abs(currentTilt) > 0.40;
+  const isPouringRight = currentTilt < -0.40;
 
   return (
     <group
@@ -761,13 +797,13 @@ function ChemicalVesselItem({
         />
       </mesh>
 
-      {/* 3. Dynamic Pouring Liquid Stream (Falling Stream from Spout) */}
+      {/* 3. Dynamic Pouring Liquid Stream (Falling Stream from Tilted Spout) */}
       {isPouring && (
-        <group position={[targetPosition && targetPosition[0] > vessel.position[0] ? radius * 1.1 : -radius * 1.1, height * 0.7, 0]}>
+        <group position={[isPouringRight ? radius * 1.05 : -radius * 1.05, height * 0.75, 0]}>
           {/* Liquid Jet Stream */}
-          <mesh rotation={[0, 0, targetPosition && targetPosition[0] > vessel.position[0] ? -0.4 : 0.4]}>
-            <cylinderGeometry args={[0.04, 0.06, 1.1, 16]} />
-            <meshStandardMaterial color={vessel.color} emissive={vessel.color} emissiveIntensity={0.9} />
+          <mesh rotation={[0, 0, isPouringRight ? -0.45 : 0.45]}>
+            <cylinderGeometry args={[0.04, 0.065, 1.25, 16]} />
+            <meshStandardMaterial color={vessel.color} emissive={vessel.color} emissiveIntensity={1.0} />
           </mesh>
           {/* Spout Droplets */}
           <PouringDroplets color={vessel.color} />
