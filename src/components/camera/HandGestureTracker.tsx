@@ -51,7 +51,7 @@ export default function HandGestureTracker({
     let isCancelled = false;
 
     async function initHandLandmarker() {
-      try {
+      try { 
         setIsModelLoading(true);
 
         // Load WASM: local first, CDN fallback
@@ -188,13 +188,19 @@ export default function HandGestureTracker({
         const palmLength = Math.max(dist3D(wrist, middleMcp), 0.08);
 
         // ==========================================
-        // DETEKSI FISIK TANGAN MENUTUP (KEPALAN) & CUBITAN
+        // DETEKSI FISIK TANGAN MENUTUP (GENGGAMAN / FIST)
         // ==========================================
-        // Cek lekukan 4 jari (Telunjuk, Tengah, Manis, Kelingking)
-        const indexCurled = isFingerCurled(landmarks[8], landmarks[5], wrist, palmLength);
-        const middleCurled = isFingerCurled(landmarks[12], landmarks[9], wrist, palmLength);
-        const ringCurled = isFingerCurled(landmarks[16], landmarks[13], wrist, palmLength);
-        const pinkyCurled = isFingerCurled(landmarks[20], landmarks[17], wrist, palmLength);
+        const palmCenter = {
+          x: (wrist.x + middleMcp.x + indexMcp.x + pinkyMcp.x) / 4,
+          y: (wrist.y + middleMcp.y + indexMcp.y + pinkyMcp.y) / 4,
+          z: ((wrist.z || 0) + (middleMcp.z || 0) + (indexMcp.z || 0) + (pinkyMcp.z || 0)) / 4,
+        };
+
+        // Cek lekukan fisik 4 jari (Telunjuk: 8-6-5, Tengah: 12-10-9, Manis: 16-14-13, Kelingking: 20-18-17)
+        const indexCurled = isFingerTrulyCurled(landmarks[8], landmarks[6], landmarks[5], wrist, palmCenter, palmLength);
+        const middleCurled = isFingerTrulyCurled(landmarks[12], landmarks[10], landmarks[9], wrist, palmCenter, palmLength);
+        const ringCurled = isFingerTrulyCurled(landmarks[16], landmarks[14], landmarks[13], wrist, palmCenter, palmLength);
+        const pinkyCurled = isFingerTrulyCurled(landmarks[20], landmarks[18], landmarks[17], wrist, palmCenter, palmLength);
 
         let curledCount = 0;
         if (indexCurled) curledCount++;
@@ -202,15 +208,29 @@ export default function HandGestureTracker({
         if (ringCurled) curledCount++;
         if (pinkyCurled) curledCount++;
 
-        // Tangan MENUTUP (Kepalan): minimal 3 dari 4 jari ditekuk ke dalam telapak
-        const isFist = curledCount >= 3;
+        // Rata-rata jarak 4 ujung jari ke pusat telapak
+        const avgTipToPalm = (
+          dist3D(landmarks[8], palmCenter) +
+          dist3D(landmarks[12], palmCenter) +
+          dist3D(landmarks[16], palmCenter) +
+          dist3D(landmarks[20], palmCenter)
+        ) / 4;
 
-        // Cubitan presisi: ujung jempol menyentuh ujung telunjuk secara sengaja
+        // Cek apakah tangan sedang terbuka lurus (jari telunjuk & tengah membentang keluar)
+        const isIndexOpen = dist3D(landmarks[8], wrist) > dist3D(landmarks[6], wrist) * 1.05;
+        const isMiddleOpen = dist3D(landmarks[12], wrist) > dist3D(landmarks[10], wrist) * 1.05;
+        const isHandClearlyOpen = (isIndexOpen && isMiddleOpen) || avgTipToPalm > palmLength * 0.70;
+
+        // Tangan MENUTUP BENAR-BENAR MENGGENGGAM:
+        // Minimal 3 jari melipat ke telapak, ujung jari merapat ke pusat telapak, dan jari utama tidak terbuka
+        const isGraspingFist = !isHandClearlyOpen && curledCount >= 3 && avgTipToPalm < palmLength * 0.60;
+
+        // Cubitan presisi: hanya jika jempol & telunjuk sangat dekat DAN jari tengah ikut menekuk
         const pinchDistance = dist3D(landmarks[4], landmarks[8]);
-        const pinching = pinchDistance < palmLength * 0.28;
+        const pinching = pinchDistance < palmLength * 0.22 && (middleCurled || ringCurled);
 
-        // Grabbing aktif jika tangan menutup (fist) ATAU mencubit erat
-        const isHandGrabbing = isFist || pinching;
+        // Interaksi memegang bejana HANYA AKTIF jika tangan benar-benar menutup seperti menggenggam!
+        const isHandGrabbing = isGraspingFist;
 
         if (isHandGrabbing) isAnyGrabbingCandidate = true;
         if (pinching) isAnyPinchingCandidate = true;
@@ -245,7 +265,7 @@ export default function HandGestureTracker({
           rightHandDetected = true;
           lostRightCounterRef.current = 0;
 
-          const label = isHandGrabbing ? "✊ Tangan Menutup (Memegang)" : "✋ Tangan Terbuka (Membidik)";
+          const label = isHandGrabbing ? "✊ Tangan Menggenggam (Memegang)" : "✋ Tangan Terbuka (Membidik)";
           const lineColor = isHandGrabbing ? "#f59e0b" : "#06b6d4";
           const jointColor = isHandGrabbing ? "#fbbf24" : "#22d3ee";
 
@@ -253,8 +273,8 @@ export default function HandGestureTracker({
 
           setRightHandStatus(
             isHandGrabbing
-              ? "✊ Memegang Bejana • Putar tangan untuk menuang"
-              : "✋ Arahkan telapak ke botol • Tutup tangan untuk ambil"
+              ? "✊ Menggenggam Bejana • Putar tangan untuk menuang"
+              : "✋ Tangan Terbuka • Genggam/tutup tangan untuk ambil"
           );
         } else {
           // ==========================================
@@ -279,13 +299,13 @@ export default function HandGestureTracker({
       }
     }
 
-    // Konfirmasi grab dengan debounce (butuh 2 frame tangan menutup untuk aktif, rilis instan saat membuka)
+    // Konfirmasi grab dengan debounce: butuh 3 frame tangan benar-benar menggenggam untuk aktif, rilis instan saat membuka
     if (isAnyGrabbingCandidate) {
-      grabFrameCounterRef.current = Math.min(grabFrameCounterRef.current + 1, 5);
+      grabFrameCounterRef.current = Math.min(grabFrameCounterRef.current + 1, 6);
     } else {
       grabFrameCounterRef.current = 0; // Tangan membuka: rilis seketika tanpa delay
     }
-    const confirmedGrab = grabFrameCounterRef.current >= 2;
+    const confirmedGrab = grabFrameCounterRef.current >= 3;
 
     // Grace period tangan kanan
     if (!rightHandDetected) {
@@ -536,15 +556,30 @@ function dist3D(
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-// Helper memeriksa apakah jari menekuk/melipat ke dalam telapak (mengepal/menutup)
-function isFingerCurled(
+// Helper memeriksa apakah jari benar-benar melipat ke dalam telapak (genggaman/mengepal)
+function isFingerTrulyCurled(
   tip: { x: number; y: number; z?: number },
+  pip: { x: number; y: number; z?: number },
   mcp: { x: number; y: number; z?: number },
   wrist: { x: number; y: number; z?: number },
+  palmCenter: { x: number; y: number; z?: number },
   palmLength: number
 ): boolean {
-  const distToWrist = dist3D(tip, wrist);
-  const distToMcp = dist3D(tip, mcp);
-  // Jari dianggap menekuk jika ujung jari dekat ke pergelangan atau terlipat ke arah pangkal jari
-  return distToWrist < palmLength * 1.15 || distToMcp < palmLength * 0.75;
+  const dTipWrist = dist3D(tip, wrist);
+  const dPipWrist = dist3D(pip, wrist);
+  const dTipPalm = dist3D(tip, palmCenter);
+  const dTipMcp = dist3D(tip, mcp);
+
+  // Jika ujung jari jelas lebih jauh daripada sendi PIP terhadap pergelangan tangan,
+  // dan jarak ke telapak masih besar, maka jari PASTI TERBUKA LURUS
+  if (dTipWrist > dPipWrist * 1.02 && dTipPalm > palmLength * 0.65) {
+    return false;
+  }
+
+  // Jari dianggap menutup / menggenggam jika ujungnya melipat ke dalam telapak:
+  const isTipCurledInward = dTipWrist <= dPipWrist * 1.0;
+  const isTuckedCloseToPalm = dTipPalm < palmLength * 0.58;
+  const isFoldedToKnuckle = dTipMcp < palmLength * 0.5;
+
+  return (isTipCurledInward || isFoldedToKnuckle) && isTuckedCloseToPalm;
 }
