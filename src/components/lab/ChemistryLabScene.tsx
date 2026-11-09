@@ -452,8 +452,10 @@ function VesselsSimulation({
     }
   });
 
-  // Reaction Matcher
-  const checkAndTriggerReaction = (vesselA: ChemicalVessel, vesselB: ChemicalVessel) => {
+  // Reaction Matcher (Local Catalog + Real-Time Gemini AI Fallback)
+  const isSimulatingAiRef = useRef<boolean>(false);
+
+  const checkAndTriggerReaction = async (vesselA: ChemicalVessel, vesselB: ChemicalVessel) => {
     const pairKey = [vesselA.formula, vesselB.formula].sort().join("+");
     const now = Date.now();
 
@@ -462,7 +464,7 @@ function VesselsSimulation({
       return;
     }
 
-    // Match in BUILTIN_REACTIONS
+    // Step 1: Match in local catalog first if available
     const matched = BUILTIN_REACTIONS.find(
       (rx) =>
         (rx.substanceA === vesselA.formula && rx.substanceB === vesselB.formula) ||
@@ -492,6 +494,68 @@ function VesselsSimulation({
       );
 
       onReactionDetected?.(matched, vesselA, vesselB);
+      return;
+    }
+
+    // Step 2: DYNAMIC AI REACTION PREDICTION (Zero Database Dependency!)
+    if (isSimulatingAiRef.current) return;
+    isSimulatingAiRef.current = true;
+    reactionCooldownRef.current[pairKey] = now;
+
+    try {
+      const res = await fetch("/api/lab/simulate-reaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reactantA: { name: vesselA.name, formula: vesselA.formula },
+          reactantB: { name: vesselB.name, formula: vesselB.formula },
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.reaction) {
+        const aiRx = data.reaction;
+
+        const dynamicReaction: ReactionDetail = {
+          id: `ai_rx_${Date.now()}`,
+          title: aiRx.title || `Reaksi ${vesselA.formula} + ${vesselB.formula}`,
+          equation: aiRx.equation || `${vesselA.formula} + ${vesselB.formula} → Hasil Reaksi`,
+          substanceA: vesselA.formula,
+          substanceB: vesselB.formula,
+          resultName: aiRx.productName || "Produk Campuran AI",
+          resultFormula: aiRx.productFormula || "Hasil Reaksi",
+          resultColor: aiRx.productColor || "#06b6d4",
+          effectType: aiRx.visualEffect || "bubbles",
+          temperatureChange: Number(aiRx.temperatureChangeC) || 0,
+          explanation: aiRx.explanation || "Reaksi kimia menghasilkan interaksi molekuler baru.",
+          level: aiRx.level || "SMA",
+        };
+
+        // Transform target vessel B with AI predicted color and values
+        setVessels((prev) =>
+          prev.map((v) => {
+            if (v.id === vesselB.id) {
+              return {
+                ...v,
+                color: dynamicReaction.resultColor,
+                name: dynamicReaction.resultName,
+                formula: dynamicReaction.resultFormula,
+                liquidLevel: Math.min(0.9, v.liquidLevel + 0.15),
+                temperatureC: (v.temperatureC || 25) + dynamicReaction.temperatureChange,
+                isReacted: true,
+                reactionNote: dynamicReaction.title,
+              };
+            }
+            return v;
+          })
+        );
+
+        onReactionDetected?.(dynamicReaction, vesselA, vesselB);
+      }
+    } catch (err) {
+      console.warn("AI dynamic reaction error:", err);
+    } finally {
+      isSimulatingAiRef.current = false;
     }
   };
 
