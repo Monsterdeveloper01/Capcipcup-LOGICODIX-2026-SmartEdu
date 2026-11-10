@@ -30,6 +30,7 @@ import {
   Bot,
   Clock,
   ArrowLeft,
+  ArrowRight,
   ChevronRight,
   Filter,
 } from "lucide-react";
@@ -121,6 +122,7 @@ export default function TeacherTaskBuilder({
   const [kkmScore, setKkmScore] = useState<number>(75);
   const [allowRetakeBelowKkm, setAllowRetakeBelowKkm] = useState<boolean>(true);
   const [showQuizReviewDetails, setShowQuizReviewDetails] = useState<boolean>(true);
+  const [builderStep, setBuilderStep] = useState<1 | 2 | 3 | 4>(1);
   const [isGeneratingAiQuiz, setIsGeneratingAiQuiz] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -150,6 +152,7 @@ export default function TeacherTaskBuilder({
     setKkmScore(task.kkmScore !== undefined && task.kkmScore !== null ? Number(task.kkmScore) : 75);
     setAllowRetakeBelowKkm(task.allowRetakeBelowKkm !== false);
     setShowQuizReviewDetails(task.showQuizReviewDetails !== false);
+    setBuilderStep(1);
 
     setCreationMode("manual");
     switchSection("create");
@@ -168,6 +171,7 @@ export default function TeacherTaskBuilder({
     setKkmScore(75);
     setAllowRetakeBelowKkm(true);
     setShowQuizReviewDetails(true);
+    setBuilderStep(1);
     setRppText("");
     setAiAnalysisSummary(null);
     setErrorMsg(null);
@@ -443,7 +447,7 @@ export default function TeacherTaskBuilder({
   });
 
   return (
-    <div className="bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-sm font-sans text-slate-800 space-y-6 max-w-4xl mx-auto">
+    <div className="bg-white border border-slate-200 p-5 sm:p-6 rounded-2xl shadow-sm font-sans text-slate-800 space-y-6 max-w-7xl mx-auto">
       {/* Top Header of Teacher Portal */}
       <div className="border-b border-slate-200 pb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -543,11 +547,11 @@ export default function TeacherTaskBuilder({
       )}
 
       {/* =========================================================================
-          SECTION 1: RANCANG TUGAS BARU (2 PILIHAN MODE)
+          SECTION 1: RANCANG TUGAS BARU (GUIDED STEPPER: LANGKAH 1 s.d. LANGKAH 4)
           ========================================================================= */}
       {activeSection === "create" && (
-        <div className="space-y-6">
-          {/* Banner Mode Edit Tugas */}
+        <div className="space-y-5">
+          {/* Banner Mode Edit Tugas (Jika Sedang Mengedit) */}
           {editingTaskId && (
             <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex items-center justify-between text-xs text-amber-900 shadow-sm animate-in fade-in">
               <div className="flex items-center gap-2.5">
@@ -555,7 +559,7 @@ export default function TeacherTaskBuilder({
                   Mode Edit Tugas
                 </span>
                 <span>
-                  Sedang mengedit tugas praktikum: <strong className="text-amber-950 font-bold">{title || "Tugas"}</strong>
+                  Sedang memperbarui tugas praktikum: <strong className="text-amber-950 font-bold">{title || "Tugas"}</strong>
                 </span>
               </div>
               <button
@@ -569,225 +573,324 @@ export default function TeacherTaskBuilder({
             </div>
           )}
 
-          {/* Mode Switcher: Mode RPP AI vs Mode Custom Mandiri */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Pilih Metode Perancangan Tugas Praktikum:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setCreationMode("rpp")}
-                className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
-                  creationMode === "rpp"
-                    ? "bg-sky-50/70 border-sky-500 ring-2 ring-sky-500/20 shadow-sm"
-                    : "bg-white hover:bg-slate-50 border-slate-200"
-                }`}
-              >
-                <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
-                  <Sparkles className="w-5 h-5 text-amber-300" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Mode Analisis RPP Otomatis (AI)
-                    </h4>
-                    <span className="text-[9px] font-black bg-sky-100 text-sky-800 border border-sky-300 px-1.5 py-0.2 rounded uppercase">
-                      SMART
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Tempel teks RPP kurikulum merdeka Anda. AI otomatis meracik zat kimia, menyusun panduan lab 3D, dan membuat soal kuis observasi.
-                  </p>
-                </div>
-              </button>
+          {/* Stepper Navigation Bar: Langkah 1 s.d. Langkah 4 */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse" />
+                <span className="text-xs font-bold text-slate-800">
+                  Alur Pembuatan Tugas: Langkah {builderStep} dari 4
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Klik kartu langkah di bawah untuk berpindah bebas kapan saja
+              </span>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => setCreationMode("manual")}
-                className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
-                  creationMode === "manual"
-                    ? "bg-sky-50/70 border-sky-500 ring-2 ring-sky-500/20 shadow-sm"
-                    : "bg-white hover:bg-slate-50 border-slate-200"
-                }`}
-              >
-                <div className="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
-                  <SlidersHorizontal className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Mode Kustom Mandiri (Guru Bebas)
-                    </h4>
-                    <span className="text-[9px] font-black bg-slate-100 text-slate-700 border border-slate-300 px-1.5 py-0.2 rounded uppercase">
-                      MANUAL
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Tentukan sendiri judul, jenjang, pilih reagen bebas dari katalog bahan kimia, serta susun butir kuis sesuai kebutuhan Anda.
-                  </p>
-                </div>
-              </button>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {[
+                {
+                  step: 1,
+                  title: "Langkah 1",
+                  label: "Identitas & RPP",
+                  desc: title.trim() ? title : "Judul & Panduan Meja",
+                  isDone: Boolean(title.trim()),
+                },
+                {
+                  step: 2,
+                  title: "Langkah 2",
+                  label: "Bahan Meja 3D",
+                  desc: selectedChemicalIds.length > 0 ? `${selectedChemicalIds.length} Zat Terpasang` : "Pilih Zat Kimia",
+                  isDone: selectedChemicalIds.length > 0,
+                },
+                {
+                  step: 3,
+                  title: "Langkah 3",
+                  label: "Kuis Evaluasi",
+                  desc: questions.length > 0 ? `${questions.length} Butir Kuis` : "Susun Kuis Evaluasi",
+                  isDone: questions.length > 0,
+                },
+                {
+                  step: 4,
+                  title: "Langkah 4",
+                  label: "KKM & Terbitkan",
+                  desc: `KKM ${kkmScore} • Siap Terbitkan`,
+                  isDone: Boolean(title.trim() && selectedChemicalIds.length > 0 && questions.length > 0),
+                },
+              ].map((s) => {
+                const isActive = builderStep === s.step;
+                return (
+                  <button
+                    key={s.step}
+                    type="button"
+                    onClick={() => setBuilderStep(s.step as any)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
+                      isActive
+                        ? "bg-white border-sky-500 ring-2 ring-sky-500/20 shadow-xs"
+                        : s.isDone
+                        ? "bg-emerald-50/70 border-emerald-300 hover:bg-emerald-50 text-slate-700"
+                        : "bg-white hover:bg-slate-50 border-slate-200 text-slate-500"
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 transition-colors ${
+                        isActive
+                          ? "bg-sky-600 text-white shadow-2xs"
+                          : s.isDone
+                          ? "bg-emerald-600 text-white shadow-2xs"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {s.isDone && !isActive ? "✓" : s.step}
+                    </div>
+                    <div className="truncate">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        {s.title}
+                      </span>
+                      <span className={`text-xs font-bold block truncate ${isActive ? "text-sky-700" : "text-slate-900"}`}>
+                        {s.label}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block truncate">
+                        {s.desc}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* SUB-FORM A: MODE RPP AI */}
-          {creationMode === "rpp" && (
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-sky-600" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Input Dokumen RPP / Modul Ajar Sains
+          {/* =========================================================================
+              LANGKAH 1: IDENTITAS & RPP PRAKTIKUM
+              ========================================================================= */}
+          {builderStep === 1 && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              {/* Mode Switcher */}
+              <div className="p-1.5 bg-slate-100 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCreationMode("rpp")}
+                  className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    creationMode === "rpp"
+                      ? "bg-white text-sky-700 shadow-xs border border-slate-200 ring-1 ring-sky-500/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Mode Analisis RPP Otomatis (AI)</span>
+                  <span className="text-[9px] font-black bg-sky-100 text-sky-800 border border-sky-300 px-1.5 py-0.2 rounded uppercase ml-1">
+                    SMART
                   </span>
-                </div>
-                <span className="text-[11px] text-slate-500">
-                  Didukung Gemini AI Lab Generator
-                </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCreationMode("manual")}
+                  className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    creationMode === "manual"
+                      ? "bg-white text-slate-900 shadow-xs border border-slate-200 ring-1 ring-slate-400/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                  }`}
+                >
+                  <SlidersHorizontal className="w-4 h-4 text-emerald-600" />
+                  <span>Mode Kustom Mandiri (Guru Bebas)</span>
+                  <span className="text-[9px] font-black bg-slate-200 text-slate-700 border border-slate-300 px-1.5 py-0.2 rounded uppercase ml-1">
+                    MANUAL
+                  </span>
+                </button>
               </div>
 
-              {/* RPP Quick Inspirations */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  Contoh Cepat RPP Kurikulum Merdeka (Klik untuk Mengisi):
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {RPP_INSPIRATIONS.map((insp, i) => (
+              {/* Box RPP AI jika Mode RPP aktif */}
+              {creationMode === "rpp" && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                        Input Teks RPP / Modul Ajar Kurikulum Merdeka
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500">Gemini AI Lab &amp; Quiz Engine</span>
+                  </div>
+
+                  {/* RPP Inspirations */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Contoh Cepat RPP Kurikulum Merdeka (Klik untuk Mengisi):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {RPP_INSPIRATIONS.map((insp, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setRppText(insp.text)}
+                          className="px-2.5 py-1 bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-700 border border-slate-200 hover:border-sky-300 text-xs rounded-lg transition-colors font-medium shadow-2xs cursor-pointer"
+                        >
+                          {insp.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* RPP Textarea */}
+                  <textarea
+                    value={rppText}
+                    onChange={(e) => setRppText(e.target.value)}
+                    rows={4}
+                    placeholder="Ketik atau tempel tujuan pembelajaran, kompetensi dasar, atau materi pokok RPP praktikum Anda di sini..."
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder-slate-400 focus:border-sky-500 outline-none leading-relaxed shadow-2xs transition-colors"
+                  />
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] text-slate-500">
+                      AI otomatis mengisi judul, jenjang, zat di meja 3D, dan 3 butir soal kuis observasi.
+                    </span>
                     <button
-                      key={i}
                       type="button"
-                      onClick={() => setRppText(insp.text)}
-                      className="px-2.5 py-1 bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-700 border border-slate-200 hover:border-sky-300 text-xs rounded-lg transition-colors font-medium shadow-2xs"
+                      onClick={handleAnalyzeRpp}
+                      disabled={isAnalyzingRpp || !rppText.trim()}
+                      className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-transform hover:scale-[1.02] cursor-pointer"
                     >
-                      {insp.label}
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>{isAnalyzingRpp ? "Menganalisis RPP & Menyusun Lab..." : "Analisis RPP dengan AI"}</span>
                     </button>
-                  ))}
+                  </div>
+
+                  {aiAnalysisSummary && (
+                    <div className="p-3 bg-white border border-emerald-200 rounded-xl space-y-1 animate-in fade-in text-xs shadow-2xs">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Hasil Analisis Pedagogis AI:</span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed whitespace-pre-line text-[11px]">
+                        {aiAnalysisSummary}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Form Identitas Praktikum */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xs">
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Spesifikasi &amp; Panduan Praktikum Sains
+                    </h4>
+                    <span className="text-[10px] text-slate-500">Judul tugas, jenjang sekolah, dan instruksi kerja siswa</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 uppercase">
+                      Judul Tugas Praktikum:
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Contoh: Praktikum Reaksi Asam Basa &amp; Kalor"
+                      className="w-full p-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 shadow-2xs transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 uppercase">
+                      Jenjang Sekolah:
+                    </label>
+                    <select
+                      value={gradeLevel}
+                      onChange={(e) => setGradeLevel(e.target.value as any)}
+                      className="w-full p-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 shadow-2xs cursor-pointer"
+                    >
+                      <option value="SD">SD (Sekolah Dasar)</option>
+                      <option value="SMP">SMP (Sekolah Menengah Pertama)</option>
+                      <option value="SMA">SMA (Sekolah Menengah Atas)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase flex items-center justify-between">
+                    <span>Target Reaksi Kimia (Stoikiometri):</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Mencocokkan animasi 3D dan produk reaksi</span>
+                  </label>
+                  <select
+                    value={expectedReactionId}
+                    onChange={(e) => setExpectedReactionId(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 shadow-2xs cursor-pointer truncate"
+                  >
+                    <option value="">-- Reaksi Eksplorasi Bebas / Otomatis --</option>
+                    {REACTION_CATALOG.map((rx) => (
+                      <option key={rx.id} value={rx.id}>
+                        [{rx.level}] {rx.title} — {rx.equation}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase">
+                    Panduan &amp; Instruksi Kerja Siswa di Meja 3D:
+                  </label>
+                  <textarea
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    rows={3}
+                    placeholder="Instruksi penuangan zat, hal yang perlu diamati di meja 3D, dan cara menguji suhu/warna..."
+                    className="w-full p-2.5 bg-white border border-slate-200 text-xs text-slate-900 rounded-xl outline-none focus:border-sky-500 leading-relaxed shadow-2xs transition-colors"
+                  />
                 </div>
               </div>
 
-              {/* RPP Textarea */}
-              <div className="space-y-1.5">
-                <textarea
-                  value={rppText}
-                  onChange={(e) => setRppText(e.target.value)}
-                  rows={6}
-                  placeholder="Ketik atau tempel tujuan pembelajaran, kompetensi dasar, atau deskripsi RPP praktikum Anda di sini..."
-                  className="w-full p-3.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-sky-500 outline-none leading-relaxed transition-colors shadow-2xs"
-                />
-              </div>
-
-              {/* Action Analyze RPP Button */}
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[11px] text-slate-500">
-                  AI akan otomatis memilih zat kimia yang relevan dari katalog sains.
+              {/* Step 1 Footer Action */}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                <span className="text-xs text-slate-500">
+                  Langkah 1 selesai: Judul dan instruksi telah disiapkan.
                 </span>
 
                 <button
                   type="button"
-                  onClick={handleAnalyzeRpp}
-                  disabled={isAnalyzingRpp || !rppText.trim()}
-                  className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-sm transition-transform hover:scale-[1.02] cursor-pointer"
+                  onClick={() => {
+                    if (!title.trim()) {
+                      setErrorMsg("Ketik judul tugas praktikum terlebih dahulu.");
+                      return;
+                    }
+                    setErrorMsg(null);
+                    setBuilderStep(2);
+                  }}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-transform hover:scale-[1.02] shadow-sm cursor-pointer ml-auto"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>{isAnalyzingRpp ? "Menganalisis RPP & Menyusun Lab..." : "Analisis RPP dengan AI"}</span>
+                  <span>Lanjut ke Langkah 2: Pilih Reagen Meja 3D</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* AI Analysis Summary Preview */}
-              {aiAnalysisSummary && (
-                <div className="p-3.5 bg-white border border-emerald-200 rounded-xl space-y-1.5 animate-in fade-in">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Hasil Analisis Pedagogis AI:</span>
-                  </div>
-                  <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                    {aiAnalysisSummary}
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
-          {/* SUB-FORM B: COMMON TASK CONFIGURATION */}
-          {(creationMode === "manual" || aiAnalysisSummary) && (
-            <div className="space-y-6 pt-2">
-              {/* Basic Meta: Judul & Jenjang */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Judul Tugas Praktikum:
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Contoh: Praktikum Reaksi Asam Basa &amp; Kalor"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Jenjang Sekolah:
-                  </label>
-                  <select
-                    value={gradeLevel}
-                    onChange={(e) => setGradeLevel(e.target.value as any)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
-                  >
-                    <option value="SD">SD (Sekolah Dasar)</option>
-                    <option value="SMP">SMP (Sekolah Menengah Pertama)</option>
-                    <option value="SMA">SMA (Sekolah Menengah Atas)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Instruksi Tugas Praktikum untuk Siswa */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase">
-                  Panduan &amp; Instruksi Kerja Siswa di Meja 3D:
-                </label>
-                <textarea
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  rows={3}
-                  placeholder="Instruksi penuangan zat, hal yang perlu diamati di meja 3D, dan cara menguji suhu/warna..."
-                  className="w-full p-3 bg-slate-50 border border-slate-200 text-xs text-slate-900 rounded-xl outline-none focus:border-sky-500 focus:bg-white leading-relaxed"
-                />
-              </div>
-
-              {/* Target Reaksi yang Diharapkan */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
-                  <span>Target Reaksi Kimia (Stoikiometri):</span>
-                  <span className="text-[10px] text-slate-500 font-normal">
-                    Otomatis mencocokkan animasi 3D dan produk reaksi
-                  </span>
-                </label>
-                <select
-                  value={expectedReactionId}
-                  onChange={(e) => setExpectedReactionId(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
-                >
-                  <option value="">-- Reaksi Eksplorasi Bebas / Otomatis --</option>
-                  {REACTION_CATALOG.map((rx) => (
-                    <option key={rx.id} value={rx.id}>
-                      [{rx.level}] {rx.title} — {rx.equation}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Pilihan Bahan Kimia di Meja 3D */}
-              <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Reagen Bahan Kimia di Meja 3D ({selectedChemicalIds.length} Zat Terpilih)
-                    </h4>
-                    <span className="text-[11px] text-slate-500">
-                      Zat kimia ini akan otomatis diletakkan di meja lab 3D siswa saat mereka membuka tugas.
-                    </span>
+          {/* =========================================================================
+              LANGKAH 2: RACIK REAGEN & BAHAN DI MEJA 3D
+              ========================================================================= */}
+          {builderStep === 2 && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                      <FlaskConical className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                        Bahan Kimia di Meja Praktik Siswa ({selectedChemicalIds.length} Zat Terpilih)
+                      </h4>
+                      <span className="text-[10px] text-slate-500">
+                        Zat kimia ini akan otomatis diletakkan di atas meja 3D siswa saat mereka membuka tugas.
+                      </span>
+                    </div>
                   </div>
 
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-black">
@@ -795,13 +898,13 @@ export default function TeacherTaskBuilder({
                   </span>
                 </div>
 
-                {/* Selected Chemicals Pills */}
+                {/* Selected Chemical Cards */}
                 {selectedChemicalIds.length === 0 ? (
-                  <div className="p-3 bg-white border border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-400">
-                    Belum ada zat yang dipilih. Pilih bahan dari katalog di bawah.
+                  <div className="p-4 bg-white border border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-400">
+                    Belum ada zat yang dipilih. Silakan klik zat pada katalog bahan kimia di bawah ini.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
                     {selectedChemicalIds.map((id) => {
                       const chem = CHEMICAL_CATALOG.find((c) => c.id === id) || {
                         name: id,
@@ -812,18 +915,18 @@ export default function TeacherTaskBuilder({
                       return (
                         <div
                           key={id}
-                          className="p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs shadow-2xs"
+                          className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs shadow-2xs"
                         >
                           <div className="flex items-center gap-2 truncate">
                             <span
-                              className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+                              className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0 shadow-2xs"
                               style={{ backgroundColor: chem.color }}
                             />
                             <div className="truncate">
-                              <span className="font-mono font-bold text-slate-900 block">
+                              <span className="font-mono font-bold text-slate-900 block leading-tight">
                                 <ChemicalFormula formula={chem.formula} />
                               </span>
-                              <span className="text-[10px] text-slate-500 truncate">
+                              <span className="text-[10px] text-slate-500 truncate block">
                                 {chem.name}
                               </span>
                             </div>
@@ -831,8 +934,8 @@ export default function TeacherTaskBuilder({
                           <button
                             type="button"
                             onClick={() => toggleChemical(id)}
-                            className="text-rose-600 hover:text-rose-700 p-1 rounded hover:bg-rose-50 text-[10px]"
-                            title="Hapus zat ini"
+                            className="text-rose-600 hover:text-rose-700 p-1 rounded hover:bg-rose-50 text-[10px] transition-colors cursor-pointer"
+                            title="Hapus zat ini dari meja 3D"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -843,27 +946,24 @@ export default function TeacherTaskBuilder({
                 )}
 
                 {/* Chemical Catalog Browser */}
-                <div className="pt-2 space-y-2 border-t border-slate-200">
+                <div className="pt-3 space-y-2 border-t border-slate-200">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Katalog Bahan Kimia Tersedia (Klik untuk Menambah/Mengurangi):
+                      Katalog Bahan Kimia Laboratorium (Klik untuk Menambah/Mengurangi):
                     </span>
-
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <Search className="w-3 h-3 text-slate-400 absolute left-2 top-2.5" />
-                        <input
-                          type="text"
-                          value={chemicalSearchQuery}
-                          onChange={(e) => setChemicalSearchQuery(e.target.value)}
-                          placeholder="Cari zat..."
-                          className="pl-7 pr-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-sky-500 w-32 sm:w-40"
-                        />
-                      </div>
+                    <div className="relative">
+                      <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        value={chemicalSearchQuery}
+                        onChange={(e) => setChemicalSearchQuery(e.target.value)}
+                        placeholder="Cari nama atau formula zat..."
+                        className="pl-7 pr-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-sky-500 w-48 shadow-2xs"
+                      />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-52 overflow-y-auto p-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-1">
                     {filteredChemicals.map((chem) => {
                       const isSelected = selectedChemicalIds.includes(chem.id);
                       return (
@@ -871,10 +971,10 @@ export default function TeacherTaskBuilder({
                           key={chem.id}
                           type="button"
                           onClick={() => toggleChemical(chem.id)}
-                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                             isSelected
-                              ? "bg-sky-50 border-sky-500 ring-1 ring-sky-500 shadow-xs"
-                              : "bg-white hover:bg-slate-50 border-slate-200"
+                              ? "bg-sky-50 border-sky-500 ring-1 ring-sky-500 shadow-2xs"
+                              : "bg-white hover:bg-slate-50 border-slate-200 shadow-2xs"
                           }`}
                         >
                           <div className="flex items-center justify-between w-full">
@@ -882,7 +982,7 @@ export default function TeacherTaskBuilder({
                               <ChemicalFormula formula={chem.formula} />
                             </span>
                             <span
-                              className="w-3.5 h-3.5 rounded-full border border-black/10 shadow-xs"
+                              className="w-3.5 h-3.5 rounded-full border border-black/10 shadow-2xs shrink-0"
                               style={{ backgroundColor: chem.color }}
                             />
                           </div>
@@ -892,7 +992,7 @@ export default function TeacherTaskBuilder({
                           <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2 border-t border-slate-100 pt-1">
                             <span>{chem.level}</span>
                             <span className="font-bold text-sky-700">
-                              {isSelected ? "✓ Aktif" : "+ Tambah"}
+                              {isSelected ? "✓ Terpasang" : "+ Pasang"}
                             </span>
                           </div>
                         </button>
@@ -902,20 +1002,54 @@ export default function TeacherTaskBuilder({
                 </div>
               </div>
 
-              {/* Butir Soal Kuis Pemahaman Pasca-Praktikum (Hasil AI 3 Soal & Dapat Diedit/Ditambah) */}
-              <div className="space-y-3.5 p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl">
+              {/* Step 2 Footer Navigation */}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setBuilderStep(1)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali ke Langkah 1</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedChemicalIds.length === 0) {
+                      setErrorMsg("Pilih minimal 1 zat kimia untuk ditaruh di meja lab 3D siswa.");
+                      return;
+                    }
+                    setErrorMsg(null);
+                    setBuilderStep(3);
+                  }}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-transform hover:scale-[1.02] shadow-sm cursor-pointer"
+                >
+                  <span>Lanjut ke Langkah 3: Susun Kuis Evaluasi ({questions.length} Soal)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              LANGKAH 3: KUIS EVALUASI OBSERVASI SAINS
+              ========================================================================= */}
+          {builderStep === 3 && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xs">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                        Butir Soal Kuis Pemahaman Sains ({questions.length} Soal)
+                        Butir Soal Kuis Pemahaman Pasca-Praktikum ({questions.length} Soal)
                       </h4>
                       <span className="text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300 px-2 py-0.5 rounded">
                         {questions.length === 3 ? "Standard AI (3 Soal)" : `${questions.length} Soal Tersedia`}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 block mt-0.5">
-                      AI membuat tepat 3 butir soal dasar. Anda dapat mengedit teks soal, opsi jawaban, pembahasan, atau menambah soal lebih dari 3.
+                      Kuis ini dikerjakan siswa pasca-praktikum. Klik tombol radio hijau untuk menentukan kunci jawaban yang benar.
                     </span>
                   </div>
 
@@ -925,10 +1059,10 @@ export default function TeacherTaskBuilder({
                       onClick={handleGenerateAiQuiz}
                       disabled={isGeneratingAiQuiz}
                       className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-                      title="Generate ulang 3 soal kuis berbasis AI"
+                      title="Generate ulang 3 butir soal berbasis AI"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>{isGeneratingAiQuiz ? "Membuat 3 Soal AI..." : "Generate 3 Soal (AI)"}</span>
+                      <span>{isGeneratingAiQuiz ? "Menyusun Soal..." : "Generate 3 Soal (AI)"}</span>
                     </button>
 
                     <button
@@ -938,17 +1072,17 @@ export default function TeacherTaskBuilder({
                       title="Tambah butir soal kuis baru"
                     >
                       <Plus className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Tambah Soal Baru</span>
+                      <span>Tambah Soal</span>
                     </button>
                   </div>
                 </div>
 
                 {questions.length === 0 ? (
-                  <div className="p-6 bg-white border border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-400 space-y-2">
+                  <div className="p-8 bg-white border border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-400 space-y-2">
                     <BookOpen className="w-8 h-8 text-slate-300 mx-auto" />
                     <p className="font-bold text-slate-700">Belum ada butir soal kuis untuk tugas ini.</p>
                     <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-                      Klik <strong>&quot;Generate 3 Soal (AI)&quot;</strong> untuk membuat 3 soal otomatis berbasis AI, atau klik <strong>&quot;Tambah Soal Baru&quot;</strong> untuk menulis soal sendiri.
+                      Klik <strong>&quot;Generate 3 Soal (AI)&quot;</strong> untuk membuat soal otomatis atau klik <strong>&quot;Tambah Soal&quot;</strong> untuk mengetik manual.
                     </p>
                   </div>
                 ) : (
@@ -956,9 +1090,9 @@ export default function TeacherTaskBuilder({
                     {questions.map((q, idx) => (
                       <div
                         key={q.id || idx}
-                        className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 shadow-2xs transition-shadow hover:shadow-sm"
+                        className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 shadow-2xs transition-shadow hover:shadow-xs"
                       >
-                        {/* Header Soal & Hapus */}
+                        {/* Header Soal */}
                         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                           <div className="flex items-center gap-2">
                             <span className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 border border-sky-300 flex items-center justify-center font-black text-xs">
@@ -981,7 +1115,7 @@ export default function TeacherTaskBuilder({
                             title="Hapus butir soal ini"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Hapus</span>
+                            <span>Hapus Soal</span>
                           </button>
                         </div>
 
@@ -1008,7 +1142,7 @@ export default function TeacherTaskBuilder({
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                             <span>Pilihan Jawaban (Pilih Radio untuk Menentukan Kunci Jawaban Benar):</span>
-                            <span className="text-emerald-700 lowercase font-medium">● radio hijau = kunci jawaban</span>
+                            <span className="text-emerald-700 font-medium">● radio hijau = kunci jawaban</span>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1038,7 +1172,7 @@ export default function TeacherTaskBuilder({
                                       );
                                     }}
                                     className="accent-emerald-600 cursor-pointer w-4 h-4 shrink-0"
-                                    title={`Tandai opsi ${optLetter} sebagai jawaban benar`}
+                                    title={`Tandai opsi ${optLetter} sebagai kunci jawaban benar`}
                                   />
 
                                   {/* Huruf Opsi A/B/C/D */}
@@ -1094,7 +1228,7 @@ export default function TeacherTaskBuilder({
                                 prev.map((item, i) => (i === idx ? { ...item, explanation: val } : item))
                               );
                             }}
-                            placeholder="Alasan ilmiah mengapa kunci jawaban di atas benar..."
+                            placeholder="Alasan ilmiah mengapa kunci jawaban benar..."
                             className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none focus:border-sky-500 focus:bg-white transition-colors"
                           />
                         </div>
@@ -1102,12 +1236,9 @@ export default function TeacherTaskBuilder({
                     ))}
 
                     {/* Bottom Action: Tambah Butir Soal Lebih dari 3 */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/80 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                       <div className="text-xs text-slate-600">
-                        Total: <strong>{questions.length} Butir Soal</strong>{" "}
-                        <span className="text-[11px] text-slate-400">
-                          (Guru bebas menambah lebih dari 3 soal sesuai silabus kelas)
-                        </span>
+                        Total: <strong>{questions.length} Butir Soal</strong>
                       </div>
 
                       <button
@@ -1123,159 +1254,274 @@ export default function TeacherTaskBuilder({
                 )}
               </div>
 
-              {/* Pengaturan KKM & Kebijakan Pengulangan Praktikum */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-sky-600" />
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Pengaturan KKM &amp; Kebijakan Remedial / Pengulangan Siswa
-                    </h4>
+              {/* Step 3 Footer Navigation */}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setBuilderStep(2)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali ke Langkah 2</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (questions.length === 0) {
+                      setErrorMsg("Tugas memerlukan minimal 1 butir kuis evaluasi.");
+                      return;
+                    }
+                    setErrorMsg(null);
+                    setBuilderStep(4);
+                  }}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-transform hover:scale-[1.02] shadow-sm cursor-pointer"
+                >
+                  <span>Lanjut ke Langkah 4: KKM &amp; Terbitkan Tugas</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              LANGKAH 4: STANDAR KKM, TINJAUAN AKHIR & PUBLIKASI TUGAS
+              ========================================================================= */}
+          {builderStep === 4 && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                {/* Kolom Kiri: Pengaturan KKM & Kebijakan */}
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3.5 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                          <SlidersHorizontal className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                            Standar KKM &amp; Kebijakan Kelulusan
+                          </h4>
+                          <span className="text-[10px] text-slate-500">Batas nilai &amp; izin pengulangan</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-sky-100 text-sky-800 border border-sky-200 px-2 py-0.5 rounded font-black">
+                        KEBIJAKAN KELAS
+                      </span>
+                    </div>
+
+                    {/* Input KKM Slider */}
+                    <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                      <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
+                        <span>Batas Nilai KKM:</span>
+                        <span className="text-sky-600 font-mono font-black text-sm">{kkmScore} / 100</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="50"
+                          max="95"
+                          step="5"
+                          value={kkmScore}
+                          onChange={(e) => setKkmScore(Number(e.target.value))}
+                          className="w-full accent-sky-600 cursor-pointer"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={kkmScore}
+                          onChange={(e) => setKkmScore(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+                          className="w-16 p-1.5 bg-slate-50 border border-slate-200 text-xs font-bold text-center text-slate-900 rounded-lg outline-none focus:border-sky-600"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        Siswa dengan skor kuis ≥ <strong>{kkmScore}</strong> otomatis dinyatakan <strong>Tuntas Lulus</strong>.
+                      </p>
+                    </div>
+
+                    {/* Toggle Retake Below KKM */}
+                    <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={allowRetakeBelowKkm}
+                          onChange={(e) => setAllowRetakeBelowKkm(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-bold text-slate-900 block">
+                            Izinkan Siswa Mengulang jika Nilai &lt; KKM
+                          </span>
+                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                            {allowRetakeBelowKkm ? (
+                              <span className="text-emerald-700 font-semibold block">
+                                ✓ Diizinkan: Siswa &lt; {kkmScore} boleh mereset meja dan mengulang kuis sampai tuntas.
+                              </span>
+                            ) : (
+                              <span className="text-rose-700 font-semibold block">
+                                ✕ Dilarang: Pengulangan dikunci setelah pengumpulan pertama.
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Toggle Mode Review Kuis */}
+                    <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={showQuizReviewDetails}
+                          onChange={(e) => setShowQuizReviewDetails(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
+                        />
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900">
+                              Review Kuis Siswa: Kunci &amp; Pembahasan
+                            </span>
+                            <span
+                              className={`text-[9px] font-black px-1.5 py-0.2 rounded border ${
+                                showQuizReviewDetails
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                  : "bg-amber-100 text-amber-800 border-amber-300"
+                              }`}
+                            >
+                              {showQuizReviewDetails ? "ON (Detail)" : "OFF (Ringkas)"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                            {showQuizReviewDetails ? (
+                              <span className="text-emerald-700 font-semibold block">
+                                ✓ Mode Detail: Siswa melihat butir soal salah/benar, kunci jawaban, dan pembahasan ilmiah.
+                              </span>
+                            ) : (
+                              <span className="text-amber-700 font-semibold block">
+                                🔒 Mode Ringkas: Siswa hanya diberitahu benar/salah tanpa membocorkan kunci dan pembahasan.
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
-                  <span className="text-[10px] bg-sky-100 text-sky-800 border border-sky-200 px-2 py-0.5 rounded font-black">
-                    STANDAR KELULUSAN
-                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start pt-1">
-                  {/* Input KKM */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
-                      <span>Batas Nilai KKM:</span>
-                      <span className="text-sky-600 font-mono font-black text-sm">{kkmScore} / 100</span>
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min="50"
-                        max="95"
-                        step="5"
-                        value={kkmScore}
-                        onChange={(e) => setKkmScore(Number(e.target.value))}
-                        className="w-full accent-sky-600 cursor-pointer"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={kkmScore}
-                        onChange={(e) => setKkmScore(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
-                        className="w-16 p-1.5 bg-white border border-slate-200 text-xs font-bold text-center text-slate-900 rounded-lg outline-none focus:border-sky-600"
-                      />
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                      Siswa yang memperoleh skor kuis ≥ <strong>{kkmScore}</strong> dinyatakan <strong>Tuntas (Lulus)</strong> dan eksperimennya otomatis selesai secara permanen.
-                    </p>
-                  </div>
-
-                  {/* Toggle Retake Below KKM */}
-                  <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200">
-                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={allowRetakeBelowKkm}
-                        onChange={(e) => setAllowRetakeBelowKkm(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
-                      />
-                      <div className="space-y-1">
-                        <span className="text-xs font-bold text-slate-900 block">
-                          Izinkan Siswa Mengulang jika Nilai &lt; KKM
-                        </span>
-                        <p className="text-[11px] text-slate-600 leading-relaxed">
-                          {allowRetakeBelowKkm ? (
-                            <span className="text-emerald-700 font-semibold block">
-                              ✓ Diizinkan: Siswa yang nilainya di bawah {kkmScore} boleh mereset meja 3D dan mengulangi praktikum serta kuis sampai tuntas.
-                            </span>
-                          ) : (
-                            <span className="text-rose-700 font-semibold block">
-                              ✕ Dilarang: Semua tombol ulangi praktikum dan pengerjaan kuis ulang akan dihapus total dari layar siswa jika nilainya di bawah KKM.
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Toggle Mode Review Kuis (View Review Kunci & Pembahasan) */}
-                  <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200">
-                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={showQuizReviewDetails}
-                        onChange={(e) => setShowQuizReviewDetails(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
-                      />
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900">
-                            Mode Review Kuis Siswa: Kunci Jawaban &amp; Pembahasan
-                          </span>
-                          <span
-                            className={`text-[9px] font-black px-1.5 py-0.2 rounded border ${
-                              showQuizReviewDetails
-                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                : "bg-amber-100 text-amber-800 border-amber-300"
-                            }`}
-                          >
-                            {showQuizReviewDetails ? "ON (Detail)" : "OFF (Ringkas)"}
-                          </span>
+                {/* Kolom Kanan: Tinjauan Lengkap Tugas Sebelum Diterbitkan */}
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="bg-white border-2 border-sky-500/30 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-2xs">
+                          <Check className="w-4 h-4" />
                         </div>
-                        <p className="text-[11px] text-slate-600 leading-relaxed">
-                          {showQuizReviewDetails ? (
-                            <span className="text-emerald-700 font-semibold block">
-                              ✓ Mode Aktif (ON): Setelah mengumpulkan kuis, siswa dapat melihat butir soal mana yang benar/salah, kunci jawaban yang benar, serta penjelasan ilmiah lengkap.
-                            </span>
-                          ) : (
-                            <span className="text-amber-700 font-semibold block">
-                              🔒 Mode Nonaktif (OFF): Siswa hanya diberitahu jawaban yang mereka pilih benar atau salah, tanpa menampilkan kunci jawaban yang benar dan tanpa penjelasan ilmiah (mencegah sontekan evaluasi).
-                            </span>
-                          )}
-                        </p>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                            Tinjauan Lengkap Tugas Praktikum
+                          </h4>
+                          <span className="text-[10px] text-slate-500">Periksa seluruh parameter sebelum diterbitkan</span>
+                        </div>
                       </div>
-                    </label>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded font-black">
+                        SIAP DITERBITKAN
+                      </span>
+                    </div>
+
+                    {/* Ringkasan Parameter */}
+                    <div className="space-y-2 text-xs">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Judul &amp; Jenjang
+                        </span>
+                        <div className="font-bold text-slate-900 text-sm">{title || "Belum ada judul"}</div>
+                        <div className="text-[11px] text-slate-600 flex items-center gap-2">
+                          <span className="bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold">
+                            Jenjang {gradeLevel}
+                          </span>
+                          <span>Kelas PIN: <strong>{roomCode}</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Zat Kimia Terpasang ({selectedChemicalIds.length} Zat)
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {selectedChemicalIds.map((id) => {
+                            const chem = CHEMICAL_CATALOG.find((c) => c.id === id);
+                            return (
+                              <span
+                                key={id}
+                                className="px-2 py-0.5 bg-white border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800 flex items-center gap-1.5 shadow-2xs"
+                              >
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: chem?.color || "#38bdf8" }} />
+                                <span>{chem?.formula || id}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Evaluasi Kuis Pasca-Praktikum
+                        </span>
+                        <div className="font-semibold text-slate-800">
+                          {questions.length} Butir Soal Observasi Sains
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          Standar KKM: <strong>{kkmScore} / 100</strong> • Remedial:{" "}
+                          <strong>{allowRetakeBelowKkm ? "Diizinkan" : "Dilarang"}</strong> • Review:{" "}
+                          <strong>{showQuizReviewDetails ? "Detail (Kunci & Pembahasan)" : "Ringkas"}</strong>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Action Submit Buttons */}
+              {/* Step 4 Footer Navigation */}
               <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-                {editingTaskId ? (
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-4 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-                  >
-                    Batal Edit
-                  </button>
-                ) : onCancel ? (
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-4 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                ) : (
-                  <div />
-                )}
-
                 <button
                   type="button"
-                  onClick={handleSaveTask}
-                  disabled={isSaving}
-                  className={`text-white px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 ml-auto shadow-sm transition-colors disabled:opacity-50 cursor-pointer ${
-                    editingTaskId
-                      ? "bg-sky-600 hover:bg-sky-700"
-                      : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                  onClick={() => setBuilderStep(3)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>
-                    {isSaving
-                      ? (editingTaskId ? "Menyimpan Perubahan..." : "Menerbitkan Tugas...")
-                      : (editingTaskId ? "Simpan Perubahan Tugas" : `Terbitkan Tugas ke Siswa (PIN ${roomCode})`)}
-                  </span>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali ke Langkah 3</span>
                 </button>
+
+                <div className="flex items-center gap-2">
+                  {editingTaskId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-4 py-2 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Batal Edit
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSaveTask}
+                    disabled={isSaving}
+                    className={`text-white px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all hover:scale-[1.02] disabled:opacity-50 cursor-pointer ${
+                      editingTaskId
+                        ? "bg-sky-600 hover:bg-sky-700"
+                        : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>
+                      {isSaving
+                        ? (editingTaskId ? "Menyimpan Perubahan..." : "Menerbitkan Tugas...")
+                        : (editingTaskId ? "Simpan Perubahan Tugas" : `Terbitkan Tugas ke Siswa (Room PIN ${roomCode})`)}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
