@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
 import { CHEMICAL_CATALOG } from "@/lib/lab/chemicals-db";
+import { requireTeacher } from "@/lib/auth/session";
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireTeacher();
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { title, gradeLevel, chemicalIds, instructions } = await req.json();
 
     if (!chemicalIds || !Array.isArray(chemicalIds) || chemicalIds.length === 0) {

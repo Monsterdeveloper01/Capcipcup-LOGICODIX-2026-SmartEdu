@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireTeacher } from "@/lib/auth/session";
 
 // GET: Ambil daftar tugas di suatu room kelas
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const taskId = searchParams.get("taskId");
     const roomCode = searchParams.get("roomCode");
 
     let sql = "SELECT * FROM lab_tasks ORDER BY created_at DESC";
     const params: any[] = [];
 
-    if (roomCode) {
+    if (taskId) {
+      sql = "SELECT * FROM lab_tasks WHERE id = ? LIMIT 1";
+      params.push(taskId);
+    } else if (roomCode) {
       sql = "SELECT * FROM lab_tasks WHERE room_code = ? ORDER BY created_at DESC";
       params.push(roomCode);
     }
@@ -39,9 +44,14 @@ export async function GET(req: Request) {
   }
 }
 
-// POST: Guru membuat tugas praktik baru
+// POST: Khusus Guru membuat tugas praktik baru
 export async function POST(req: Request) {
   try {
+    const auth = await requireTeacher();
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
     const {
       classroomId,
@@ -61,6 +71,34 @@ export async function POST(req: Request) {
 
     const taskId = `task_${Date.now()}`;
     const code = (roomCode || "LAB889").trim().toUpperCase();
+    const effectiveTeacher = auth.user.name || teacherName || "Guru Pengampu";
+
+    // Ensure classroom exists for this roomCode or fallback gracefully
+    let effectiveClassroomId = classroomId;
+    if (!effectiveClassroomId) {
+      const cls = await query<any[]>("SELECT id FROM classrooms WHERE class_code = ? LIMIT 1", [code]);
+      if (cls && cls.length > 0) {
+        effectiveClassroomId = cls[0].id;
+      } else {
+        effectiveClassroomId = `cls_${code.toLowerCase()}_${Date.now()}`;
+        try {
+          await query(
+            `INSERT INTO classrooms (id, class_code, name, grade_level, teacher_name, description)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              effectiveClassroomId,
+              code,
+              `Kelas Praktikum ${code}`,
+              gradeLevel === "SMA" ? "SMA Kelas 11" : gradeLevel === "SMP" ? "SMP Kelas 8" : "SD Kelas 5",
+              effectiveTeacher,
+              `Ruang Praktikum Virtual Sains dengan PIN ${code}`,
+            ]
+          );
+        } catch {
+          effectiveClassroomId = "cls_demo_1";
+        }
+      }
+    }
 
     await query(
       `INSERT INTO lab_tasks 
@@ -68,9 +106,9 @@ export async function POST(req: Request) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         taskId,
-        classroomId || "cls_demo_1",
+        effectiveClassroomId || "cls_demo_1",
         code,
-        teacherName || "Budi Santoso, S.Pd",
+        effectiveTeacher,
         title.trim(),
         gradeLevel || "SMP",
         instructions || "Lakukan pencampuran zat sesuai panduan praktikum.",
@@ -88,5 +126,32 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error("POST lab_tasks error:", err);
     return NextResponse.json({ error: err.message || "Gagal menyimpan tugas praktikum" }, { status: 500 });
+  }
+}
+
+// DELETE: Khusus Guru menghapus tugas praktikum
+export async function DELETE(req: Request) {
+  try {
+    const auth = await requireTeacher();
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const taskId = searchParams.get("id");
+
+    if (!taskId) {
+      return NextResponse.json({ error: "ID tugas wajib disertakan." }, { status: 400 });
+    }
+
+    await query("DELETE FROM lab_tasks WHERE id = ?", [taskId]);
+
+    return NextResponse.json({
+      success: true,
+      message: "Tugas praktikum berhasil dihapus.",
+    });
+  } catch (err: any) {
+    console.error("DELETE lab_tasks error:", err);
+    return NextResponse.json({ error: err.message || "Gagal menghapus tugas praktikum" }, { status: 500 });
   }
 }

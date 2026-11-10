@@ -18,6 +18,37 @@ export async function POST(req: Request) {
     const nameB = typeof reactantB === "string" ? reactantB : reactantB.name || reactantB.formula;
     const formulaB = typeof reactantB === "object" ? reactantB.formula : reactantB;
 
+    const normA = String(formulaA || "")
+      .replace(/\s*\((aq|s|l|g|padat|cair|gas|larutan)\)/gi, "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase();
+    const normB = String(formulaB || "")
+      .replace(/\s*\((aq|s|l|g|padat|cair|gas|larutan)\)/gi, "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase();
+
+    // Guard: Identical substances (e.g. pouring NaOH into NaOH) never triggers reactions or concatenations
+    if (normA && normB && (normA === normB || normA.includes(normB) || normB.includes(normA))) {
+      return NextResponse.json({
+        success: true,
+        reaction: {
+          isReacting: false,
+          title: `Penambahan Volume ${formulaB}`,
+          equation: `${formulaB} + ${formulaA} → ${formulaB}`,
+          productName: nameB,
+          productFormula: formulaB,
+          productColor: typeof reactantB === "object" && reactantB.color ? reactantB.color : "#38bdf8",
+          visualEffect: "color_change",
+          temperatureChangeC: 0,
+          dangerWarning: null,
+          explanation: `Pencampuran larutan yang sejenis hanya menambah volume zat cair tanpa menimbulkan reaksi kimiawi.`,
+          reasonWhy: `Kedua zat memiliki identitas kimia dan bilangan oksidasi yang sama, sehingga tidak terdapat gaya dorong termodinamika maupun pertukaran partikel/elektron untuk membentuk ikatan baru.`,
+          observablePhenomena: `Ketinggian permukaan zat cair dalam bejana meningkat secara proporsional seiring bertambahnya volume, tanpa ada perubahan warna, gelembung gas, endapan, maupun variasi suhu.`,
+          level: "SMP",
+        },
+      });
+    }
+
     // Fallback if AI Key is missing
     if (!hasAiKey()) {
       return NextResponse.json({
@@ -32,7 +63,9 @@ export async function POST(req: Request) {
           visualEffect: "bubbles",
           temperatureChangeC: 5,
           dangerWarning: null,
-          explanation: `Pencampuran antara ${nameA} dan ${nameB} menghasilkan interaksi fisikokimia dalam larutan.`,
+          explanation: `Pencampuran antara ${nameA} dan ${nameB} menghasilkan interaksi fisikokimia dalam larutan dengan sedikit pelepasan kalor solvasi.`,
+          reasonWhy: `Partikel-partikel terlarut saling berdifusi secara kinetik dan mengalami solvasi oleh molekul pelarut, mencapai kesetimbangan fasa homogen baru.`,
+          observablePhenomena: `Cairan berpadu menghasilkan warna gradasi baru disertai sedikit gelembung halus saat penuangan berlangsung.`,
           level: "SMP",
         },
       });
@@ -52,9 +85,12 @@ ATURAN HUKUM ILMIAH & KEKEKALAN MASSA (MUTLAK HARUS DIIKUTI):
    - Jika dicampur dengan asam kuat atau basa kuat (seperti NaOH padat), ini adalah proses pelarutan eksotermik kuat yang melepaskan kalor/panas ("Pelarutan Eksotermik Natrium Hidroksida", produk: NaOH (aq), efek: "steam", suhu: +25°C s/d +30°C).
    - Jika dicampur garam netral yang larut, ini adalah pelarutan biasa.
    - HINDARI penggunaan karakter unicode subscript (misal gunakan 'H2O' angka 2 biasa, BUKAN 'H₂O' agar font 3D tidak error).
-3. KELAYAKAN REAKSI:
+3. FASE PADAT VS CAIR (SOLID VS AQUEOUS) PADA OKSIDATOR KUAT (KMnO4 & Gliserin):
+   - Jika KMnO4 dalam bentuk serbuk/kristal padat murni (solid/s) dicampur dengan Gliserin murni: Ini adalah reaksi redoks piroteknik spontan dahsyat yang melepaskan asap putih tebal ("visualEffect": "steam"), nyala api ungu, dan lonjakan suhu tinggi (temperatureChangeC: +45°C).
+   - Namun JIKA KMnO4 sudah dalam larutan air (aqueous/aq) atau dicampur air: Air meredam panas sehingga TIDAK ADA ASAP MAUPUN API ("visualEffect": "precipitate" atau "color_change", temperatureChangeC: +2°C). Reaksi berlangsung lambat mereduksi ion permanganat ungu menjadi endapan koloid cokelat mangan dioksida (MnO2).
+4. KELAYAKAN REAKSI:
    - Apakah kedua zat ini bereaksi secara kimiawi (asam-basa, presipitasi/endapan, redoks, gas, pelarutan eksotermik/endotermik)?
-4. JIKA BEREAKSI:
+5. JIKA BEREAKSI:
    - "isReacting": true
    - "title": Nama judul reaksi ilmiah yang tepat (contoh: "Pelarutan Eksotermik Natrium Hidroksida", "Reaksi Netralisasi Asam-Basa", "Presipitasi Endapan").
    - "equation": Persamaan reaksi seimbang (misal: "NaOH (s) + H₂O (l) → Na⁺ (aq) + OH⁻ (aq) + Panas").
@@ -64,13 +100,17 @@ ATURAN HUKUM ILMIAH & KEKEKALAN MASSA (MUTLAK HARUS DIIKUTI):
    - "visualEffect": Pilih HANYA SALAH SATU: "bubbles" | "steam" | "spark" | "precipitate" | "color_change"
    - "temperatureChangeC": Estimasi perubahan suhu (°C), misal +28 untuk eksotermik, -5 untuk endotermik, 0 untuk netral.
    - "dangerWarning": Peringatan bahaya K3 singkat jika zat korosif/berbahaya.
-   - "explanation": Penjelasan sains singkat yang akurat dalam 2 kalimat.
+   - "explanation": Penjelasan sains lengkap, mendalam, dan komprehensif (konsep materi reaksi kimia, apa yang terjadi pada zat-zat tersebut).
+   - "reasonWhy": Alasan dan mekanisme ilmiah mengapa reaksi terjadi (contoh: transfer proton asam-basa Bronsted-Lowry, gaya elektrostatik presipitasi Qsp > Ksp, perbedaan potensial reduksi transfer elektron redoks, pemutusan ikatan ester, kenaikan entropi gas tak stabil).
+   - "observablePhenomena": Ciri-ciri visual dan fisik nyata yang teramati langsung di laboratorium (perubahan warna produk, endapan padat/gelatin, semburan gelembung gas mendesis, kepulan asap/uap, perubahan suhu dinding bejana).
    - "level": Jenjang materi ("SD" | "SMP" | "SMA").
 5. JIKA TIDAK BEREAKSI:
    - "isReacting": false
    - Berikan warna optik hasil percampuran biasa.
    - "visualEffect": "color_change"
-   - "explanation": Alasan mengapa tidak bereaksi.
+   - "explanation": Penjelasan sains rinci mengapa kedua zat tidak bereaksi.
+   - "reasonWhy": Alasan ilmiah mengapa tidak terbentuk reaksi (tidak ada afinitas kimia, kedua zat stabil/netral, tidak melampaui energi aktivasi).
+   - "observablePhenomena": Tampilan campuran larutan biasa yang berbaur tanpa timbul gas, endapan, atau perubahan suhu.
 
 Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
 {
@@ -83,7 +123,9 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
   "visualEffect": "steam",
   "temperatureChangeC": 25,
   "dangerWarning": "Larutan basa kuat, hindari terkena kulit.",
-  "explanation": "Penjelasan sains singkat...",
+  "explanation": "Penjelasan sains mendalam dan rinci...",
+  "reasonWhy": "Alasan dan mekanisme ilmiah terjadinya reaksi...",
+  "observablePhenomena": "Ciri-ciri fisik dan visual nyata yang teramati di lab...",
   "level": "SMP"
 }`;
 
@@ -116,14 +158,15 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
           INSERT INTO chemical_reactions (
             id, reactant_a_id, reactant_b_id, reactant_a_formula, reactant_b_formula,
             title, equation, product_name, product_formula, product_color,
-            visual_effect, temperature_change_c, explanation, grade_level
+            visual_effect, temperature_change_c, explanation, reason_why, observable_phenomena, grade_level
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
             title=VALUES(title), equation=VALUES(equation), product_name=VALUES(product_name),
             product_formula=VALUES(product_formula), product_color=VALUES(product_color),
             visual_effect=VALUES(visual_effect), temperature_change_c=VALUES(temperature_change_c),
-            explanation=VALUES(explanation)
+            explanation=VALUES(explanation), reason_why=VALUES(reason_why),
+            observable_phenomena=VALUES(observable_phenomena)
         `,
           [
             id,
@@ -139,6 +182,8 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
             parsed.visualEffect || "bubbles",
             parsed.temperatureChangeC || 0,
             parsed.explanation || "",
+            parsed.reasonWhy || "",
+            parsed.observablePhenomena || "",
             parsed.level || "SMA",
           ]
         );

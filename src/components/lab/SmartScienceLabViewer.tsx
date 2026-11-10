@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import CameraFeed from "@/components/camera/CameraFeed";
 import HandGestureTracker, { HandTransform } from "@/components/camera/HandGestureTracker";
 import TeacherTaskBuilder from "./TeacherTaskBuilder";
 import AiLabAssistantModal from "./AiLabAssistantModal";
 import PostLabQuizModal from "./PostLabQuizModal";
+import AuthLoginModal from "@/components/auth/AuthLoginModal";
+import { AuthUser } from "@/lib/auth/types";
 import {
   ChemicalVessel,
   ReactionDetail,
@@ -37,6 +41,13 @@ import {
   Trash2,
   SlidersHorizontal,
   Flame,
+  LogIn,
+  LogOut,
+  ShieldCheck,
+  UserCheck,
+  Users,
+  PlusCircle,
+  ArrowLeft,
 } from "lucide-react";
 
 // Dynamic import for 3D Canvas
@@ -58,19 +69,121 @@ export default function SmartScienceLabViewer() {
   // Navigation: "lab" | "tasks" | "teacher_builder"
   const [activeTab, setActiveTab] = useState<"lab" | "tasks" | "teacher_builder">("lab");
 
+  // User Authentication State
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  // Role helper: check if logged in as teacher / superadmin
+  const isTeacher = currentUser?.role === "teacher" || currentUser?.role === "superadmin";
+
+  // Teacher Dashboard sub-section ("create" | "list" | "submissions")
+  const [teacherBuilderSection, setTeacherBuilderSection] = useState<"create" | "list" | "submissions">("create");
+
+  // Strict role guard: redirect non-teachers away from teacher builder view
+  useEffect(() => {
+    if (activeTab === "teacher_builder" && !isTeacher) {
+      setActiveTab("lab");
+    }
+  }, [activeTab, isTeacher]);
+
   // Mobile drawer state
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
 
+  // URL Search Params for Route /lab?taskId=...&mode=...&classCode=...
+  const searchParams = useSearchParams();
+  const urlTaskId = searchParams.get("taskId");
+  const urlMode = searchParams.get("mode");
+  const urlClassCode = searchParams.get("classCode");
+
   // Room & Tasks State
-  const [roomCode, setRoomCode] = useState<string>("LAB889");
+  const [roomCode, setRoomCode] = useState<string>(urlClassCode ? urlClassCode.toUpperCase() : "LAB889");
   const [tasks, setTasks] = useState<LabTask[]>([]);
   const [currentTask, setCurrentTask] = useState<LabTask | null>(null);
   const [studentName, setStudentName] = useState<string>("Ahmad Faiz");
 
+  // Read URL params on mount or when params change
+  useEffect(() => {
+    if (urlClassCode) {
+      setRoomCode(urlClassCode.toUpperCase());
+    }
+    if (urlMode === "sandbox") {
+      setLabMode("sandbox");
+      setCurrentTask(null);
+      setVessels([]);
+      setActiveTab("lab");
+    } else if (urlMode === "task") {
+      setLabMode("task");
+      setActiveTab("lab");
+    }
+
+    if (urlTaskId) {
+      fetch(`/api/lab/tasks?taskId=${urlTaskId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.tasks && data.tasks.length > 0) {
+            applyTaskToWorkbench(data.tasks[0]);
+          }
+        })
+        .catch((e) => console.warn("Failed loading task from URL:", e));
+    }
+  }, [urlTaskId, urlMode, urlClassCode]);
+
+  // Check existing session from /api/auth/me on mount
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+          if (data.user.role === "teacher") {
+            setLabMode("sandbox");
+          } else if (data.user.role === "student") {
+            setStudentName(data.user.name);
+          }
+        }
+      })
+      .catch((e) => console.warn("Failed fetching session user:", e));
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setCurrentUser(null);
+      setStudentName("Ahmad Faiz");
+      setActiveTab("lab");
+    } catch (e) {
+      console.warn("Logout error:", e);
+    }
+  };
+
+  const handleLoginSuccess = (user: AuthUser) => {
+    setCurrentUser(user);
+    if (user.role === "teacher") {
+      setLabMode("sandbox");
+      setActiveTab("teacher_builder");
+      setTeacherBuilderSection("create");
+    } else {
+      setStudentName(user.name);
+      setActiveTab("tasks");
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus tugas praktikum ini?")) return;
+    try {
+      const res = await fetch(`/api/lab/tasks?id=${taskId}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchTasks();
+      }
+    } catch (e) {
+      console.error("Delete task error:", e);
+    }
+  };
+
   // 3D Lab State
   const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
-  const [vessels, setVessels] = useState<ChemicalVessel[]>(INITIAL_VESSELS);
+  const [vessels, setVessels] = useState<ChemicalVessel[]>([]);
   const [activeReaction, setActiveReaction] = useState<ReactionDetail | null>(null);
   const [chemicalCatalog, setChemicalCatalog] = useState(CHEMICAL_CATALOG);
   const [reactionsList, setReactionsList] = useState<ReactionDetail[]>([]);
@@ -96,8 +209,8 @@ export default function SmartScienceLabViewer() {
       .catch((e) => console.warn("Failed fetching dynamic reactions:", e));
   }, []);
 
-  // Dual Student Lab Mode: "task" (Mode Tugas Terpandu Guru) vs "sandbox" (Mode Eksplorasi Bebas)
-  const [labMode, setLabMode] = useState<"task" | "sandbox">("task");
+  // Dual Student Lab Mode: "sandbox" (Mode Eksplorasi Bebas - Default) vs "task" (Saat membuka tugas dari Daftar Tugas)
+  const [labMode, setLabMode] = useState<"task" | "sandbox">("sandbox");
   const [isAddChemicalModalOpen, setIsAddChemicalModalOpen] = useState<boolean>(false);
   const [searchChemicalQuery, setSearchChemicalQuery] = useState<string>("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
@@ -136,9 +249,6 @@ export default function SmartScienceLabViewer() {
       const data = await res.json();
       if (res.ok && data.tasks) {
         setTasks(data.tasks);
-        if (data.tasks.length > 0 && !currentTask) {
-          applyTaskToWorkbench(data.tasks[0]);
-        }
       }
     } catch (err) {
       console.warn("Fetch lab tasks error:", err);
@@ -177,8 +287,9 @@ export default function SmartScienceLabViewer() {
       };
     });
 
-    setVessels(taskVessels.length > 0 ? taskVessels : INITIAL_VESSELS);
-    setLabMode("task");
+    setVessels(taskVessels.length > 0 ? taskVessels : []);
+    // Guru selalu menggunakan Mode Sandbox untuk uji coba bebas tanpa terkunci
+    setLabMode(isTeacher ? "sandbox" : "task");
     setIsSuccessModalDismissed(false);
     setActiveTab("lab");
   };
@@ -187,7 +298,7 @@ export default function SmartScienceLabViewer() {
   const handleReactionDetected = (reaction: ReactionDetail) => {
     setActiveReaction(reaction);
 
-    if (labMode === "task") {
+    if (!isTeacher && labMode === "task") {
       // In Task Mode: check if target reaction is fulfilled
       const isTargetFulfilled = currentTask?.expectedReactionId
         ? reaction.id === currentTask.expectedReactionId ||
@@ -233,13 +344,10 @@ export default function SmartScienceLabViewer() {
 
   // Reset Workbench positions and reactions
   const handleResetWorkbench = () => {
-    if (labMode === "task" && currentTask) {
+    if (!isTeacher && labMode === "task" && currentTask) {
       applyTaskToWorkbench(currentTask);
-    } else if (labMode === "sandbox") {
-      setVessels([]); // Di Mode Sandbox, reset mengosongkan seluruh meja
-      setActiveReaction(null);
     } else {
-      setVessels(INITIAL_VESSELS);
+      setVessels([]); // Di Mode Sandbox, reset mengosongkan seluruh meja
       setActiveReaction(null);
     }
     setIsTaskReactionDone(false);
@@ -248,23 +356,28 @@ export default function SmartScienceLabViewer() {
 
   // Switch student lab mode
   const handleSwitchMode = (mode: "task" | "sandbox") => {
+    if (isTeacher && mode !== "sandbox") return; // Guru terkunci di mode Sandbox
     setLabMode(mode);
     setIsTaskReactionDone(false);
     setIsSuccessModalDismissed(false);
     setActiveReaction(null);
     if (mode === "sandbox") {
+      setCurrentTask(null);
       setVessels([]); // Mode Sandbox: Meja lab dikosongkan total agar murid bebas memilih dari katalog!
+      setActiveTab("lab");
     } else if (mode === "task") {
       if (currentTask) {
         applyTaskToWorkbench(currentTask);
+      } else if (tasks.length > 0) {
+        applyTaskToWorkbench(tasks[0]);
       } else {
-        setVessels(INITIAL_VESSELS);
+        setVessels([]);
       }
     }
   };
 
   // Is experiment interaction locked (Target reached in task mode)
-  const isExperimentLocked = labMode === "task" && isTaskReactionDone;
+  const isExperimentLocked = !isTeacher && labMode === "task" && isTaskReactionDone;
 
   const handleSubmitQuiz = async (score: number, answers: any[]) => {
     setLastQuizScore(score);
@@ -276,7 +389,7 @@ export default function SmartScienceLabViewer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: currentTask.id,
-          studentName,
+          studentName: currentUser?.name || studentName,
           isReactionAchieved: isTaskReactionDone,
           score,
           answers,
@@ -304,7 +417,7 @@ export default function SmartScienceLabViewer() {
       >
         {/* App Branding Header */}
         <div className="h-14 border-b border-[#202225] px-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5 hover:opacity-85 transition-opacity" title="Kembali ke Dashboard Utama">
             <div className="w-8 h-8 rounded-xl bg-[#5865F2] flex items-center justify-center text-white shadow-md">
               <FlaskConical className="w-4 h-4" />
             </div>
@@ -319,7 +432,7 @@ export default function SmartScienceLabViewer() {
                 Virtual Science Laboratory
               </span>
             </div>
-          </div>
+          </Link>
 
           <button
             type="button"
@@ -328,6 +441,22 @@ export default function SmartScienceLabViewer() {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Quick Back to Dashboard Button */}
+        <div className="px-3 pt-3">
+          <Link
+            href="/"
+            className="w-full py-2 px-3 bg-[#1e1f22] hover:bg-[#35373c] border border-[#3b3e45] hover:border-[#5865F2] text-white text-xs font-bold rounded-xl flex items-center justify-between transition-colors shadow"
+          >
+            <div className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4 text-[#FEE75C]" />
+              <span>Dashboard Kelas</span>
+            </div>
+            <span className="text-[9px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded font-black">
+              HOME
+            </span>
+          </Link>
         </div>
 
         {/* Room PIN Card */}
@@ -359,262 +488,461 @@ export default function SmartScienceLabViewer() {
         </div>
 
         {/* Navigation Menu */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-5 text-xs font-semibold">
-          {/* Section 0: Mode Praktikum Siswa */}
-          <div className="space-y-1.5 bg-[#1e1f22] p-2 rounded-xl border border-[#3b3e45]">
-            <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider px-1">
-              Mode Praktikum Siswa
-            </span>
-            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-              <button
-                type="button"
-                onClick={() => handleSwitchMode("task")}
-                className={`py-1.5 px-2 rounded-lg text-left text-[11px] font-bold flex flex-col gap-0.5 transition-all ${
-                  labMode === "task"
-                    ? "bg-[#5865F2] text-white shadow"
-                    : "bg-[#2b2d31] text-[#949ba4] hover:text-white hover:bg-[#35373c]"
-                }`}
-              >
-                <div className="flex items-center gap-1">
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  <span>Mode Tugas</span>
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4 text-xs font-semibold">
+          {isTeacher ? (
+            /* ==========================================================
+               TEACHER SIDEBAR NAVIGATION (GURU PENGAMPU)
+               Guru hanya menggunakan Mode Sandbox untuk uji coba lab
+               ========================================================== */
+            <>
+              {/* Teacher Sandbox Status Banner */}
+              <div className="space-y-1.5 bg-[#1e1f22] p-2.5 rounded-xl border border-[#3b3e45]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[#FEE75C] uppercase tracking-wider flex items-center gap-1.5">
+                    <FlaskConical className="w-3.5 h-3.5" />
+                    <span>Mode Lab Guru</span>
+                  </span>
+                  <span className="text-[9px] bg-[#23a55a] text-white px-1.5 py-0.5 rounded font-black tracking-wide">
+                    SANDBOX
+                  </span>
                 </div>
-                <span className="text-[9px] opacity-80 font-normal">Target Guru</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSwitchMode("sandbox")}
-                className={`py-1.5 px-2 rounded-lg text-left text-[11px] font-bold flex flex-col gap-0.5 transition-all ${
-                  labMode === "sandbox"
-                    ? "bg-[#23a55a] text-white shadow"
-                    : "bg-[#2b2d31] text-[#949ba4] hover:text-white hover:bg-[#35373c]"
-                }`}
-              >
-                <div className="flex items-center gap-1">
-                  <FlaskConical className="w-3.5 h-3.5" />
-                  <span>Sandbox</span>
-                </div>
-                <span className="text-[9px] opacity-80 font-normal">Bebas Racik</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Section 1: Menu Utama */}
-          <div className="space-y-1">
-            <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
-              Navigasi Meja Lab
-            </span>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("lab");
-                setIsMobileDrawerOpen(false);
-              }}
-              className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                activeTab === "lab"
-                  ? "bg-[#5865F2] text-white shadow-sm"
-                  : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <FlaskConical className="w-4 h-4" />
-                <span>Meja Praktikum 3D</span>
-              </div>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                  activeTab === "lab" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#57F287]"
-                }`}
-              >
-                WEB-AR
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("tasks");
-                setIsMobileDrawerOpen(false);
-              }}
-              className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                activeTab === "tasks"
-                  ? "bg-[#5865F2] text-white shadow-sm"
-                  : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <ClipboardList className="w-4 h-4" />
-                <span>Daftar Tugas Kelas</span>
-              </div>
-              {tasks.length > 0 && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                    activeTab === "tasks" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#dbdee1]"
-                  }`}
-                >
-                  {tasks.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("teacher_builder");
-                setIsMobileDrawerOpen(false);
-              }}
-              className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                activeTab === "teacher_builder"
-                  ? "bg-[#5865F2] text-white shadow-sm"
-                  : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <GraduationCap className="w-4 h-4" />
-                <span>Portal Guru (Buat Tugas)</span>
-              </div>
-              <span className="text-[9px] bg-[#FEE75C] text-black px-1.5 py-0.2 rounded font-black">
-                GURU
-              </span>
-            </button>
-          </div>
-
-          {/* Section 2: Fitur AI & Evaluasi */}
-          <div className="space-y-1">
-            <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
-              Asisten AI & Evaluasi
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setIsAiAssistantOpen(true)}
-              className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-[#FEE75C]" />
-                <span>Tanya Asisten Lab-AI</span>
-              </div>
-              <span className="text-[9px] bg-[#5865F2] text-white px-1.5 py-0.2 rounded font-bold">
-                AI
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (currentTask) setIsQuizModalOpen(true);
-                else alert("Pilih tugas praktikum terlebih dahulu untuk mengerjakan kuis!");
-              }}
-              className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <Award className="w-4 h-4 text-[#57F287]" />
-                <span>Kuis Evaluasi Sains</span>
-              </div>
-              {lastQuizScore !== null && (
-                <span className="text-[10px] bg-[#57F287] text-black px-1.5 py-0.2 rounded font-bold">
-                  {lastQuizScore}/100
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Section 3: Reagen Aktif di Meja */}
-          <div className="space-y-1.5 pt-2 border-t border-[#3b3e45]">
-            <div className="px-1 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
-                Bahan di Meja 3D ({vessels.length})
-              </span>
-              {labMode === "sandbox" && (
+                <p className="text-[10px] text-[#949ba4] leading-relaxed">
+                  Guru berpraktikum dalam <strong>Mode Sandbox</strong> untuk menguji reaksi & racikan secara bebas sebelum ditugaskan ke siswa.
+                </p>
                 <button
                   type="button"
-                  onClick={() => setIsAddChemicalModalOpen(true)}
-                  className="text-[10px] text-[#57F287] hover:underline flex items-center gap-0.5 font-bold"
+                  onClick={() => {
+                    setLabMode("sandbox");
+                    setActiveTab("lab");
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className={`w-full py-1.5 px-2.5 rounded-lg text-left text-xs font-bold flex items-center justify-between transition-all ${
+                    activeTab === "lab"
+                      ? "bg-[#23a55a] text-white shadow"
+                      : "bg-[#2b2d31] text-[#dbdee1] hover:text-white hover:bg-[#35373c]"
+                  }`}
                 >
-                  <Plus className="w-3 h-3" />
-                  Tambah
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-              {vessels.length === 0 ? (
-                <div className="py-3 px-2 bg-[#1e1f22]/60 border border-dashed border-[#3b3e45] rounded-md text-center space-y-1">
-                  <p className="text-[11px] text-[#949ba4]">Meja praktik kosong</p>
-                  <p className="text-[10px] text-[#64748b]">Klik &quot;Tambah&quot; untuk memilih zat</p>
-                </div>
-              ) : (
-                vessels.map((v, i) => (
-                  <div
-                    key={v.id || i}
-                    className="px-2.5 py-1.5 bg-[#1e1f22] border border-[#3b3e45] rounded-md flex items-center justify-between text-[11px] group hover:border-[#5865F2] transition-colors"
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="w-3.5 h-3.5" />
+                    <span>Uji Coba Meja Lab 3D</span>
+                  </div>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#57F287]"
+                    }`}
                   >
-                    <div className="flex items-center gap-2 truncate pr-1">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full border border-black shrink-0"
-                        style={{ backgroundColor: v.color }}
-                      />
-                      <div className="truncate">
-                        <span className="font-mono font-bold text-white mr-1">{v.formula}</span>
-                        <span className="text-[#949ba4] truncate text-[10px]">{v.name}</span>
-                      </div>
-                    </div>
+                    WEB-AR
+                  </span>
+                </button>
+              </div>
 
-                    {labMode === "sandbox" && (
+              {/* Section 1: Dashboard & Manajemen Guru */}
+              <div className="space-y-1">
+                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                  Manajemen & Tugas Guru
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTeacherBuilderSection("create");
+                    setActiveTab("teacher_builder");
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
+                    activeTab === "teacher_builder" && teacherBuilderSection === "create"
+                      ? "bg-[#5865F2] text-white shadow-sm"
+                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <PlusCircle className="w-4 h-4 text-[#5865F2]" />
+                    <span>Rancang Tugas Baru</span>
+                  </div>
+                  <span className="text-[9px] bg-[#5865F2]/20 text-[#5865F2] px-1.5 py-0.5 rounded font-bold border border-[#5865F2]/30">
+                    AI Kuis
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTeacherBuilderSection("list");
+                    setActiveTab("teacher_builder");
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
+                    activeTab === "teacher_builder" && teacherBuilderSection === "list"
+                      ? "bg-[#5865F2] text-white shadow-sm"
+                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ClipboardList className="w-4 h-4 text-[#FEE75C]" />
+                    <span>Tugas Diterbitkan</span>
+                  </div>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                      activeTab === "teacher_builder" && teacherBuilderSection === "list"
+                        ? "bg-white/20 text-white"
+                        : "bg-[#1e1f22] text-[#dbdee1]"
+                    }`}
+                  >
+                    {tasks.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTeacherBuilderSection("submissions");
+                    setActiveTab("teacher_builder");
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
+                    activeTab === "teacher_builder" && teacherBuilderSection === "submissions"
+                      ? "bg-[#5865F2] text-white shadow-sm"
+                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Users className="w-4 h-4 text-[#57F287]" />
+                    <span>Rekap Nilai Siswa</span>
+                  </div>
+                  <span className="text-[9px] bg-[#57F287]/20 text-[#57F287] px-1.5 py-0.5 rounded font-bold border border-[#57F287]/30">
+                    Hasil
+                  </span>
+                </button>
+              </div>
+
+              {/* Section 2: Asisten AI Guru */}
+              <div className="space-y-1">
+                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                  Asisten AI Guru
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAiAssistantOpen(true)}
+                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Sparkles className="w-4 h-4 text-[#FEE75C]" />
+                    <span>Konsultasi Lab-AI</span>
+                  </div>
+                  <span className="text-[9px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded font-bold">
+                    AI
+                  </span>
+                </button>
+              </div>
+
+              {/* Section 3: Bahan Kimia di Meja Guru (Mode Sandbox Bebas) */}
+              <div className="space-y-1.5 pt-2 border-t border-[#3b3e45]">
+                <div className="px-1 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                    Bahan di Meja 3D ({vessels.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddChemicalModalOpen(true)}
+                    className="text-[10px] text-[#57F287] hover:underline flex items-center gap-0.5 font-bold"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Tambah
+                  </button>
+                </div>
+
+                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                  {vessels.length === 0 ? (
+                    <div className="py-3 px-2 bg-[#1e1f22]/60 border border-dashed border-[#3b3e45] rounded-md text-center space-y-1">
+                      <p className="text-[11px] text-[#949ba4]">Meja praktik kosong</p>
+                      <p className="text-[10px] text-[#64748b]">Klik &quot;Tambah&quot; untuk memilih zat</p>
+                    </div>
+                  ) : (
+                    vessels.map((v, i) => (
+                      <div
+                        key={v.id || i}
+                        className="px-2.5 py-1.5 bg-[#1e1f22] border border-[#3b3e45] rounded-md flex items-center justify-between text-[11px] group hover:border-[#5865F2] transition-colors"
+                      >
+                        <div className="flex items-center gap-2 truncate pr-1">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-black shrink-0"
+                            style={{ backgroundColor: v.color }}
+                          />
+                          <div className="truncate">
+                            <span className="font-mono font-bold text-white mr-1">{v.formula}</span>
+                            <span className="text-[#949ba4] truncate text-[10px]">{v.name}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVessel(v.id)}
+                          className="opacity-60 hover:opacity-100 text-[#ed4245] p-0.5 rounded hover:bg-[#ed4245]/20 transition-all shrink-0"
+                          title="Hapus bejana dari meja"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="pt-1 flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddChemicalModalOpen(true)}
+                    className="flex-1 py-1.5 px-2 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Tambah Zat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetWorkbench}
+                    className="py-1.5 px-2.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center transition-colors shadow"
+                    title="Kosongkan Meja"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ==========================================================
+               STUDENT SIDEBAR NAVIGATION (SISWA PRAKTIKAN / TAMU)
+               ========================================================== */
+            <>
+              {/* Section 1: Menu Utama Siswa */}
+              <div className="space-y-1">
+                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                  Navigasi Meja Lab
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("lab");
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
+                    activeTab === "lab"
+                      ? "bg-[#5865F2] text-white shadow-sm"
+                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FlaskConical className="w-4 h-4" />
+                    <span>Meja Praktikum 3D</span>
+                  </div>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#57F287]"
+                    }`}
+                  >
+                    WEB-AR
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("tasks");
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
+                    activeTab === "tasks"
+                      ? "bg-[#5865F2] text-white shadow-sm"
+                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ClipboardList className="w-4 h-4" />
+                    <span>Daftar Tugas Kelas</span>
+                  </div>
+                  {tasks.length > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                        activeTab === "tasks" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#dbdee1]"
+                      }`}
+                    >
+                      {tasks.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Section 2: Fitur AI & Evaluasi Siswa */}
+              <div className="space-y-1">
+                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                  {labMode === "task" ? "Asisten AI & Evaluasi" : "Asisten AI Praktikum"}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAiAssistantOpen(true)}
+                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Sparkles className="w-4 h-4 text-[#FEE75C]" />
+                    <span>Tanya Asisten Lab-AI</span>
+                  </div>
+                  <span className="text-[9px] bg-[#5865F2] text-white px-1.5 py-0.2 rounded font-bold">
+                    AI
+                  </span>
+                </button>
+
+                {/* Kuis Evaluasi Sains HANYA tampil di Mode Tugas (disembunyikan di Mode Sandbox) */}
+                {labMode === "task" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentTask) setIsQuizModalOpen(true);
+                      else alert("Pilih tugas praktikum terlebih dahulu untuk mengerjakan kuis!");
+                    }}
+                    className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Award className="w-4 h-4 text-[#57F287]" />
+                      <span>Kuis Evaluasi Sains</span>
+                    </div>
+                    {lastQuizScore !== null && (
+                      <span className="text-[10px] bg-[#57F287] text-black px-1.5 py-0.2 rounded font-bold">
+                        {lastQuizScore}/100
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Section 3: Reagen Aktif di Meja */}
+              <div className="space-y-1.5 pt-2 border-t border-[#3b3e45]">
+                <div className="px-1 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                    Bahan di Meja 3D ({vessels.length})
+                  </span>
+                  {labMode === "sandbox" && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddChemicalModalOpen(true)}
+                      className="text-[10px] text-[#57F287] hover:underline flex items-center gap-0.5 font-bold"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Tambah
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                  {vessels.length === 0 ? (
+                    <div className="py-3 px-2 bg-[#1e1f22]/60 border border-dashed border-[#3b3e45] rounded-md text-center space-y-1">
+                      <p className="text-[11px] text-[#949ba4]">Meja praktik kosong</p>
+                      <p className="text-[10px] text-[#64748b]">Klik &quot;Tambah&quot; untuk memilih zat</p>
+                    </div>
+                  ) : (
+                    vessels.map((v, i) => (
+                      <div
+                        key={v.id || i}
+                        className="px-2.5 py-1.5 bg-[#1e1f22] border border-[#3b3e45] rounded-md flex items-center justify-between text-[11px] group hover:border-[#5865F2] transition-colors"
+                      >
+                        <div className="flex items-center gap-2 truncate pr-1">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-black shrink-0"
+                            style={{ backgroundColor: v.color }}
+                          />
+                          <div className="truncate">
+                            <span className="font-mono font-bold text-white mr-1">{v.formula}</span>
+                            <span className="text-[#949ba4] truncate text-[10px]">{v.name}</span>
+                          </div>
+                        </div>
+
+                        {labMode === "sandbox" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveVessel(v.id)}
+                            className="opacity-60 hover:opacity-100 text-[#ed4245] p-0.5 rounded hover:bg-[#ed4245]/20 transition-all shrink-0"
+                            title="Hapus bejana dari meja"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {labMode === "sandbox" && (
+                  <div className="pt-1 flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddChemicalModalOpen(true)}
+                      className="flex-1 py-1.5 px-2 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Tambah Zat</span>
+                    </button>
+                    {vessels.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => handleRemoveVessel(v.id)}
-                        className="opacity-60 hover:opacity-100 text-[#ed4245] p-0.5 rounded hover:bg-[#ed4245]/20 transition-all shrink-0"
-                        title="Hapus bejana dari meja"
+                        onClick={handleResetWorkbench}
+                        className="py-1.5 px-2.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center transition-colors shadow"
+                        title="Kosongkan Meja"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <RotateCcw className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
-                ))
-              )}
-            </div>
-
-            {labMode === "sandbox" && (
-              <div className="pt-1 flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAddChemicalModalOpen(true)}
-                  className="w-full py-1.5 px-2 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ Tambah Bahan Kimia</span>
-                </button>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {/* User Profile Bar Footer */}
         <div className="h-14 bg-[#232428] px-3 flex items-center justify-between shrink-0 border-t border-[#202225]">
-          <div className="flex items-center gap-2.5 truncate">
+          <div
+            onClick={() => setIsAuthModalOpen(true)}
+            className="flex items-center gap-2.5 truncate cursor-pointer group flex-1"
+          >
             <div className="relative shrink-0">
-              <div className="w-8 h-8 rounded-full bg-[#5865F2] flex items-center justify-center text-white font-bold text-xs shadow">
-                {studentName.charAt(0)}
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow ${
+                  currentUser?.role === "teacher"
+                    ? "bg-[#FEE75C] text-black"
+                    : "bg-[#5865F2] text-white"
+                }`}
+              >
+                {currentUser ? currentUser.name.charAt(0) : studentName.charAt(0)}
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#57F287] border-2 border-[#232428]" />
+              <span
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#232428] ${
+                  currentUser ? "bg-[#57F287]" : "bg-[#949ba4]"
+                }`}
+              />
             </div>
             <div className="truncate">
-              <div className="text-xs font-semibold text-white truncate">{studentName}</div>
-              <div className="text-[10px] text-[#57F287] truncate">● Praktikan Aktif</div>
+              <div className="text-xs font-semibold text-white truncate group-hover:text-[#5865F2] transition-colors">
+                {currentUser ? currentUser.name : studentName}
+              </div>
+              <div className="text-[10px] text-[#949ba4] truncate flex items-center gap-1">
+                {currentUser?.role === "teacher" ? (
+                  <span className="text-[#FEE75C] font-semibold">● Guru Pengampu</span>
+                ) : currentUser?.role === "student" ? (
+                  <span className="text-[#57F287] font-semibold">● Siswa Praktikan</span>
+                ) : (
+                  <span>● Tamu (Klik Masuk)</span>
+                )}
+              </div>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={() => {
-              const name = prompt("Masukkan nama siswa:", studentName);
-              if (name) setStudentName(name);
-            }}
-            className="text-[11px] text-[#949ba4] hover:text-white px-2 py-1 rounded hover:bg-[#35373c] transition-colors"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="text-[11px] text-[#949ba4] hover:text-white px-2 py-1 rounded hover:bg-[#35373c] transition-colors font-medium shrink-0 cursor-pointer"
           >
-            Ubah
+            {currentUser ? "Ganti" : "Masuk"}
           </button>
         </div>
       </aside>
@@ -625,7 +953,16 @@ export default function SmartScienceLabViewer() {
       <main className="flex-1 flex flex-col min-w-0 bg-[#313338] overflow-hidden">
         {/* Top Header Bar */}
         <header className="h-14 border-b border-[#202225] bg-[#313338] px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/"
+              className="px-3 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] border border-[#3b3e45] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow shrink-0"
+              title="Kembali ke Dashboard Kelas"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#FEE75C]" />
+              <span className="hidden sm:inline">Dashboard Kelas</span>
+            </Link>
+
             <button
               type="button"
               onClick={() => setIsMobileDrawerOpen(true)}
@@ -638,15 +975,19 @@ export default function SmartScienceLabViewer() {
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                 <span>
                   {activeTab === "lab"
-                    ? "Meja Praktikum Sains 3D & Web-AR"
+                    ? isTeacher
+                      ? "Meja Sandbox Guru (Uji Coba Eksperimen 3D)"
+                      : "Meja Praktikum Sains 3D & Web-AR"
                     : activeTab === "tasks"
                     ? "Daftar Tugas Praktikum Kelas"
-                    : "Portal Guru: Rancang Tugas Meja Lab"}
+                    : "Portal Guru: Dashboard Manajemen Praktikum"}
                 </span>
               </h2>
               <p className="text-[11px] text-[#949ba4] hidden sm:block">
                 {activeTab === "lab"
-                  ? "Simulasi interaktif reaksi zat kimia dengan gesture tangan & deteksi otomatis"
+                  ? isTeacher
+                    ? "Simulasi bebas racik zat kimia untuk demonstrasi & persiapan materi sebelum ditugaskan ke siswa"
+                    : "Simulasi interaktif reaksi zat kimia dengan gesture tangan & deteksi otomatis"
                   : activeTab === "tasks"
                   ? `Menampilkan tugas aktif untuk kelas dengan PIN Room [${roomCode}]`
                   : "Buat tugas baru, tentukan komposisi zat di meja, dan susun kuis evaluasi AI"}
@@ -656,6 +997,41 @@ export default function SmartScienceLabViewer() {
 
           {/* Right Header Controls */}
           <div className="flex items-center gap-2.5">
+            {/* Account Status / Login Button */}
+            {currentUser ? (
+              <div className="flex items-center gap-2 bg-[#2b2d31] border border-[#3b3e45] rounded-xl px-2.5 py-1 shadow-sm">
+                <span
+                  className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded shadow ${
+                    currentUser.role === "teacher"
+                      ? "bg-[#FEE75C] text-black"
+                      : "bg-[#5865F2] text-white"
+                  }`}
+                >
+                  {currentUser.role === "teacher" ? "GURU" : "SISWA"}
+                </span>
+                <span className="text-xs font-bold text-white max-w-[110px] sm:max-w-[170px] truncate">
+                  {currentUser.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  title="Keluar / Ganti Akun"
+                  className="p-1 text-[#949ba4] hover:text-[#ed4245] rounded hover:bg-[#35373c] transition-colors ml-0.5 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="px-3 py-1.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Masuk (Guru / Siswa)</span>
+              </button>
+            )}
+
             {activeTab === "lab" && (
               <button
                 type="button"
@@ -676,10 +1052,10 @@ export default function SmartScienceLabViewer() {
             <button
               type="button"
               onClick={() => setIsAiAssistantOpen(true)}
-              className="px-3 py-1.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
+              className="px-3 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] border border-[#3b3e45] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Tanya AI</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#FEE75C]" />
+              <span className="hidden sm:inline">Tanya AI</span>
             </button>
           </div>
         </header>
@@ -697,12 +1073,19 @@ export default function SmartScienceLabViewer() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded flex items-center gap-1.5 ${
-                        labMode === "task"
+                        isTeacher
+                          ? "bg-[#23a55a] text-white"
+                          : labMode === "task"
                           ? "bg-[#5865F2] text-white"
                           : "bg-[#23a55a] text-white"
                       }`}
                     >
-                      {labMode === "task" ? (
+                      {isTeacher ? (
+                        <>
+                          <FlaskConical className="w-3 h-3" />
+                          <span>Meja Uji Coba Guru (Mode Sandbox)</span>
+                        </>
+                      ) : labMode === "task" ? (
                         <>
                           <ClipboardList className="w-3 h-3" />
                           <span>Mode Tugas Terpandu</span>
@@ -715,28 +1098,38 @@ export default function SmartScienceLabViewer() {
                       )}
                     </span>
 
-                    {labMode === "task" && isTaskReactionDone && (
+                    {!isTeacher && labMode === "task" && isTaskReactionDone && (
                       <span className="text-[10px] bg-[#ed4245] text-white font-bold px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
                         <Lock className="w-3 h-3" />
                         <span>Selesai & Dikunci</span>
                       </span>
                     )}
 
-                    {labMode === "task" && currentTask && (
+                    {!isTeacher && labMode === "task" && currentTask && (
                       <span className="text-xs text-[#949ba4] font-medium">
                         Guru: {currentTask.teacherName} • Jenjang {currentTask.gradeLevel} • PIN {currentTask.roomCode}
+                      </span>
+                    )}
+
+                    {isTeacher && (
+                      <span className="text-xs text-[#57F287] font-medium">
+                        ● Meja Bebas Uji Reagen & Spontanitas
                       </span>
                     )}
                   </div>
 
                   <h3 className="font-bold text-sm text-white">
-                    {labMode === "task"
+                    {isTeacher
+                      ? "Laboratorium Virtual Guru: Uji Coba & Demonstrasi Reaksi"
+                      : labMode === "task"
                       ? currentTask?.title || "Eksperimen Netralisasi Asam Basa"
                       : "Eksplorasi Meja Bebas (Sandbox Mode)"}
                   </h3>
 
                   <p className="text-xs text-[#dbdee1] leading-relaxed">
-                    {labMode === "task" ? (
+                    {isTeacher ? (
+                      "Sebagai guru pengampu, Anda berada dalam mode Sandbox tanpa batasan tugas. Anda bebas menambahkan reagen apa pun, memeriksa reaksi alami spontan, serta memastikan keamanan simulasi sebelum merancangnya menjadi tugas kelas."
+                    ) : labMode === "task" ? (
                       <>
                         📋 <strong>Instruksi Guru:</strong>{" "}
                         {currentTask?.instructions || "Campurkan reagen yang telah disiapkan di atas meja hingga bereaksi."}
@@ -753,7 +1146,40 @@ export default function SmartScienceLabViewer() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {labMode === "sandbox" ? (
+                  {isTeacher ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddChemicalModalOpen(true)}
+                        className="px-3.5 py-1.5 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>+ Tambah Zat</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleResetWorkbench}
+                        className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow"
+                        title="Kosongkan Meja"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset Meja</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTeacherBuilderSection("create");
+                          setActiveTab("teacher_builder");
+                        }}
+                        className="px-3.5 py-1.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                      >
+                        <ClipboardList className="w-4 h-4" />
+                        <span>Portal Guru →</span>
+                      </button>
+                    </>
+                  ) : labMode === "sandbox" ? (
                     <>
                       <button
                         type="button"
@@ -803,6 +1229,22 @@ export default function SmartScienceLabViewer() {
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Ulangi</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentTask(null);
+                          setLabMode("sandbox");
+                          setVessels([]);
+                          setIsTaskReactionDone(false);
+                          setActiveReaction(null);
+                        }}
+                        className="px-3 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 border border-[#3b3e45]"
+                        title="Kembali ke meja lab bebas"
+                      >
+                        <FlaskConical className="w-3.5 h-3.5 text-[#57F287]" />
+                        <span>Meja Bebas</span>
                       </button>
                     </>
                   )}
@@ -998,70 +1440,178 @@ export default function SmartScienceLabViewer() {
 
               {/* Dedicated Reaction Observation Panel (Out of Camera & 3D Viewport) */}
               {activeReaction && (
-                <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-xl p-4 sm:p-5 text-[#dbdee1] space-y-3 shadow-xl transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#3b3e45] pb-3">
+                <div className="bg-[#2b2d31] border-2 border-[#5865F2]/40 rounded-xl p-4 sm:p-6 text-[#dbdee1] space-y-4 shadow-2xl transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+                  {/* Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#3b3e45] pb-3.5">
                     <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base text-white max-w-full">
-                      <Sparkles className="w-5 h-5 text-[#57F287] flex-shrink-0" />
-                      <span className="line-clamp-2 break-words">⚡ Reaksi Berhasil Terdeteksi: [{activeReaction.title}]</span>
+                      <span className="p-1.5 rounded-lg bg-[#5865F2]/20 text-[#5865F2] border border-[#5865F2]/30 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4 text-[#57F287]" />
+                      </span>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                        <span className="text-white font-extrabold text-base">Hasil Reaksi Terdeteksi:</span>
+                        <span className="text-[#57F287] font-bold">{activeReaction.title}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold bg-[#1e1f22] text-[#57F287] px-2.5 py-0.5 rounded border border-[#3b3e45]">
-                        Jenjang {activeReaction.level}
+                      <span className="text-xs font-bold bg-[#1e1f22] text-[#5865F2] px-3 py-1 rounded-full border border-[#5865F2]/40 shadow-sm">
+                        Kurikulum Jenjang {activeReaction.level}
                       </span>
                       <button
                         type="button"
                         onClick={() => setActiveReaction(null)}
-                        className="p-1 px-2 text-xs font-semibold text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded transition-colors"
+                        className="p-1.5 px-3 text-xs font-semibold text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded-lg transition-colors border border-transparent hover:border-[#4e5058]"
                       >
                         ✕ Tutup
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-                    <div className="md:col-span-2 space-y-2">
-                      <div className="p-3 bg-[#1e1f22] border border-[#3b3e45] rounded-lg text-xs sm:text-sm font-semibold font-mono text-[#57F287] overflow-x-auto">
+                  {/* Persamaan Kimia & Produk */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+                    <div className="lg:col-span-8 p-3.5 bg-[#1e1f22] border border-[#3b3e45] rounded-xl flex flex-col justify-center gap-1.5 shadow-inner">
+                      <div className="flex items-center justify-between text-[11px] font-bold tracking-wider uppercase text-[#949ba4]">
+                        <span>Persamaan Reaksi Kimia (Stoikiometri)</span>
+                        <span className="text-xs text-[#5865F2] font-mono">Status: Seimbang</span>
+                      </div>
+                      <div className="text-sm sm:text-base font-bold font-mono text-[#57F287] overflow-x-auto py-1">
                         <code>{activeReaction.equation}</code>
                       </div>
-                      <p className="text-xs text-[#dbdee1] leading-relaxed">
-                        {activeReaction.explanation}
-                      </p>
+                    </div>
+                    <div className="lg:col-span-4 p-3.5 bg-[#1e1f22] border border-[#3b3e45] rounded-xl flex flex-col justify-center gap-1 shadow-inner">
+                      <span className="text-[11px] font-bold tracking-wider uppercase text-[#949ba4]">Produk Reaksi</span>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3.5 h-3.5 rounded-full border border-white/30 shrink-0 shadow"
+                          style={{ backgroundColor: activeReaction.resultColor || "#38bdf8" }}
+                        />
+                        <span className="text-sm font-extrabold text-white truncate">
+                          {activeReaction.resultName || "Produk Kimiawi"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[#949ba4] font-mono">
+                        Formula: <strong className="text-[#dbdee1]">{activeReaction.resultFormula}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3 Structured Columns: Alasan Terjadinya Reaksi, Penjelasan Sains Rinci, Ciri-Ciri Fisik & Termal */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch pt-1">
+                    {/* Kolom 1: Alasan Terjadinya Reaksi */}
+                    <div className="bg-[#1e1f22] border border-[#3b3e45] rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-[#FEE75C]/50 transition-colors">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-[#FEE75C] uppercase tracking-wide border-b border-[#2e3035] pb-2">
+                          <span className="text-base">💡</span>
+                          <span>Alasan Terjadinya Reaksi</span>
+                        </div>
+                        <p className="text-xs text-[#dbdee1] leading-relaxed">
+                          {activeReaction.reasonWhy ||
+                            "Reaksi terjadi akibat adanya driving force termodinamika atau afinitas ikatan antar-partikel zat (seperti pelepasan proton, pembentukan endapan tak larut, atau transfer elektron) menuju kondisi energi bebas yang lebih stabil."}
+                        </p>
+                      </div>
+                      <div className="text-[10px] text-[#949ba4] italic pt-1 border-t border-[#2e3035]">
+                        *Mekanisme molekuler & afinitas ikatan
+                      </div>
                     </div>
 
-                    <div className="p-3.5 bg-[#1e1f22] border border-[#3b3e45] rounded-lg space-y-3 flex flex-col justify-between">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-[#949ba4] uppercase">
-                          Perubahan Suhu Termal:
-                        </span>
-                        <div className="text-sm font-bold text-white">
-                          {activeReaction.temperatureChange > 0
-                            ? `🔥 +${activeReaction.temperatureChange}°C (Eksotermik / Melepas Panas)`
-                            : activeReaction.temperatureChange < 0
-                            ? `❄️ ${activeReaction.temperatureChange}°C (Endotermik / Menyerap Panas)`
-                            : "Suhu Stabil (Netral)"}
+                    {/* Kolom 2: Penjelasan Sains Rinci */}
+                    <div className="bg-[#1e1f22] border border-[#3b3e45] rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-[#57F287]/50 transition-colors">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-[#57F287] uppercase tracking-wide border-b border-[#2e3035] pb-2">
+                          <span className="text-base">📖</span>
+                          <span>Penjelasan Sains Rinci</span>
                         </div>
+                        <p className="text-xs text-[#dbdee1] leading-relaxed">
+                          {activeReaction.explanation}
+                        </p>
+                      </div>
+                      <div className="text-[10px] text-[#949ba4] italic pt-1 border-t border-[#2e3035]">
+                        *Konsep materi kurikulum sains
+                      </div>
+                    </div>
+
+                    {/* Kolom 3: Ciri-Ciri Fisik Teramati & Suhu Termal */}
+                    <div className="bg-[#1e1f22] border border-[#3b3e45] rounded-xl p-4 flex flex-col justify-between space-y-3 hover:border-[#38bdf8]/50 transition-colors">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-[#38bdf8] uppercase tracking-wide border-b border-[#2e3035] pb-2">
+                          <span className="text-base">👁️</span>
+                          <span>Ciri-Ciri Fisik Teramati</span>
+                        </div>
+                        <p className="text-xs text-[#dbdee1] leading-relaxed">
+                          {activeReaction.observablePhenomena ||
+                            "Teramati perubahan warna larutan, pembentukan fase baru, dan perubahan temperatur wadah sesuai karakteristik produk reaksi."}
+                        </p>
                       </div>
 
-                      <div className="flex flex-col gap-2 pt-1">
-                        {currentTask?.questions && currentTask.questions.length > 0 && (
+                      {/* Termal Badge */}
+                      <div className="pt-2 border-t border-[#2e3035] space-y-1">
+                        <span className="text-[10px] font-bold text-[#949ba4] uppercase">Perubahan Suhu Termal:</span>
+                        <div
+                          className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${
+                            activeReaction.temperatureChange > 0
+                              ? "bg-[#ef4444]/10 text-[#f87171] border-[#ef4444]/30"
+                              : activeReaction.temperatureChange < 0
+                              ? "bg-[#38bdf8]/10 text-[#38bdf8] border-[#38bdf8]/30"
+                              : "bg-[#2b2d31] text-[#dbdee1] border-[#3b3e45]"
+                          }`}
+                        >
+                          <span>
+                            {activeReaction.temperatureChange > 0
+                              ? "🔥"
+                              : activeReaction.temperatureChange < 0
+                              ? "❄️"
+                              : "⚖️"}
+                          </span>
+                          <span>
+                            {activeReaction.temperatureChange > 0
+                              ? `+${activeReaction.temperatureChange}°C (Eksotermik / Melepas Panas)`
+                              : activeReaction.temperatureChange < 0
+                              ? `${activeReaction.temperatureChange}°C (Endotermik / Menyerap Panas)`
+                              : "Suhu Stabil (Netral pada Suhu Ruang)"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Footer */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#3b3e45]">
+                    <div className="text-xs text-[#949ba4] flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-[#57F287]" />
+                      <span>Hasil reaksi tercatat ke log observasi praktikum kelas.</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      {isTeacher ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTeacherBuilderSection("create");
+                            setActiveTab("teacher_builder");
+                          }}
+                          className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2 font-semibold text-xs rounded-lg flex items-center justify-center gap-2 shadow transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Rancang Jadi Tugas Siswa →</span>
+                        </button>
+                      ) : (
+                        currentTask?.questions && currentTask.questions.length > 0 && (
                           <button
                             type="button"
                             onClick={() => setIsQuizModalOpen(true)}
                             className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2 font-semibold text-xs rounded-lg flex items-center justify-center gap-2 shadow transition-colors"
                           >
-                            <Award className="w-4 h-4" />
+                            <Award className="w-4 h-4 text-[#FEE75C]" />
                             <span>Lanjut ke Kuis Pemahaman AI →</span>
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setIsAiAssistantOpen(true)}
-                          className="bg-[#2b2d31] hover:bg-[#35373c] text-white border border-[#3b3e45] px-3 py-1.5 font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-[#FEE75C]" />
-                          <span>Konsultasi dengan Asisten AI</span>
-                        </button>
-                      </div>
+                        )
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsAiAssistantOpen(true)}
+                        className="bg-[#2b2d31] hover:bg-[#35373c] text-white border border-[#3b3e45] px-3 py-2 font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#FEE75C]" />
+                        <span>Konsultasi Asisten Lab-AI</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1103,15 +1653,40 @@ export default function SmartScienceLabViewer() {
               </div>
 
               {tasks.length === 0 ? (
-                <div className="text-center py-12 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-xl bg-[#2b2d31] p-6 space-y-3">
-                  <p>Belum ada tugas praktikum di Room {roomCode}.</p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("teacher_builder")}
-                    className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2 text-xs font-semibold rounded-lg shadow"
-                  >
-                    + Masuk ke Portal Guru & Buat Tugas
-                  </button>
+                <div className="text-center py-12 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-xl bg-[#2b2d31] p-8 space-y-4 max-w-lg mx-auto">
+                  <div className="w-12 h-12 rounded-full bg-[#1e1f22] flex items-center justify-center mx-auto text-[#949ba4] border border-[#3b3e45]">
+                    <ClipboardList className="w-6 h-6 text-[#5865F2]" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-white font-bold text-sm">Belum Ada Tugas Praktikum Aktif</h4>
+                    <p className="text-xs text-[#949ba4] leading-relaxed">
+                      {isTeacher
+                        ? `Belum ada tugas yang diterbitkan untuk Room ${roomCode}. Silakan rancang tugas baru untuk kelas ini.`
+                        : `Guru pengampu belum menerbitkan tugas praktikum baru untuk Room ${roomCode}. Anda dapat bereksplorasi di Meja Praktikum 3D.`}
+                    </p>
+                  </div>
+                  {isTeacher ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTeacherBuilderSection("create");
+                        setActiveTab("teacher_builder");
+                      }}
+                      className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-5 py-2.5 text-xs font-semibold rounded-lg shadow inline-flex items-center gap-2 transition-colors"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>+ Masuk ke Portal Guru &amp; Buat Tugas</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("lab")}
+                      className="bg-[#23a55a] hover:bg-[#1f9250] text-white px-5 py-2.5 text-xs font-semibold rounded-lg shadow inline-flex items-center gap-2 transition-colors"
+                    >
+                      <FlaskConical className="w-4 h-4" />
+                      <span>Eksplorasi Meja Praktikum 3D (Sandbox) →</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1153,17 +1728,25 @@ export default function SmartScienceLabViewer() {
           )}
 
           {/* ===================================================================
-              VIEW 3: GURU MEMBUAT TUGAS
+              VIEW 3: GURU MEMBUAT TUGAS (KHUSUS ROLE GURU & ADMIN)
               =================================================================== */}
-          {activeTab === "teacher_builder" && (
+          {activeTab === "teacher_builder" && isTeacher && (
             <div className="max-w-5xl mx-auto w-full">
               <TeacherTaskBuilder
                 roomCode={roomCode}
+                teacherName={currentUser?.name || "Budi Santoso, S.Pd"}
+                tasks={tasks}
+                initialSection={teacherBuilderSection}
+                onSectionChange={setTeacherBuilderSection}
                 onTaskCreated={() => {
                   fetchTasks();
-                  setActiveTab("tasks");
                 }}
-                onCancel={() => setActiveTab("lab")}
+                onDeleteTask={handleDeleteTask}
+                onPreviewTask={(task) => applyTaskToWorkbench(task)}
+                onCancel={() => {
+                  setLabMode("sandbox");
+                  setActiveTab("lab");
+                }}
               />
             </div>
           )}
@@ -1325,6 +1908,14 @@ export default function SmartScienceLabViewer() {
           </div>
         </div>
       )}
+
+      {/* Modal 4: Authentication & Role Login Modal (Guru & Siswa) */}
+      <AuthLoginModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

@@ -23,6 +23,8 @@ export async function GET(req: Request) {
         visual_effect AS effectType,
         temperature_change_c AS temperatureChange,
         explanation,
+        reason_why AS reasonWhy,
+        observable_phenomena AS observablePhenomena,
         grade_level AS level
       FROM chemical_reactions
     `;
@@ -63,6 +65,8 @@ export async function GET(req: Request) {
       effectType: r.visualEffect,
       temperatureChange: r.temperatureChangeC,
       explanation: r.explanation,
+      reasonWhy: r.reasonWhy,
+      observablePhenomena: r.observablePhenomena,
       level: r.level,
     }));
 
@@ -94,6 +98,8 @@ export async function GET(req: Request) {
         effectType: r.visualEffect,
         temperatureChange: r.temperatureChangeC,
         explanation: r.explanation,
+        reasonWhy: r.reasonWhy,
+        observablePhenomena: r.observablePhenomena,
         level: r.level,
       })),
       source: "fallback_catalog",
@@ -129,6 +135,8 @@ export async function POST(req: Request) {
       const visualEffect = r.effectType || r.visualEffect || "color_change";
       const temperatureChange = parseInt(String(r.temperatureChange ?? r.temperatureChangeC ?? 0), 10);
       const explanation = r.explanation || `Reaksi kimia antara ${reactantA} dan ${reactantB}.`;
+      const reasonWhy = r.reasonWhy || r.reason_why || "";
+      const observablePhenomena = r.observablePhenomena || r.observable_phenomena || "";
       const gradeLevel = r.level || r.gradeLevel || "SMP";
 
       await query(
@@ -136,15 +144,16 @@ export async function POST(req: Request) {
         INSERT INTO chemical_reactions (
           id, reactant_a_id, reactant_b_id, reactant_a_formula, reactant_b_formula,
           title, equation, product_name, product_formula, product_color,
-          visual_effect, temperature_change_c, explanation, grade_level
+          visual_effect, temperature_change_c, explanation, reason_why, observable_phenomena, grade_level
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           reactant_a_formula=VALUES(reactant_a_formula), reactant_b_formula=VALUES(reactant_b_formula),
           title=VALUES(title), equation=VALUES(equation), product_name=VALUES(product_name),
           product_formula=VALUES(product_formula), product_color=VALUES(product_color),
           visual_effect=VALUES(visual_effect), temperature_change_c=VALUES(temperature_change_c),
-          explanation=VALUES(explanation), grade_level=VALUES(grade_level)
+          explanation=VALUES(explanation), reason_why=VALUES(reason_why),
+          observable_phenomena=VALUES(observable_phenomena), grade_level=VALUES(grade_level)
       `,
         [
           id,
@@ -160,6 +169,8 @@ export async function POST(req: Request) {
           visualEffect,
           temperatureChange,
           explanation,
+          reasonWhy,
+          observablePhenomena,
           gradeLevel,
         ]
       );
@@ -176,6 +187,8 @@ export async function POST(req: Request) {
         effectType: visualEffect,
         temperatureChange,
         explanation,
+        reasonWhy,
+        observablePhenomena,
         level: gradeLevel,
       });
     }

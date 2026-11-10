@@ -29,6 +29,8 @@ export interface ChemicalReaction {
   visualEffect: "bubbles" | "steam" | "spark" | "precipitate" | "color_change" | "two_phase";
   temperatureChangeC: number;
   explanation: string;
+  reasonWhy?: string; // Alasan & mekanisme ilmiah terjadinya reaksi
+  observablePhenomena?: string; // Ciri-ciri visual & fisik nyata yang teramati
   level: "SD" | "SMP" | "SMA";
 }
 

@@ -36,6 +36,8 @@ export interface ReactionDetail {
   effectType: "bubbles" | "steam" | "spark" | "precipitate" | "color_change" | "two_phase";
   temperatureChange: number; // + or -
   explanation: string;
+  reasonWhy?: string;
+  observablePhenomena?: string;
   level: "SD" | "SMP" | "SMA";
   reactionPosition?: [number, number, number];
   targetVesselId?: string;
@@ -498,6 +500,40 @@ export function sanitizeChemicalText(text?: string, maxLen = 42): string {
   return clean;
 }
 
+// Procedural Soft Circular Particle Texture (Eliminates Square Point Quad Artifacts)
+let _softParticleTexture: THREE.CanvasTexture | null = null;
+export function getSoftParticleTexture(): THREE.CanvasTexture {
+  if (typeof document === "undefined") {
+    return new THREE.CanvasTexture({} as any);
+  }
+  if (!_softParticleTexture) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.clearRect(0, 0, 128, 128);
+      const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 62);
+      grad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+      grad.addColorStop(0.3, "rgba(255, 255, 255, 0.85)");
+      grad.addColorStop(0.7, "rgba(255, 255, 255, 0.25)");
+      grad.addColorStop(1.0, "rgba(255, 255, 255, 0.0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(64, 64, 62, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    _softParticleTexture = new THREE.CanvasTexture(canvas);
+    _softParticleTexture.wrapS = THREE.ClampToEdgeWrapping;
+    _softParticleTexture.wrapT = THREE.ClampToEdgeWrapping;
+    _softParticleTexture.generateMipmaps = false;
+    _softParticleTexture.minFilter = THREE.LinearFilter;
+    _softParticleTexture.magFilter = THREE.LinearFilter;
+    _softParticleTexture.needsUpdate = true;
+  }
+  return _softParticleTexture;
+}
+
 // Strip phase notations like (aq), (s), (l), (g) and non-alphanumeric chars for robust chemistry matching
 export function normChemical(s?: string): string {
   if (!s) return "";
@@ -505,6 +541,69 @@ export function normChemical(s?: string): string {
     .replace(/\s*\((aq|s|l|g|padat|cair|gas|larutan)\)/gi, "")
     .replace(/[^a-zA-Z0-9]/g, "")
     .toUpperCase();
+}
+
+// Extract distinct constituent chemical tokens from complex or mixed formulas
+export function extractSubstanceTokens(formula?: string): string[] {
+  if (!formula) return [];
+  return formula
+    .split(/[+&/•·,]/)
+    .map((part) => normChemical(part.trim()))
+    .filter((token) => token.length > 0);
+}
+
+// Helper to determine if a vessel contains an aqueous solution / liquid phase
+export function isVesselAqueous(vessel: ChemicalVessel): boolean {
+  const f = (vessel.formula || "").toLowerCase();
+  const n = (vessel.name || "").toLowerCase();
+  return (
+    f.includes("(aq)") ||
+    f.includes("aq") ||
+    n.includes("larutan") ||
+    f.includes("h2o")
+  );
+}
+
+// Helper to determine if a vessel contains dry solid crystals / powder bed
+export function isVesselSolid(vessel: ChemicalVessel): boolean {
+  if (isVesselAqueous(vessel)) return false;
+  const f = (vessel.formula || "").toLowerCase();
+  const n = (vessel.name || "").toLowerCase();
+  if (
+    f.includes("(s)") ||
+    n.includes("serbuk") ||
+    n.includes("kristal") ||
+    n.includes("bubuk") ||
+    n.includes("padat")
+  ) {
+    return true;
+  }
+  if (!vessel.isReacted) {
+    const rawF = normChemical(vessel.formula);
+    if (rawF === "KMNO4" || rawF === "FE" || rawF === "NAHCO3") {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Phase-aware reactant matcher: validates base chemical identity AND phase state (s) vs (aq)
+export function matchReactant(ruleFormula: string, vessel: ChemicalVessel): boolean {
+  const normRule = normChemical(ruleFormula);
+  const normVessel = normChemical(vessel.formula);
+  if (normRule !== normVessel) return false;
+
+  const ruleLower = ruleFormula.toLowerCase();
+  const ruleWantsAq = ruleLower.includes("(aq)");
+  const ruleWantsSolid = ruleLower.includes("(s)");
+
+  if (ruleWantsAq) {
+    return isVesselAqueous(vessel);
+  }
+  if (ruleWantsSolid) {
+    return isVesselSolid(vessel);
+  }
+  return true;
 }
 
 // Physics & Interaction Engine for 3D Chemical Vessels
@@ -719,27 +818,31 @@ function VesselsSimulation({
     const vesselPairKey = [vesselA.id, vesselB.id].sort().join("::");
     const now = Date.now();
 
-    // Prevent re-triggering within 3.5 seconds for this specific vessel pair
-    if (reactionCooldownRef.current[vesselPairKey] && now - reactionCooldownRef.current[vesselPairKey] < 3500) {
+    // Prevent re-triggering within 4 seconds for this specific vessel pair
+    if (reactionCooldownRef.current[vesselPairKey] && now - reactionCooldownRef.current[vesselPairKey] < 4000) {
       return;
     }
 
     const fA = normChemical(vesselA.formula);
     const fB = normChemical(vesselB.formula);
 
+    const tokensA = extractSubstanceTokens(vesselA.formula);
+    const tokensB = extractSubstanceTokens(vesselB.formula);
+
     // 1. GUARD: Self-pouring or pouring identical chemicals (e.g. NaOH into NaOH, H2O into H2O)
-    // NEVER trigger reaction or concatenate formulas for identical substances!
-    if (
-      fA === fB ||
-      (fA.length > 1 && fB.length > 1 && (fA === fB || (fA.includes(fB) && fB.includes(fA))))
-    ) {
+    // NEVER trigger reaction or concatenate formulas for identical substances or subsets!
+    const isSameChemical = fA === fB || (fA.length > 0 && fB.length > 0 && fA === fB);
+    const aAlreadyInB = tokensA.length > 0 && tokensA.every((t) => tokensB.includes(t));
+    const bAlreadyInA = tokensB.length > 0 && tokensB.every((t) => tokensA.includes(t));
+
+    if (isSameChemical || aAlreadyInB || bAlreadyInA) {
       reactionCooldownRef.current[vesselPairKey] = now;
       setVessels((prev) =>
         prev.map((v) => {
           if (v.id === vesselB.id) {
             return {
               ...v,
-              liquidLevel: Math.min(0.85, v.liquidLevel + 0.1),
+              liquidLevel: Math.min(0.85, v.liquidLevel + 0.08),
             };
           }
           return v;
@@ -765,23 +868,14 @@ function VesselsSimulation({
       return;
     }
 
-    // 3. GUARD: Target vessel already contains this reactant or already underwent this mixture
-    // (Prevents recursive A + B + A + B... loops)
-    if (fB.includes(fA) || (vesselB.formula && vesselB.formula.includes(sanitizeChemicalText(vesselA.formula, 20)))) {
-      reactionCooldownRef.current[vesselPairKey] = now;
-      setVessels((prev) =>
-        prev.map((v) => {
-          if (v.id === vesselB.id) {
-            return {
-              ...v,
-              liquidLevel: Math.min(0.85, v.liquidLevel + 0.08),
-            };
-          }
-          return v;
-        })
-      );
-      return;
-    }
+    // 3. GUARD: Detect if either vessel is already a multi-substance mixture
+    const isAlreadyMixture =
+      vesselB.formula.includes("+") ||
+      vesselB.formula.includes("//") ||
+      vesselA.formula.includes("+") ||
+      vesselA.formula.includes("//") ||
+      vesselB.name.toLowerCase().includes("campuran") ||
+      vesselA.name.toLowerCase().includes("campuran");
 
     // Target vessel position for localized particles
     const rxPos: [number, number, number] = [
@@ -790,18 +884,18 @@ function VesselsSimulation({
       vesselB.position[2],
     ];
 
-    // Step 1: Match in dynamic database reactions or reliable local catalog
+    // Step 1: Match in dynamic database reactions or reliable local catalog using phase-aware matcher
     const dbMatch = dbReactions.find((rx) => {
-      const rxA = normChemical(rx.substanceA);
-      const rxB = normChemical(rx.substanceB);
-      return (rxA === fA && rxB === fB) || (rxA === fB && rxB === fA);
+      const matchAtoA = matchReactant(rx.substanceA, vesselA) && matchReactant(rx.substanceB, vesselB);
+      const matchAtoB = matchReactant(rx.substanceA, vesselB) && matchReactant(rx.substanceB, vesselA);
+      return matchAtoA || matchAtoB;
     });
 
     const catalogMatch = !dbMatch
       ? REACTION_CATALOG.find((rx) => {
-          const rxA = normChemical(rx.reactantAFormula);
-          const rxB = normChemical(rx.reactantBFormula);
-          return (rxA === fA && rxB === fB) || (rxA === fB && rxB === fA);
+          const matchAtoA = matchReactant(rx.reactantAFormula, vesselA) && matchReactant(rx.reactantBFormula, vesselB);
+          const matchAtoB = matchReactant(rx.reactantAFormula, vesselB) && matchReactant(rx.reactantBFormula, vesselA);
+          return matchAtoA || matchAtoB;
         })
       : null;
 
@@ -820,6 +914,8 @@ function VesselsSimulation({
           effectType: catalogMatch.visualEffect,
           temperatureChange: catalogMatch.temperatureChangeC,
           explanation: catalogMatch.explanation,
+          reasonWhy: catalogMatch.reasonWhy,
+          observablePhenomena: catalogMatch.observablePhenomena,
           level: catalogMatch.level,
         }
       : null;
@@ -873,16 +969,18 @@ function VesselsSimulation({
     if (isOilWater) {
       const physicalReaction: ReactionDetail = {
         id: `rx_lipid_water_${Date.now()}`,
-        title: "Pemisahan Dua Fasa (Minyak & Air Tidak Menyatu)",
-        equation: "H2O (Air) + Minyak -> Sistem Dua Fasa (Emulsi Tidak Stabil)",
+        title: "Pemisahan Dua Fasa (Minyak & Air)",
+        equation: "H2O + Minyak -> Sistem Dua Fasa (Emulsi Tidak Stabil)",
         substanceA: vesselA.formula,
         substanceB: vesselB.formula,
-        resultName: "Air & Minyak (Dua Lapisan Terpisah)",
+        resultName: "Air & Minyak (Dua Lapisan)",
         resultFormula: "H2O // Lipid",
         resultColor: "#eab308",
         effectType: "two_phase",
         temperatureChange: 0,
         explanation: "Minyak bersifat nonpolar sedangkan air bersifat polar. Keduanya memiliki tegangan antarmuka tinggi dan densitas berbeda sehingga minyak mengapung di atas air tanpa bercampur secara molekuler.",
+        reasonWhy: "Molekul air membentuk jejaring ikatan hidrogen yang sangat kuat satu sama lain (interaksi dipol-dipol permanen). Minyak yang terdiri dari asam lemak/trigliserida rantai karbon panjang bersifat hidrofobik dan tidak dapat membentuk ikatan hidrogen dengan air. Secara termodinamika (prinsip like dissolves like), pencampuran tidak disukai sehingga kedua cairan memisahkan diri menjadi 2 lapisan terpisah demi meminimalkan energi bebas permukaan.",
+        observablePhenomena: "Terbentuk meniskus batas cair yang sangat tegas antara dua fasa. Lapisan minyak berwarna kuning keemasan mengapung utuh di bagian atas karena densitasnya (~0.92 g/cm³) lebih kecil daripada massa jenis air (1.00 g/cm³).",
         level: "SMP",
         reactionPosition: rxPos,
         targetVesselId: vesselB.id,
@@ -910,23 +1008,39 @@ function VesselsSimulation({
       return;
     }
 
-    // General Physical Solution Mixture: Clean, concise and capped formatting
+    // If either vessel is already a mixture, DO NOT concatenate further: simply blend volume
+    if (isAlreadyMixture) {
+      setVessels((prev) =>
+        prev.map((v) => {
+          if (v.id === vesselB.id) {
+            return {
+              ...v,
+              liquidLevel: Math.min(0.85, v.liquidLevel + 0.08),
+            };
+          }
+          return v;
+        })
+      );
+      return;
+    }
+
+    // General Physical Solution Mixture: Clean, strictly capped formatting (never recurses or loops)
     const colA = new THREE.Color(vesselA.color || "#38bdf8");
     const colB = new THREE.Color(vesselB.color || "#38bdf8");
     const blendedColor = "#" + colA.lerp(colB, 0.5).getHexString();
 
-    const cleanFormA = sanitizeChemicalText(vesselA.formula, 14);
-    const cleanFormB = sanitizeChemicalText(vesselB.formula, 14);
-    const cleanNameA = sanitizeChemicalText(vesselA.name, 18).replace(/Campuran\s*/gi, "");
-    const cleanNameB = sanitizeChemicalText(vesselB.name, 18).replace(/Campuran\s*/gi, "");
+    const cleanFormA = sanitizeChemicalText(vesselA.formula, 8);
+    const cleanFormB = sanitizeChemicalText(vesselB.formula, 8);
+    const cleanNameA = sanitizeChemicalText(vesselA.name, 12).replace(/Campuran\s*/gi, "");
+    const cleanNameB = sanitizeChemicalText(vesselB.name, 12).replace(/Campuran\s*/gi, "");
 
     const compactFormula = `${cleanFormA} + ${cleanFormB}`;
     const compactName = `Campuran ${cleanNameA} & ${cleanNameB}`;
 
     const physicalReaction: ReactionDetail = {
       id: `mix_${fA}_${fB}_${Date.now()}`,
-      title: `Campuran Larutan ${cleanFormA} & ${cleanFormB}`,
-      equation: `${cleanFormA} + ${cleanFormB} -> Campuran Fisik Homogen`,
+      title: `Campuran ${cleanFormA} & ${cleanFormB}`,
+      equation: `${cleanFormA} + ${cleanFormB} -> Campuran Fisik`,
       substanceA: vesselA.formula,
       substanceB: vesselB.formula,
       resultName: compactName,
@@ -935,6 +1049,8 @@ function VesselsSimulation({
       effectType: "color_change",
       temperatureChange: 0,
       explanation: "Kedua zat berbaur membentuk campuran larutan homogen tanpa reaksi kimia khusus. Suhu bejana tetap stabil pada suhu ruang.",
+      reasonWhy: "Kedua zat tidak memiliki driving force kimiawi (seperti perbedaan potensial redoks, afinitas asam-basa, atau pelampauan hasil kali kelarutan Ksp) untuk memutus ikatan kovalen maupun membentuk senyawa baru. Partikel hanya mengalami gaya antarmolekul lemah (van der Waals / dispersi London) dan difusi termal acak.",
+      observablePhenomena: "Warna cairan bergradasi menjadi paduan optik kedua larutan, tidak teramati letupan gelembung gas mendesis, uap asap, flokulasi endapan, maupun perubahan temperatur pada dinding wadah.",
       level: "SMP",
       reactionPosition: rxPos,
       targetVesselId: vesselB.id,
@@ -1152,7 +1268,15 @@ function InFluidMicroBubbles({
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.035} color="#ffffff" transparent opacity={0.65} />
+      <pointsMaterial
+        size={0.035}
+        color="#ffffff"
+        transparent
+        opacity={0.65}
+        map={getSoftParticleTexture()}
+        alphaTest={0.01}
+        depthWrite={false}
+      />
     </points>
   );
 }
@@ -1182,9 +1306,18 @@ function ChemicalVesselItem({
   const meshGroupRef = useRef<THREE.Group>(null);
   const liquidMeshRef = useRef<THREE.Mesh>(null);
   const liquidMaterialRef = useRef<THREE.MeshPhysicalMaterial>(null);
+  const reactionAgeRef = useRef<number>(0);
+  const prevFormulaRef = useRef<string>(vessel.formula);
 
-  const isClear = checkIsClearLiquid(vessel.formula, vessel.name, vessel.color, vessel.isReacted);
-  const isTwoPhase = checkIsTwoPhaseSystem(vessel.formula, vessel.name);
+  // Reset reaction age counter whenever formula or substance changes
+  if (prevFormulaRef.current !== vessel.formula) {
+    prevFormulaRef.current = vessel.formula;
+    reactionAgeRef.current = 0;
+  }
+
+  const isSolid = isVesselSolid(vessel);
+  const isClear = !isSolid && checkIsClearLiquid(vessel.formula, vessel.name, vessel.color, vessel.isReacted);
+  const isTwoPhase = !isSolid && checkIsTwoPhaseSystem(vessel.formula, vessel.name);
 
   // Smooth color morphing & physical wrist pouring tilt
   useFrame((_, delta) => {
@@ -1212,36 +1345,71 @@ function ChemicalVesselItem({
       );
     }
 
-    // 2. Dynamic Liquid Color Transition
+    // 2. Gradual Organic Chemical Diffusion & Color Morphing (Takes ~1.8 - 2.5s to gently diffuse)
     if (liquidMaterialRef.current) {
       const targetColor = new THREE.Color(isClear ? "#e0f7fa" : vessel.color);
-      // Fast color lerp: reacted products show their color vividly and quickly
-      const lerpSpeed = vessel.isReacted ? 0.35 : 0.08;
-      liquidMaterialRef.current.color.lerp(targetColor, lerpSpeed);
 
-      // Reacted products get stronger emissive glow so they're visible against white lab
-      if (isBeingPouredInto || vessel.isReacted) {
-        const baseEmissive = isClear ? 0.15 : (vessel.isReacted ? 0.65 : 0.45);
-        liquidMaterialRef.current.emissiveIntensity =
-          baseEmissive + Math.sin(Date.now() * 0.008) * 0.25;
+      // Smooth chemical dispersion rate normalized by frame delta
+      const colorDiffusionRate = Math.min(1.0, delta * 1.35);
+      liquidMaterialRef.current.color.lerp(targetColor, colorDiffusionRate);
+
+      if (vessel.isReacted) {
+        reactionAgeRef.current += delta;
       } else {
-        liquidMaterialRef.current.emissiveIntensity = isClear ? 0.08 : 0.28;
+        reactionAgeRef.current = 0;
       }
 
-      // Reacted product liquid should be more opaque (less transparent) for visibility
-      if (vessel.isReacted && !isClear) {
+      // Reaction Energy Luminescence Bloom: swells gently during mixing and then stabilizes
+      const age = reactionAgeRef.current;
+      const reactionPeak = age > 0 && age < 3.0 ? Math.sin((age / 3.0) * Math.PI) * 0.35 : 0;
+
+      if (isSolid) {
+        liquidMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+          liquidMaterialRef.current.emissiveIntensity,
+          0.05,
+          Math.min(1, delta * 2.0)
+        );
+        liquidMaterialRef.current.opacity = 1.0;
+        liquidMaterialRef.current.roughness = 0.92;
+      } else if (isBeingPouredInto || vessel.isReacted) {
+        const baseEmissive = isClear ? 0.15 : (vessel.isReacted ? 0.55 : 0.40);
+        const subtlePulse = Math.sin(Date.now() * 0.006) * 0.12;
+        const targetEmissive = baseEmissive + reactionPeak + subtlePulse;
+        liquidMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+          liquidMaterialRef.current.emissiveIntensity,
+          targetEmissive,
+          Math.min(1, delta * 2.5)
+        );
+        const targetOpacity = vessel.isReacted && !isClear ? 0.92 : (isClear ? 0.42 : 0.85);
         liquidMaterialRef.current.opacity = THREE.MathUtils.lerp(
           liquidMaterialRef.current.opacity,
-          0.92,
-          0.1
+          targetOpacity,
+          Math.min(1, delta * 1.5)
+        );
+      } else {
+        liquidMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(
+          liquidMaterialRef.current.emissiveIntensity,
+          isClear ? 0.08 : 0.28,
+          Math.min(1, delta * 2.0)
+        );
+        const targetOpacity = isClear ? 0.42 : 0.85;
+        liquidMaterialRef.current.opacity = THREE.MathUtils.lerp(
+          liquidMaterialRef.current.opacity,
+          targetOpacity,
+          Math.min(1, delta * 1.5)
         );
       }
     }
 
-    // 3. Fluid agitation ripple
-    if (liquidMeshRef.current) {
+    // 3. Fluid agitation ripple & subtle swirling vortex (fluids only, not solid powder bed)
+    if (liquidMeshRef.current && !isSolid) {
       const pulse = isBeingPouredInto ? 1 + Math.sin(Date.now() * 0.012) * 0.025 : 1;
       liquidMeshRef.current.scale.set(pulse, 1, pulse);
+
+      // Subtle slow vortex fluid agitation during reaction mixing
+      if (isBeingPouredInto || (vessel.isReacted && reactionAgeRef.current < 2.5)) {
+        liquidMeshRef.current.rotation.y += delta * 0.8;
+      }
     }
   });
 
@@ -1265,6 +1433,7 @@ function ChemicalVesselItem({
           isClear={isClear}
           isBeingPouredInto={isBeingPouredInto}
           isTwoPhase={isTwoPhase}
+          isSolid={isSolid}
         />
       ) : vessel.type === "test_tube" ? (
         <TestTubeModel
@@ -1274,6 +1443,7 @@ function ChemicalVesselItem({
           isClear={isClear}
           isBeingPouredInto={isBeingPouredInto}
           isTwoPhase={isTwoPhase}
+          isSolid={isSolid}
         />
       ) : (
         <BeakerModel
@@ -1283,6 +1453,7 @@ function ChemicalVesselItem({
           isClear={isClear}
           isBeingPouredInto={isBeingPouredInto}
           isTwoPhase={isTwoPhase}
+          isSolid={isSolid}
         />
       )}
 
@@ -1330,7 +1501,7 @@ function ChemicalVesselItem({
             maxWidth={1.8}
             textAlign="center"
           >
-            {sanitizeChemicalText(vessel.formula, 24)}
+            {sanitizeChemicalText(vessel.formula, 20)}
           </Text>
           <Text
             position={[0, -0.16, 0]}
@@ -1340,10 +1511,10 @@ function ChemicalVesselItem({
             anchorY="middle"
             outlineWidth={0.015}
             outlineColor="#000000"
-            maxWidth={2.2}
+            maxWidth={2.0}
             textAlign="center"
           >
-            {sanitizeChemicalText(vessel.name, 32)}
+            {sanitizeChemicalText(vessel.name, 25)}
           </Text>
         </group>
       </Float>
@@ -1359,6 +1530,7 @@ function BeakerModel({
   isClear,
   isBeingPouredInto,
   isTwoPhase = false,
+  isSolid = false,
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
@@ -1366,10 +1538,13 @@ function BeakerModel({
   isClear: boolean;
   isBeingPouredInto: boolean;
   isTwoPhase?: boolean;
+  isSolid?: boolean;
 }) {
   const radius = 0.42;
   const height = 0.95;
-  const liquidHeight = Math.max(0.12, height * (vessel.liquidLevel || 0.65));
+  const liquidHeight = isSolid
+    ? Math.min(0.35, Math.max(0.18, height * (vessel.liquidLevel || 0.38)))
+    : Math.max(0.12, height * (vessel.liquidLevel || 0.65));
 
   return (
     <group>
@@ -1379,12 +1554,12 @@ function BeakerModel({
         <meshStandardMaterial
           color="#ffffff"
           emissive="#ffffff"
-          emissiveIntensity={0.8}
+          emissiveIntensity={isSolid ? 0.35 : 0.8}
           roughness={0.2}
         />
       </mesh>
       {/* Upward Liquid Illumination */}
-      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={2.2} distance={2.5} />
+      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={isSolid ? 0.6 : 2.2} distance={2.5} />
 
       {/* 1. Crystal Clear Borosilicate Glass Cylinder Body */}
       <mesh castShadow position={[0, height / 2, 0]}>
@@ -1459,7 +1634,7 @@ function BeakerModel({
         </Text>
       </group>
 
-      {/* 2. Luminous Radiant Liquid Body (Vibrantly Visible!) */}
+      {/* 2. Luminous Radiant Liquid Body or Solid Powder Bed */}
       {isTwoPhase ? (
         /* TWO-PHASE IMMISCIBLE LIQUID: Lower Water Layer + Upper Oil Layer */
         <group>
@@ -1519,6 +1694,37 @@ function BeakerModel({
             />
           </mesh>
         </group>
+      ) : isSolid ? (
+        /* SOLID POWDER / CRYSTAL BED (Matte, granular, opaque) */
+        <group>
+          <mesh
+            ref={liquidMeshRef as any}
+            position={[0, liquidHeight / 2 + 0.035, 0]}
+          >
+            <cylinderGeometry
+              args={[radius * 0.93, radius * 0.90, liquidHeight, 32]}
+            />
+            <meshStandardMaterial
+              ref={liquidMaterialRef}
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.06}
+              roughness={0.92}
+              metalness={0.18}
+            />
+          </mesh>
+          {/* Matte Powder Top Surface Bed */}
+          <mesh position={[0, liquidHeight + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[radius * 0.92, 32]} />
+            <meshStandardMaterial
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.05}
+              roughness={0.94}
+              metalness={0.15}
+            />
+          </mesh>
+        </group>
       ) : (
         /* SINGLE-PHASE UNIFORM LIQUID */
         <group>
@@ -1543,8 +1749,8 @@ function BeakerModel({
         </group>
       )}
 
-      {/* Liquid Top Meniscus Gloss Surface (only for single-phase) */}
-      {!isTwoPhase && (
+      {/* Liquid Top Meniscus Gloss Surface (only for single-phase uniform liquid) */}
+      {!isTwoPhase && !isSolid && (
         <mesh position={[0, liquidHeight + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[radius * 0.92, 32]} />
           <meshStandardMaterial
@@ -1559,8 +1765,8 @@ function BeakerModel({
         </mesh>
       )}
 
-      {/* Internal Micro-Bubbles */}
-      <InFluidMicroBubbles radius={radius * 0.88} height={liquidHeight} />
+      {/* Internal Micro-Bubbles (fluids only, never in solid powders) */}
+      {!isSolid && <InFluidMicroBubbles radius={radius * 0.88} height={liquidHeight} />}
     </group>
   );
 }
@@ -1573,6 +1779,7 @@ function ErlenmeyerFlaskModel({
   isClear,
   isBeingPouredInto,
   isTwoPhase = false,
+  isSolid = false,
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
@@ -1580,6 +1787,7 @@ function ErlenmeyerFlaskModel({
   isClear: boolean;
   isBeingPouredInto: boolean;
   isTwoPhase?: boolean;
+  isSolid?: boolean;
 }) {
   const coneHeight = 0.65;
   const neckHeight = 0.38;
@@ -1588,10 +1796,12 @@ function ErlenmeyerFlaskModel({
   const totalHeight = coneHeight + neckHeight;
 
   // Realistic lab practice: Liquid stays cleanly inside conical flask body (below 300ml graduation mark)
-  const effectiveLiquidH = Math.min(
-    coneHeight * 0.88,
-    Math.max(0.18, coneHeight * (vessel.liquidLevel || 0.65))
-  );
+  const effectiveLiquidH = isSolid
+    ? Math.min(0.28, Math.max(0.14, coneHeight * (vessel.liquidLevel || 0.35)))
+    : Math.min(
+        coneHeight * 0.88,
+        Math.max(0.18, coneHeight * (vessel.liquidLevel || 0.65))
+      );
 
   return (
     <group>
@@ -1601,7 +1811,7 @@ function ErlenmeyerFlaskModel({
         <meshStandardMaterial
           color="#ffffff"
           emissive="#ffffff"
-          emissiveIntensity={0.8}
+          emissiveIntensity={isSolid ? 0.35 : 0.8}
           roughness={0.2}
         />
       </mesh>
@@ -1609,7 +1819,7 @@ function ErlenmeyerFlaskModel({
       <pointLight
         position={[0, 0.28, 0]}
         color={isTwoPhase ? "#f59e0b" : vessel.color}
-        intensity={2.2}
+        intensity={isSolid ? 0.6 : 2.2}
         distance={2.5}
       />
 
@@ -1787,6 +1997,48 @@ function ErlenmeyerFlaskModel({
             );
           })()}
         </group>
+      ) : isSolid ? (
+        /* SOLID POWDER / CRYSTAL BED IN FLASK (Matte, granular, opaque) */
+        <group>
+          {(() => {
+            const rTop =
+              baseRadius * 0.94 -
+              (baseRadius * 0.94 - neckRadius * 0.92) * (effectiveLiquidH / coneHeight);
+
+            return (
+              <group>
+                <mesh
+                  ref={liquidMeshRef as any}
+                  position={[0, effectiveLiquidH / 2 + 0.035, 0]}
+                >
+                  <cylinderGeometry
+                    args={[rTop, baseRadius * 0.94, effectiveLiquidH, 32]}
+                  />
+                  <meshStandardMaterial
+                    ref={liquidMaterialRef}
+                    color={vessel.color}
+                    emissive={vessel.color}
+                    emissiveIntensity={0.06}
+                    roughness={0.92}
+                    metalness={0.18}
+                  />
+                </mesh>
+
+                {/* Powder Bed Top Surface */}
+                <mesh position={[0, effectiveLiquidH + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <circleGeometry args={[rTop, 32]} />
+                  <meshStandardMaterial
+                    color={vessel.color}
+                    emissive={vessel.color}
+                    emissiveIntensity={0.05}
+                    roughness={0.94}
+                    metalness={0.15}
+                  />
+                </mesh>
+              </group>
+            );
+          })()}
+        </group>
       ) : (
         /* SINGLE-PHASE UNIFORM CONICAL LIQUID */
         <group>
@@ -1835,7 +2087,8 @@ function ErlenmeyerFlaskModel({
         </group>
       )}
 
-      <InFluidMicroBubbles radius={baseRadius * 0.75} height={effectiveLiquidH} />
+      {/* Internal Micro-Bubbles (fluids only, never in solid powders) */}
+      {!isSolid && <InFluidMicroBubbles radius={baseRadius * 0.75} height={effectiveLiquidH} />}
     </group>
   );
 }
@@ -1848,6 +2101,7 @@ function TestTubeModel({
   isClear,
   isBeingPouredInto,
   isTwoPhase = false,
+  isSolid = false,
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
@@ -1855,10 +2109,13 @@ function TestTubeModel({
   isClear: boolean;
   isBeingPouredInto: boolean;
   isTwoPhase?: boolean;
+  isSolid?: boolean;
 }) {
   const radius = 0.18;
   const tubeHeight = 1.0;
-  const liquidHeight = Math.max(0.12, tubeHeight * (vessel.liquidLevel || 0.6));
+  const liquidHeight = isSolid
+    ? Math.min(0.35, Math.max(0.14, tubeHeight * (vessel.liquidLevel || 0.35)))
+    : Math.max(0.12, tubeHeight * (vessel.liquidLevel || 0.6));
 
   return (
     <group>
@@ -1868,12 +2125,12 @@ function TestTubeModel({
         <meshStandardMaterial
           color="#ffffff"
           emissive="#ffffff"
-          emissiveIntensity={0.8}
+          emissiveIntensity={isSolid ? 0.35 : 0.8}
           roughness={0.2}
         />
       </mesh>
       {/* Upward Liquid Illumination */}
-      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={2.0} distance={2.5} />
+      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={isSolid ? 0.6 : 2.0} distance={2.5} />
 
       {/* 1. Cylindrical Tube Wall Glass */}
       <mesh castShadow position={[0, tubeHeight / 2 + radius, 0]}>
@@ -1973,6 +2230,52 @@ function TestTubeModel({
             <meshStandardMaterial color="#fbbf24" emissive="#d97706" emissiveIntensity={0.85} transparent opacity={0.95} />
           </mesh>
         </group>
+      ) : isSolid ? (
+        /* SOLID POWDER IN TEST TUBE (Matte, granular, opaque bed) */
+        <group>
+          <mesh
+            ref={liquidMeshRef as any}
+            position={[0, liquidHeight / 2 + radius, 0]}
+          >
+            <cylinderGeometry
+              args={[radius * 0.92, radius * 0.92, liquidHeight, 32]}
+            />
+            <meshStandardMaterial
+              ref={liquidMaterialRef}
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.06}
+              roughness={0.92}
+              metalness={0.18}
+            />
+          </mesh>
+
+          {/* Solid Powder Hemispherical Bottom Dome */}
+          <mesh position={[0, radius, 0]} rotation={[Math.PI, 0, 0]}>
+            <sphereGeometry
+              args={[radius * 0.92, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]}
+            />
+            <meshStandardMaterial
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.06}
+              roughness={0.92}
+              metalness={0.18}
+            />
+          </mesh>
+
+          {/* Top Powder Bed Disk */}
+          <mesh position={[0, liquidHeight + radius, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[radius * 0.92, 32]} />
+            <meshStandardMaterial
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.05}
+              roughness={0.94}
+              metalness={0.15}
+            />
+          </mesh>
+        </group>
       ) : (
         <group>
           <mesh
@@ -2026,7 +2329,8 @@ function TestTubeModel({
         </group>
       )}
 
-      <InFluidMicroBubbles radius={radius * 0.85} height={liquidHeight} count={14} />
+      {/* Internal Micro-Bubbles (fluids only, never in solid powders) */}
+      {!isSolid && <InFluidMicroBubbles radius={radius * 0.85} height={liquidHeight} count={14} />}
     </group>
   );
 }
@@ -2193,7 +2497,15 @@ function RealisticFluidPouringStream({
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[splashPositions, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={0.035} color="#38bdf8" transparent opacity={0.85} />
+        <pointsMaterial
+          size={0.035}
+          color="#38bdf8"
+          transparent
+          opacity={0.85}
+          map={getSoftParticleTexture()}
+          alphaTest={0.01}
+          depthWrite={false}
+        />
       </points>
 
       {/* Impact Meniscus Ripple */}
@@ -2206,7 +2518,8 @@ function RealisticFluidPouringStream({
 }
 
 // 5. MULTI-LAYERED REAL-WORLD SCIENTIFIC REACTION VISUAL EFFECTS
-// (Firmly anchored inside the vessel group - 100% moves and follows the glassware!)
+// 5. MULTI-LAYERED REAL-WORLD SCIENTIFIC REACTION VISUAL EFFECTS
+// (Firmly anchored inside the vessel group - with smooth organic fade-in & growth!)
 function ReactionVisualEffects({
   effectType,
   colorHex,
@@ -2220,6 +2533,22 @@ function ReactionVisualEffects({
   liquidLevel?: number;
   isTwoPhase?: boolean;
 }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const elapsedRef = useRef<number>(0);
+
+  useFrame((_, delta) => {
+    elapsedRef.current += delta;
+    // Gradual organic bloom over 2.2 seconds (no more sudden snapping!)
+    const fadeInProgress = Math.min(1.0, elapsedRef.current / 2.2);
+    const smoothGrowth = 1 - Math.pow(1 - fadeInProgress, 2.5);
+
+    if (groupRef.current) {
+      // Scale starts at 0.35 and grows organically as reaction develops
+      const currentScale = 0.35 + 0.65 * smoothGrowth;
+      groupRef.current.scale.set(currentScale, currentScale, currentScale);
+    }
+  });
+
   const rimHeight = vesselType === "test_tube" ? 1.32 : vesselType === "flask" ? 1.03 : 0.95;
   const liquidSurfaceY =
     vesselType === "test_tube"
@@ -2231,7 +2560,7 @@ function ReactionVisualEffects({
   const bodyRadius = vesselType === "flask" ? 0.45 : vesselType === "test_tube" ? 0.20 : 0.40;
 
   return (
-    <group position={[0, 0, 0]}>
+    <group ref={groupRef} position={[0, 0, 0]}>
       {/* 1. Dynamic Exothermic Reaction Luminescence Core (Deep inside fluid) */}
       <ReactionCoreLight
         effectType={effectType}
@@ -2285,7 +2614,7 @@ function ReactionVisualEffects({
   );
 }
 
-// 5A. Reaction Core Light (Flickers & Illuminates the Glassware from Inside)
+// 5A. Reaction Core Light (Smoothly Swells & Illuminates the Glassware from Inside)
 function ReactionCoreLight({
   effectType,
   colorHex,
@@ -2296,11 +2625,17 @@ function ReactionCoreLight({
   position?: [number, number, number];
 }) {
   const lightRef = useRef<THREE.PointLight>(null);
+  const ageRef = useRef<number>(0);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!lightRef.current) return;
-    const flicker = Math.sin(Date.now() * 0.02) * 0.8;
-    lightRef.current.intensity = 2.8 + flicker;
+    ageRef.current += delta;
+    // Smooth swell over 2.0s
+    const progress = Math.min(1.0, ageRef.current / 2.0);
+    const easeProgress = 1 - Math.pow(1 - progress, 2);
+
+    const flicker = Math.sin(Date.now() * 0.02) * 0.6;
+    lightRef.current.intensity = (0.5 + 2.5 * easeProgress) + flicker * easeProgress;
   });
 
   const isWarmExothermic = effectType === "steam" || effectType === "spark";
@@ -2311,7 +2646,7 @@ function ReactionCoreLight({
       ref={lightRef}
       position={position}
       color={lightColor}
-      intensity={3.0}
+      intensity={0.5}
       distance={3.5}
       decay={2}
     />
@@ -2337,6 +2672,7 @@ function EffervescenceBubbles({
   const bubblesRef = useRef<THREE.Points>(null);
   const dropletsRef = useRef<THREE.Points>(null);
   const foamRef = useRef<THREE.Group>(null);
+  const ageRef = useRef<number>(0);
 
   const bubbleCount = 120;
   const dropletCount = 45;
@@ -2372,12 +2708,21 @@ function EffervescenceBubbles({
   }, [dropletCount, openingRadius, liquidSurfaceY]);
 
   useFrame((_, delta) => {
-    // 1. Rising in-fluid bubbles
+    ageRef.current += delta;
+    const progress = Math.min(1.0, ageRef.current / 2.2);
+    const easeProgress = 1 - Math.pow(1 - progress, 2);
+
+    // 1. Rising in-fluid bubbles: opacity & speed ramp up gently
     if (bubblesRef.current) {
       const posAttr = bubblesRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const arr = posAttr.array as Float32Array;
+      const mat = bubblesRef.current.material as THREE.PointsMaterial;
+      if (mat) {
+        mat.opacity = 0.88 * easeProgress;
+      }
+
       for (let i = 0; i < bubbleCount; i++) {
-        arr[i * 3 + 1] += delta * bubbleVel[i];
+        arr[i * 3 + 1] += delta * bubbleVel[i] * (0.35 + 0.65 * easeProgress);
         arr[i * 3] += Math.sin(Date.now() * 0.005 + i) * 0.003;
         if (arr[i * 3 + 1] > liquidSurfaceY) {
           arr[i * 3 + 1] = 0.08;
@@ -2390,10 +2735,16 @@ function EffervescenceBubbles({
       posAttr.needsUpdate = true;
     }
 
-    // 2. Sputtering bursting droplets (ballistic trajectory with gravity)
+    // 2. Sputtering bursting droplets (droplets start after foam arrives around 0.7s)
     if (dropletsRef.current) {
       const posAttr = dropletsRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const arr = posAttr.array as Float32Array;
+      const mat = dropletsRef.current.material as THREE.PointsMaterial;
+      const dropletFade = Math.max(0, Math.min(1, (ageRef.current - 0.7) / 1.5));
+      if (mat) {
+        mat.opacity = 0.9 * dropletFade;
+      }
+
       for (let i = 0; i < dropletCount; i++) {
         arr[i * 3] += dropletVel[i * 3] * delta;
         arr[i * 3 + 1] += dropletVel[i * 3 + 1] * delta;
@@ -2414,10 +2765,11 @@ function EffervescenceBubbles({
       posAttr.needsUpdate = true;
     }
 
-    // 3. Surface foam cap organic pulsation
+    // 3. Surface foam cap organic pulsation & growth
     if (foamRef.current) {
       const wobble = 1 + Math.sin(Date.now() * 0.008) * 0.06;
-      foamRef.current.scale.set(wobble, wobble * 0.85, wobble);
+      const currentFoamScale = easeProgress * wobble;
+      foamRef.current.scale.set(currentFoamScale, currentFoamScale * 0.85, currentFoamScale);
     }
   });
 
@@ -2432,7 +2784,16 @@ function EffervescenceBubbles({
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[bubblePos, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={0.045} color="#ffffff" transparent opacity={0.88} />
+        <pointsMaterial
+          size={0.045}
+          color="#ffffff"
+          transparent
+          opacity={0.88}
+          map={getSoftParticleTexture()}
+          alphaTest={0.005}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
       </points>
 
       {/* Surface Froth / Foam Cap Dome - Perched directly on the fluid meniscus/rim */}
@@ -2456,7 +2817,16 @@ function EffervescenceBubbles({
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[dropletPos, 3]} />
         </bufferGeometry>
-        <pointsMaterial size={0.038} color={colorHex || "#ffffff"} transparent opacity={0.9} />
+        <pointsMaterial
+          size={0.038}
+          color={colorHex || "#ffffff"}
+          transparent
+          opacity={0.9}
+          map={getSoftParticleTexture()}
+          alphaTest={0.005}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
       </points>
     </group>
   );
@@ -2474,6 +2844,7 @@ function TurbulentThermalSteam({
 }) {
   const innerSteamRef = useRef<THREE.Points>(null);
   const outerSteamRef = useRef<THREE.Points>(null);
+  const ageRef = useRef<number>(0);
 
   const innerCount = 70;
   const outerCount = 110;
@@ -2499,12 +2870,23 @@ function TurbulentThermalSteam({
   }, [outerCount, rimHeight, openingRadius]);
 
   useFrame((_, delta) => {
+    ageRef.current += delta;
+    // Gradual steam billowing curve over 2.4s
+    const progress = Math.min(1.0, ageRef.current / 2.4);
+    const steamEase = Math.sin(progress * Math.PI * 0.5);
+
     // 1. Fast rising thermal core straight from vessel rim
     if (innerSteamRef.current) {
+      const mat = innerSteamRef.current.material as THREE.PointsMaterial;
+      if (mat) {
+        mat.opacity = 0.65 * steamEase;
+        mat.size = 0.06 + 0.06 * steamEase;
+      }
+
       const posAttr = innerSteamRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const arr = posAttr.array as Float32Array;
       for (let i = 0; i < innerCount; i++) {
-        arr[i * 3 + 1] += delta * 1.5;
+        arr[i * 3 + 1] += delta * 1.5 * (0.35 + 0.65 * steamEase);
         arr[i * 3] += Math.sin(Date.now() * 0.003 + i) * 0.004;
         if (arr[i * 3 + 1] > rimHeight + 1.8) {
           arr[i * 3 + 1] = rimHeight;
@@ -2517,10 +2899,16 @@ function TurbulentThermalSteam({
 
     // 2. Billowing atmospheric vapor wisps expanding outwards as they rise
     if (outerSteamRef.current) {
+      const mat = outerSteamRef.current.material as THREE.PointsMaterial;
+      if (mat) {
+        mat.opacity = 0.35 * steamEase;
+        mat.size = 0.09 + 0.09 * steamEase;
+      }
+
       const posAttr = outerSteamRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const arr = posAttr.array as Float32Array;
       for (let i = 0; i < outerCount; i++) {
-        arr[i * 3 + 1] += delta * 1.0;
+        arr[i * 3 + 1] += delta * 1.0 * (0.35 + 0.65 * steamEase);
         const angle = Date.now() * 0.0015 + i;
         arr[i * 3] += Math.cos(angle) * 0.006;
         arr[i * 3 + 2] += Math.sin(angle) * 0.006;
@@ -2546,6 +2934,9 @@ function TurbulentThermalSteam({
           color="#fef3c7"
           transparent
           opacity={0.65}
+          map={getSoftParticleTexture()}
+          alphaTest={0.005}
+          depthWrite={false}
           blending={THREE.AdditiveBlending}
         />
       </points>
@@ -2560,6 +2951,9 @@ function TurbulentThermalSteam({
           color="#f8fafc"
           transparent
           opacity={0.35}
+          map={getSoftParticleTexture()}
+          alphaTest={0.005}
+          depthWrite={false}
           blending={THREE.AdditiveBlending}
         />
       </points>
@@ -2578,6 +2972,7 @@ function GoldenRainSparkles({
   bodyRadius: number;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
+  const ageRef = useRef<number>(0);
   const count = 160;
 
   const [positions, velocities, colors] = useMemo(() => {
@@ -2608,11 +3003,21 @@ function GoldenRainSparkles({
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
+    ageRef.current += delta;
+    const progress = Math.min(1.0, ageRef.current / 2.0);
+    const sparkEase = Math.sin(progress * Math.PI * 0.5);
+
+    const mat = pointsRef.current.material as THREE.PointsMaterial;
+    if (mat) {
+      mat.opacity = 0.92 * sparkEase;
+      mat.size = 0.03 + 0.03 * sparkEase;
+    }
+
     const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
 
     for (let i = 0; i < count; i++) {
-      arr[i * 3 + 1] += velocities[i * 3 + 1] * delta;
+      arr[i * 3 + 1] += velocities[i * 3 + 1] * delta * (0.35 + 0.65 * sparkEase);
       arr[i * 3] += Math.sin(Date.now() * 0.008 + i) * 0.004;
       arr[i * 3 + 2] += Math.cos(Date.now() * 0.008 + i) * 0.004;
 
@@ -2638,6 +3043,9 @@ function GoldenRainSparkles({
         vertexColors
         transparent
         opacity={0.92}
+        map={getSoftParticleTexture()}
+        alphaTest={0.005}
+        depthWrite={false}
         blending={THREE.AdditiveBlending}
       />
     </points>
@@ -2655,6 +3063,7 @@ function ColloidalPrecipitateSwirl({
   bodyRadius: number;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
+  const ageRef = useRef<number>(0);
   const count = 140;
 
   const [positions, targetY] = useMemo(() => {
@@ -2673,6 +3082,16 @@ function ColloidalPrecipitateSwirl({
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
+    ageRef.current += delta;
+    const progress = Math.min(1.0, ageRef.current / 2.2);
+    const precipEase = 1 - Math.pow(1 - progress, 2);
+
+    const mat = pointsRef.current.material as THREE.PointsMaterial;
+    if (mat) {
+      mat.opacity = 0.85 * precipEase;
+      mat.size = 0.035 + 0.04 * precipEase;
+    }
+
     const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
 
@@ -2685,7 +3104,7 @@ function ColloidalPrecipitateSwirl({
       arr[i * 3 + 2] = r * Math.sin(angle);
 
       if (arr[i * 3 + 1] > targetY[i]) {
-        arr[i * 3 + 1] -= delta * 0.15;
+        arr[i * 3 + 1] -= delta * 0.15 * (0.35 + 0.65 * precipEase);
       }
     }
     posAttr.needsUpdate = true;
@@ -2701,6 +3120,9 @@ function ColloidalPrecipitateSwirl({
         color={colorHex || "#1e40af"}
         transparent
         opacity={0.85}
+        map={getSoftParticleTexture()}
+        alphaTest={0.005}
+        depthWrite={false}
         blending={THREE.NormalBlending}
       />
     </points>
@@ -2718,6 +3140,7 @@ function ColorDiffusionSwirl({
   bodyRadius: number;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
+  const ageRef = useRef<number>(0);
   const count = 90;
 
   const [positions] = useMemo(() => {
@@ -2734,6 +3157,16 @@ function ColorDiffusionSwirl({
 
   useFrame((_, delta) => {
     if (!pointsRef.current) return;
+    ageRef.current += delta;
+    const progress = Math.min(1.0, ageRef.current / 2.2);
+    // Smooth bell curve: starts at 0, peaks around 1.1s, then gently fades out as liquid becomes homogeneous!
+    const swirlOpacity = Math.sin(progress * Math.PI) * 0.85;
+
+    const mat = pointsRef.current.material as THREE.PointsMaterial;
+    if (mat) {
+      mat.opacity = Math.max(0.02, swirlOpacity);
+    }
+
     const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
 
@@ -2753,7 +3186,15 @@ function ColorDiffusionSwirl({
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.06} color={colorHex} transparent opacity={0.78} />
+      <pointsMaterial
+        size={0.06}
+        color={colorHex}
+        transparent
+        opacity={0.78}
+        map={getSoftParticleTexture()}
+        alphaTest={0.005}
+        depthWrite={false}
+      />
     </points>
   );
 }
@@ -2772,6 +3213,7 @@ function TwoPhaseSeparationEmulsion({
 }) {
   const pointsRef = useRef<THREE.Points>(null);
   const boundaryRingRef = useRef<THREE.Mesh>(null);
+  const ageRef = useRef<number>(0);
   const count = 120;
 
   // Mid-level boundary between water and oil (approx 55% water height)
@@ -2793,13 +3235,22 @@ function TwoPhaseSeparationEmulsion({
   }, [count, bodyRadius, liquidSurfaceY]);
 
   useFrame((_, delta) => {
+    ageRef.current += delta;
+    const progress = Math.min(1.0, ageRef.current / 2.8);
+    const sepEase = 1 - Math.pow(1 - progress, 2);
+
     if (pointsRef.current) {
+      const mat = pointsRef.current.material as THREE.PointsMaterial;
+      if (mat) {
+        mat.opacity = 0.88 * sepEase;
+      }
+
       const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const arr = posAttr.array as Float32Array;
 
       for (let i = 0; i < count; i++) {
         // Oil droplets float up due to lower density (0.92 g/cm3 vs 1.0 g/cm3)
-        arr[i * 3 + 1] += speeds[i] * delta;
+        arr[i * 3 + 1] += speeds[i] * delta * (0.35 + 0.65 * sepEase);
 
         // When reaching the top oil layer, they settle near boundary or top
         if (arr[i * 3 + 1] > liquidSurfaceY - 0.02) {
@@ -2817,6 +3268,10 @@ function TwoPhaseSeparationEmulsion({
     if (boundaryRingRef.current) {
       const wave = Math.sin(Date.now() * 0.005) * 0.04;
       boundaryRingRef.current.rotation.z = wave;
+      const boundaryMat = boundaryRingRef.current.material as THREE.MeshBasicMaterial;
+      if (boundaryMat) {
+        boundaryMat.opacity = 0.65 * sepEase;
+      }
     }
   });
 
@@ -2832,6 +3287,9 @@ function TwoPhaseSeparationEmulsion({
           color="#fbbf24"
           transparent
           opacity={0.88}
+          map={getSoftParticleTexture()}
+          alphaTest={0.005}
+          depthWrite={false}
           blending={THREE.AdditiveBlending}
         />
       </points>
