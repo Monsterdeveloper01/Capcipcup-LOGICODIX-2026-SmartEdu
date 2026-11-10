@@ -54,10 +54,10 @@ import {
 const ChemistryLabScene = dynamic(() => import("./ChemistryLabScene"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center text-[#5865F2] bg-[#111214] font-sans">
+    <div className="w-full h-full flex items-center justify-center text-sky-600 bg-white font-sans">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-4 border-[#5865F2] border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-semibold tracking-wider text-[#949ba4] uppercase">
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-sky-600 rounded-full animate-spin" />
+        <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
           Memuat 3D Science Engine...
         </span>
       </div>
@@ -284,6 +284,7 @@ export default function SmartScienceLabViewer() {
         level: task.level,
         liquidLevel: 0.7,
         temperatureC: 25,
+        components: [chem.formula],
       };
     });
 
@@ -331,6 +332,7 @@ export default function SmartScienceLabViewer() {
       level: chem.level || "SMA",
       liquidLevel: 0.7,
       temperatureC: 25,
+      components: [chem.formula],
     };
 
     setVessels((prev) => [...prev, newVessel]);
@@ -404,31 +406,31 @@ export default function SmartScienceLabViewer() {
   const activeChemNames = vessels.map((v) => `${v.name} (${v.formula})`);
 
   return (
-    <div className="h-full w-full flex bg-[#1e1f22] overflow-hidden text-[#dbdee1] font-sans select-none">
+    <div className="h-full w-full flex bg-slate-50 overflow-hidden text-slate-800 font-sans select-none">
       {/* =========================================================================
-          DISCORD-INSPIRED SLEEK SIDEBAR NAVIGATION (250px)
+          CUPLABS SLEEK CLINICAL WHITE SIDEBAR NAVIGATION (250px)
           ========================================================================= */}
       <aside
-        className={`w-64 bg-[#2b2d31] border-r border-[#202225] flex flex-col shrink-0 z-30 transition-transform duration-200 ${
+        className={`w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 z-30 transition-transform duration-200 ${
           isMobileDrawerOpen
             ? "fixed inset-y-0 left-0 shadow-2xl flex"
             : "hidden md:flex"
         }`}
       >
         {/* App Branding Header */}
-        <div className="h-14 border-b border-[#202225] px-4 flex items-center justify-between shadow-sm">
+        <div className="h-14 border-b border-slate-200 px-4 flex items-center justify-between bg-white shadow-sm">
           <Link href="/" className="flex items-center gap-2.5 hover:opacity-85 transition-opacity" title="Kembali ke Dashboard Utama">
-            <div className="w-8 h-8 rounded-xl bg-[#5865F2] flex items-center justify-center text-white shadow-md">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-700 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
               <FlaskConical className="w-4 h-4" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
-                Capcipcup
-                <span className="text-[10px] bg-[#5865F2] text-white px-1.5 py-0.2 rounded font-bold">
+              <h1 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                CupLabs
+                <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold">
                   LAB 3D
                 </span>
               </h1>
-              <span className="text-[10px] text-[#949ba4] font-medium">
+              <span className="text-[10px] text-slate-500 font-medium">
                 Virtual Science Laboratory
               </span>
             </div>
@@ -437,7 +439,7 @@ export default function SmartScienceLabViewer() {
           <button
             type="button"
             onClick={() => setIsMobileDrawerOpen(false)}
-            className="md:hidden text-[#949ba4] hover:text-white p-1"
+            className="md:hidden text-slate-400 hover:text-slate-700 p-1"
           >
             <X className="w-5 h-5" />
           </button>
@@ -447,13 +449,13 @@ export default function SmartScienceLabViewer() {
         <div className="px-3 pt-3">
           <Link
             href="/"
-            className="w-full py-2 px-3 bg-[#1e1f22] hover:bg-[#35373c] border border-[#3b3e45] hover:border-[#5865F2] text-white text-xs font-bold rounded-xl flex items-center justify-between transition-colors shadow"
+            className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-sky-300 text-slate-700 text-xs font-bold rounded-xl flex items-center justify-between transition-colors shadow-sm"
           >
             <div className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4 text-[#FEE75C]" />
+              <ArrowLeft className="w-4 h-4 text-sky-600" />
               <span>Dashboard Kelas</span>
             </div>
-            <span className="text-[9px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded font-black">
+            <span className="text-[9px] bg-sky-600 text-white px-1.5 py-0.5 rounded font-black">
               HOME
             </span>
           </Link>
@@ -461,26 +463,26 @@ export default function SmartScienceLabViewer() {
 
         {/* Room PIN Card */}
         <div className="p-3">
-          <div className="bg-[#1e1f22] border border-[#3b3e45] rounded-xl p-3 space-y-1.5">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 shadow-sm">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-[#949ba4] font-medium text-[11px]">Room Praktikum:</span>
+              <span className="text-slate-500 font-medium text-[11px]">Room Praktikum:</span>
               <button
                 type="button"
                 onClick={() => {
                   const newPin = prompt("Masukkan PIN Room Baru:", roomCode);
                   if (newPin) setRoomCode(newPin.toUpperCase().trim());
                 }}
-                className="text-[10px] bg-[#35373c] hover:bg-[#5865F2] text-white px-2 py-0.5 rounded transition-colors font-semibold"
+                className="text-[10px] bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded transition-colors font-semibold shadow-xs"
               >
                 Ganti PIN
               </button>
             </div>
             <div className="flex items-center justify-between">
-              <span className="font-mono font-bold text-white text-sm tracking-wider">
+              <span className="font-mono font-bold text-sky-700 text-sm tracking-wider">
                 {roomCode}
               </span>
-              <span className="text-[10px] text-[#57F287] font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#57F287] animate-pulse" />
+              <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 SD • SMP • SMA
               </span>
             </div>
@@ -492,21 +494,20 @@ export default function SmartScienceLabViewer() {
           {isTeacher ? (
             /* ==========================================================
                TEACHER SIDEBAR NAVIGATION (GURU PENGAMPU)
-               Guru hanya menggunakan Mode Sandbox untuk uji coba lab
                ========================================================== */
             <>
               {/* Teacher Sandbox Status Banner */}
-              <div className="space-y-1.5 bg-[#1e1f22] p-2.5 rounded-xl border border-[#3b3e45]">
+              <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-[#FEE75C] uppercase tracking-wider flex items-center gap-1.5">
-                    <FlaskConical className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <FlaskConical className="w-3.5 h-3.5 text-amber-600" />
                     <span>Mode Lab Guru</span>
                   </span>
-                  <span className="text-[9px] bg-[#23a55a] text-white px-1.5 py-0.5 rounded font-black tracking-wide">
+                  <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-black tracking-wide">
                     SANDBOX
                   </span>
                 </div>
-                <p className="text-[10px] text-[#949ba4] leading-relaxed">
+                <p className="text-[10px] text-slate-500 leading-relaxed">
                   Guru berpraktikum dalam <strong>Mode Sandbox</strong> untuk menguji reaksi & racikan secara bebas sebelum ditugaskan ke siswa.
                 </p>
                 <button
@@ -518,8 +519,8 @@ export default function SmartScienceLabViewer() {
                   }}
                   className={`w-full py-1.5 px-2.5 rounded-lg text-left text-xs font-bold flex items-center justify-between transition-all ${
                     activeTab === "lab"
-                      ? "bg-[#23a55a] text-white shadow"
-                      : "bg-[#2b2d31] text-[#dbdee1] hover:text-white hover:bg-[#35373c]"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -528,7 +529,7 @@ export default function SmartScienceLabViewer() {
                   </div>
                   <span
                     className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#57F287]"
+                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     }`}
                   >
                     WEB-AR
@@ -538,7 +539,7 @@ export default function SmartScienceLabViewer() {
 
               {/* Section 1: Dashboard & Manajemen Guru */}
               <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Manajemen & Tugas Guru
                 </span>
 
@@ -551,15 +552,15 @@ export default function SmartScienceLabViewer() {
                   }}
                   className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
                     activeTab === "teacher_builder" && teacherBuilderSection === "create"
-                      ? "bg-[#5865F2] text-white shadow-sm"
-                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <PlusCircle className="w-4 h-4 text-[#5865F2]" />
+                    <PlusCircle className="w-4 h-4 text-sky-600" />
                     <span>Rancang Tugas Baru</span>
                   </div>
-                  <span className="text-[9px] bg-[#5865F2]/20 text-[#5865F2] px-1.5 py-0.5 rounded font-bold border border-[#5865F2]/30">
+                  <span className="text-[9px] bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded font-bold border border-sky-200">
                     AI Kuis
                   </span>
                 </button>
@@ -573,19 +574,19 @@ export default function SmartScienceLabViewer() {
                   }}
                   className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
                     activeTab === "teacher_builder" && teacherBuilderSection === "list"
-                      ? "bg-[#5865F2] text-white shadow-sm"
-                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <ClipboardList className="w-4 h-4 text-[#FEE75C]" />
+                    <ClipboardList className="w-4 h-4 text-amber-600" />
                     <span>Tugas Diterbitkan</span>
                   </div>
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
                       activeTab === "teacher_builder" && teacherBuilderSection === "list"
                         ? "bg-white/20 text-white"
-                        : "bg-[#1e1f22] text-[#dbdee1]"
+                        : "bg-slate-100 text-slate-600"
                     }`}
                   >
                     {tasks.length}
@@ -601,15 +602,15 @@ export default function SmartScienceLabViewer() {
                   }}
                   className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
                     activeTab === "teacher_builder" && teacherBuilderSection === "submissions"
-                      ? "bg-[#5865F2] text-white shadow-sm"
-                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Users className="w-4 h-4 text-[#57F287]" />
+                    <Users className="w-4 h-4 text-emerald-600" />
                     <span>Rekap Nilai Siswa</span>
                   </div>
-                  <span className="text-[9px] bg-[#57F287]/20 text-[#57F287] px-1.5 py-0.5 rounded font-bold border border-[#57F287]/30">
+                  <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold border border-emerald-200">
                     Hasil
                   </span>
                 </button>
@@ -617,35 +618,35 @@ export default function SmartScienceLabViewer() {
 
               {/* Section 2: Asisten AI Guru */}
               <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Asisten AI Guru
                 </span>
 
                 <button
                   type="button"
                   onClick={() => setIsAiAssistantOpen(true)}
-                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
+                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-[#FEE75C]" />
+                    <Sparkles className="w-4 h-4 text-amber-500" />
                     <span>Konsultasi Lab-AI</span>
                   </div>
-                  <span className="text-[9px] bg-[#5865F2] text-white px-1.5 py-0.5 rounded font-bold">
+                  <span className="text-[9px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold">
                     AI
                   </span>
                 </button>
               </div>
 
               {/* Section 3: Bahan Kimia di Meja Guru (Mode Sandbox Bebas) */}
-              <div className="space-y-1.5 pt-2 border-t border-[#3b3e45]">
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
                 <div className="px-1 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Bahan di Meja 3D ({vessels.length})
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsAddChemicalModalOpen(true)}
-                    className="text-[10px] text-[#57F287] hover:underline flex items-center gap-0.5 font-bold"
+                    className="text-[10px] text-emerald-700 hover:underline flex items-center gap-0.5 font-bold"
                   >
                     <Plus className="w-3 h-3" />
                     Tambah
@@ -654,31 +655,31 @@ export default function SmartScienceLabViewer() {
 
                 <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                   {vessels.length === 0 ? (
-                    <div className="py-3 px-2 bg-[#1e1f22]/60 border border-dashed border-[#3b3e45] rounded-md text-center space-y-1">
-                      <p className="text-[11px] text-[#949ba4]">Meja praktik kosong</p>
-                      <p className="text-[10px] text-[#64748b]">Klik &quot;Tambah&quot; untuk memilih zat</p>
+                    <div className="py-3 px-2 bg-slate-50 border border-dashed border-slate-200 rounded-md text-center space-y-1">
+                      <p className="text-[11px] text-slate-500">Meja praktik kosong</p>
+                      <p className="text-[10px] text-slate-400">Klik &quot;Tambah&quot; untuk memilih zat</p>
                     </div>
                   ) : (
                     vessels.map((v, i) => (
                       <div
                         key={v.id || i}
-                        className="px-2.5 py-1.5 bg-[#1e1f22] border border-[#3b3e45] rounded-md flex items-center justify-between text-[11px] group hover:border-[#5865F2] transition-colors"
+                        className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between text-[11px] group hover:border-sky-300 transition-colors"
                       >
                         <div className="flex items-center gap-2 truncate pr-1">
                           <span
-                            className="w-2.5 h-2.5 rounded-full border border-black shrink-0"
+                            className="w-2.5 h-2.5 rounded-full border border-black/20 shrink-0"
                             style={{ backgroundColor: v.color }}
                           />
                           <div className="truncate">
-                            <span className="font-mono font-bold text-white mr-1">{v.formula}</span>
-                            <span className="text-[#949ba4] truncate text-[10px]">{v.name}</span>
+                            <span className="font-mono font-bold text-slate-900 mr-1">{v.formula}</span>
+                            <span className="text-slate-500 truncate text-[10px]">{v.name}</span>
                           </div>
                         </div>
 
                         <button
                           type="button"
                           onClick={() => handleRemoveVessel(v.id)}
-                          className="opacity-60 hover:opacity-100 text-[#ed4245] p-0.5 rounded hover:bg-[#ed4245]/20 transition-all shrink-0"
+                          className="opacity-60 hover:opacity-100 text-rose-600 p-0.5 rounded hover:bg-rose-50 transition-all shrink-0"
                           title="Hapus bejana dari meja"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -692,7 +693,7 @@ export default function SmartScienceLabViewer() {
                   <button
                     type="button"
                     onClick={() => setIsAddChemicalModalOpen(true)}
-                    className="flex-1 py-1.5 px-2 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow"
+                    className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>+ Tambah Zat</span>
@@ -701,7 +702,7 @@ export default function SmartScienceLabViewer() {
                   <button
                     type="button"
                     onClick={handleResetWorkbench}
-                    className="py-1.5 px-2.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center transition-colors shadow"
+                    className="py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors border border-slate-200"
                     title="Kosongkan Meja"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -716,7 +717,7 @@ export default function SmartScienceLabViewer() {
             <>
               {/* Section 1: Menu Utama Siswa */}
               <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Navigasi Meja Lab
                 </span>
 
@@ -728,8 +729,8 @@ export default function SmartScienceLabViewer() {
                   }}
                   className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
                     activeTab === "lab"
-                      ? "bg-[#5865F2] text-white shadow-sm"
-                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -738,7 +739,7 @@ export default function SmartScienceLabViewer() {
                   </div>
                   <span
                     className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#57F287]"
+                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     }`}
                   >
                     WEB-AR
@@ -753,8 +754,8 @@ export default function SmartScienceLabViewer() {
                   }}
                   className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
                     activeTab === "tasks"
-                      ? "bg-[#5865F2] text-white shadow-sm"
-                      : "text-[#dbdee1] hover:bg-[#35373c] hover:text-white"
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -764,7 +765,7 @@ export default function SmartScienceLabViewer() {
                   {tasks.length > 0 && (
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                        activeTab === "tasks" ? "bg-white/20 text-white" : "bg-[#1e1f22] text-[#dbdee1]"
+                        activeTab === "tasks" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
                       }`}
                     >
                       {tasks.length}
@@ -775,25 +776,25 @@ export default function SmartScienceLabViewer() {
 
               {/* Section 2: Fitur AI & Evaluasi Siswa */}
               <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   {labMode === "task" ? "Asisten AI & Evaluasi" : "Asisten AI Praktikum"}
                 </span>
 
                 <button
                   type="button"
                   onClick={() => setIsAiAssistantOpen(true)}
-                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
+                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-[#FEE75C]" />
+                    <Sparkles className="w-4 h-4 text-amber-500" />
                     <span>Tanya Asisten Lab-AI</span>
                   </div>
-                  <span className="text-[9px] bg-[#5865F2] text-white px-1.5 py-0.2 rounded font-bold">
+                  <span className="text-[9px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold">
                     AI
                   </span>
                 </button>
 
-                {/* Kuis Evaluasi Sains HANYA tampil di Mode Tugas (disembunyikan di Mode Sandbox) */}
+                {/* Kuis Evaluasi Sains HANYA tampil di Mode Tugas */}
                 {labMode === "task" && (
                   <button
                     type="button"
@@ -801,14 +802,14 @@ export default function SmartScienceLabViewer() {
                       if (currentTask) setIsQuizModalOpen(true);
                       else alert("Pilih tugas praktikum terlebih dahulu untuk mengerjakan kuis!");
                     }}
-                    className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-[#dbdee1] hover:bg-[#35373c] hover:text-white transition-colors"
+                    className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Award className="w-4 h-4 text-[#57F287]" />
+                      <Award className="w-4 h-4 text-emerald-600" />
                       <span>Kuis Evaluasi Sains</span>
                     </div>
                     {lastQuizScore !== null && (
-                      <span className="text-[10px] bg-[#57F287] text-black px-1.5 py-0.2 rounded font-bold">
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
                         {lastQuizScore}/100
                       </span>
                     )}
@@ -817,16 +818,16 @@ export default function SmartScienceLabViewer() {
               </div>
 
               {/* Section 3: Reagen Aktif di Meja */}
-              <div className="space-y-1.5 pt-2 border-t border-[#3b3e45]">
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
                 <div className="px-1 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Bahan di Meja 3D ({vessels.length})
                   </span>
                   {labMode === "sandbox" && (
                     <button
                       type="button"
                       onClick={() => setIsAddChemicalModalOpen(true)}
-                      className="text-[10px] text-[#57F287] hover:underline flex items-center gap-0.5 font-bold"
+                      className="text-[10px] text-emerald-700 hover:underline flex items-center gap-0.5 font-bold"
                     >
                       <Plus className="w-3 h-3" />
                       Tambah
@@ -836,24 +837,24 @@ export default function SmartScienceLabViewer() {
 
                 <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                   {vessels.length === 0 ? (
-                    <div className="py-3 px-2 bg-[#1e1f22]/60 border border-dashed border-[#3b3e45] rounded-md text-center space-y-1">
-                      <p className="text-[11px] text-[#949ba4]">Meja praktik kosong</p>
-                      <p className="text-[10px] text-[#64748b]">Klik &quot;Tambah&quot; untuk memilih zat</p>
+                    <div className="py-3 px-2 bg-slate-50 border border-dashed border-slate-200 rounded-md text-center space-y-1">
+                      <p className="text-[11px] text-slate-500">Meja praktik kosong</p>
+                      <p className="text-[10px] text-slate-400">Klik &quot;Tambah&quot; untuk memilih zat</p>
                     </div>
                   ) : (
                     vessels.map((v, i) => (
                       <div
                         key={v.id || i}
-                        className="px-2.5 py-1.5 bg-[#1e1f22] border border-[#3b3e45] rounded-md flex items-center justify-between text-[11px] group hover:border-[#5865F2] transition-colors"
+                        className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between text-[11px] group hover:border-sky-300 transition-colors"
                       >
                         <div className="flex items-center gap-2 truncate pr-1">
                           <span
-                            className="w-2.5 h-2.5 rounded-full border border-black shrink-0"
+                            className="w-2.5 h-2.5 rounded-full border border-black/20 shrink-0"
                             style={{ backgroundColor: v.color }}
                           />
                           <div className="truncate">
-                            <span className="font-mono font-bold text-white mr-1">{v.formula}</span>
-                            <span className="text-[#949ba4] truncate text-[10px]">{v.name}</span>
+                            <span className="font-mono font-bold text-slate-900 mr-1">{v.formula}</span>
+                            <span className="text-slate-500 truncate text-[10px]">{v.name}</span>
                           </div>
                         </div>
 
@@ -861,7 +862,7 @@ export default function SmartScienceLabViewer() {
                           <button
                             type="button"
                             onClick={() => handleRemoveVessel(v.id)}
-                            className="opacity-60 hover:opacity-100 text-[#ed4245] p-0.5 rounded hover:bg-[#ed4245]/20 transition-all shrink-0"
+                            className="opacity-60 hover:opacity-100 text-rose-600 p-0.5 rounded hover:bg-rose-50 transition-all shrink-0"
                             title="Hapus bejana dari meja"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -877,7 +878,7 @@ export default function SmartScienceLabViewer() {
                     <button
                       type="button"
                       onClick={() => setIsAddChemicalModalOpen(true)}
-                      className="flex-1 py-1.5 px-2 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow"
+                      className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>+ Tambah Zat</span>
@@ -886,7 +887,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={handleResetWorkbench}
-                        className="py-1.5 px-2.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center transition-colors shadow"
+                        className="py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors border border-slate-200"
                         title="Kosongkan Meja"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -900,36 +901,36 @@ export default function SmartScienceLabViewer() {
         </div>
 
         {/* User Profile Bar Footer */}
-        <div className="h-14 bg-[#232428] px-3 flex items-center justify-between shrink-0 border-t border-[#202225]">
+        <div className="h-14 bg-slate-50 px-3 flex items-center justify-between shrink-0 border-t border-slate-200">
           <div
             onClick={() => setIsAuthModalOpen(true)}
             className="flex items-center gap-2.5 truncate cursor-pointer group flex-1"
           >
             <div className="relative shrink-0">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-xs ${
                   currentUser?.role === "teacher"
-                    ? "bg-[#FEE75C] text-black"
-                    : "bg-[#5865F2] text-white"
+                    ? "bg-amber-100 text-amber-800 border border-amber-200"
+                    : "bg-sky-100 text-sky-800 border border-sky-200"
                 }`}
               >
                 {currentUser ? currentUser.name.charAt(0) : studentName.charAt(0)}
               </div>
               <span
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#232428] ${
-                  currentUser ? "bg-[#57F287]" : "bg-[#949ba4]"
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                  currentUser ? "bg-emerald-500" : "bg-slate-400"
                 }`}
               />
             </div>
             <div className="truncate">
-              <div className="text-xs font-semibold text-white truncate group-hover:text-[#5865F2] transition-colors">
+              <div className="text-xs font-semibold text-slate-900 truncate group-hover:text-sky-600 transition-colors">
                 {currentUser ? currentUser.name : studentName}
               </div>
-              <div className="text-[10px] text-[#949ba4] truncate flex items-center gap-1">
+              <div className="text-[10px] text-slate-500 truncate flex items-center gap-1">
                 {currentUser?.role === "teacher" ? (
-                  <span className="text-[#FEE75C] font-semibold">● Guru Pengampu</span>
+                  <span className="text-amber-700 font-semibold">● Guru Pengampu</span>
                 ) : currentUser?.role === "student" ? (
-                  <span className="text-[#57F287] font-semibold">● Siswa Praktikan</span>
+                  <span className="text-emerald-700 font-semibold">● Siswa Praktikan</span>
                 ) : (
                   <span>● Tamu (Klik Masuk)</span>
                 )}
@@ -940,7 +941,7 @@ export default function SmartScienceLabViewer() {
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
-            className="text-[11px] text-[#949ba4] hover:text-white px-2 py-1 rounded hover:bg-[#35373c] transition-colors font-medium shrink-0 cursor-pointer"
+            className="text-[11px] text-slate-500 hover:text-slate-900 px-2 py-1 rounded hover:bg-slate-200/60 transition-colors font-medium shrink-0 cursor-pointer"
           >
             {currentUser ? "Ganti" : "Masuk"}
           </button>
@@ -950,29 +951,29 @@ export default function SmartScienceLabViewer() {
       {/* =========================================================================
           MAIN WORKSPACE CONTENT (CENTER)
           ========================================================================= */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#313338] overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 bg-slate-100 overflow-hidden">
         {/* Top Header Bar */}
-        <header className="h-14 border-b border-[#202225] bg-[#313338] px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <header className="h-14 border-b border-slate-200 bg-white px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-sm z-10">
           <div className="flex items-center gap-2.5">
             <Link
               href="/"
-              className="px-3 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] border border-[#3b3e45] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow shrink-0"
+              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs shrink-0"
               title="Kembali ke Dashboard Kelas"
             >
-              <ArrowLeft className="w-4 h-4 text-[#FEE75C]" />
+              <ArrowLeft className="w-4 h-4 text-sky-600" />
               <span className="hidden sm:inline">Dashboard Kelas</span>
             </Link>
 
             <button
               type="button"
               onClick={() => setIsMobileDrawerOpen(true)}
-              className="md:hidden p-1.5 text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded-lg"
+              className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                 <span>
                   {activeTab === "lab"
                     ? isTeacher
@@ -983,7 +984,7 @@ export default function SmartScienceLabViewer() {
                     : "Portal Guru: Dashboard Manajemen Praktikum"}
                 </span>
               </h2>
-              <p className="text-[11px] text-[#949ba4] hidden sm:block">
+              <p className="text-[11px] text-slate-500 hidden sm:block">
                 {activeTab === "lab"
                   ? isTeacher
                     ? "Simulasi bebas racik zat kimia untuk demonstrasi & persiapan materi sebelum ditugaskan ke siswa"
@@ -999,24 +1000,24 @@ export default function SmartScienceLabViewer() {
           <div className="flex items-center gap-2.5">
             {/* Account Status / Login Button */}
             {currentUser ? (
-              <div className="flex items-center gap-2 bg-[#2b2d31] border border-[#3b3e45] rounded-xl px-2.5 py-1 shadow-sm">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
                 <span
-                  className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded shadow ${
+                  className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded shadow-xs ${
                     currentUser.role === "teacher"
-                      ? "bg-[#FEE75C] text-black"
-                      : "bg-[#5865F2] text-white"
+                      ? "bg-amber-100 text-amber-800 border border-amber-200"
+                      : "bg-sky-100 text-sky-800 border border-sky-200"
                   }`}
                 >
                   {currentUser.role === "teacher" ? "GURU" : "SISWA"}
                 </span>
-                <span className="text-xs font-bold text-white max-w-[110px] sm:max-w-[170px] truncate">
+                <span className="text-xs font-bold text-slate-900 max-w-[110px] sm:max-w-[170px] truncate">
                   {currentUser.name}
                 </span>
                 <button
                   type="button"
                   onClick={handleLogout}
                   title="Keluar / Ganti Akun"
-                  className="p-1 text-[#949ba4] hover:text-[#ed4245] rounded hover:bg-[#35373c] transition-colors ml-0.5 cursor-pointer"
+                  className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100 transition-colors ml-0.5 cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -1025,7 +1026,7 @@ export default function SmartScienceLabViewer() {
               <button
                 type="button"
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-3 py-1.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Masuk (Guru / Siswa)</span>
@@ -1038,8 +1039,8 @@ export default function SmartScienceLabViewer() {
                 onClick={() => setIsCameraActive((prev) => !prev)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm ${
                   isCameraActive
-                    ? "bg-[#23a55a] text-white hover:bg-[#1f9250]"
-                    : "bg-[#ed4245] text-white hover:bg-[#da373c]"
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "bg-rose-600 text-white hover:bg-rose-700"
                 }`}
               >
                 {isCameraActive ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
@@ -1052,9 +1053,9 @@ export default function SmartScienceLabViewer() {
             <button
               type="button"
               onClick={() => setIsAiAssistantOpen(true)}
-              className="px-3 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] border border-[#3b3e45] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
+              className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#FEE75C]" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span className="hidden sm:inline">Tanya AI</span>
             </button>
           </div>
@@ -1068,57 +1069,57 @@ export default function SmartScienceLabViewer() {
           {activeTab === "lab" && (
             <div className="space-y-4 max-w-6xl mx-auto w-full">
               {/* Mode Bar & Task Target Banner */}
-              <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-xl p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-md">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded flex items-center gap-1.5 ${
                         isTeacher
-                          ? "bg-[#23a55a] text-white"
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                           : labMode === "task"
-                          ? "bg-[#5865F2] text-white"
-                          : "bg-[#23a55a] text-white"
+                          ? "bg-sky-50 text-sky-800 border border-sky-200"
+                          : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                       }`}
                     >
                       {isTeacher ? (
                         <>
-                          <FlaskConical className="w-3 h-3" />
+                          <FlaskConical className="w-3 h-3 text-emerald-600" />
                           <span>Meja Uji Coba Guru (Mode Sandbox)</span>
                         </>
                       ) : labMode === "task" ? (
                         <>
-                          <ClipboardList className="w-3 h-3" />
+                          <ClipboardList className="w-3 h-3 text-sky-600" />
                           <span>Mode Tugas Terpandu</span>
                         </>
                       ) : (
                         <>
-                          <FlaskConical className="w-3 h-3" />
+                          <FlaskConical className="w-3 h-3 text-emerald-600" />
                           <span>Mode Sandbox (Eksplorasi Bebas)</span>
                         </>
                       )}
                     </span>
 
                     {!isTeacher && labMode === "task" && isTaskReactionDone && (
-                      <span className="text-[10px] bg-[#ed4245] text-white font-bold px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
+                      <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 font-bold px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
                         <Lock className="w-3 h-3" />
                         <span>Selesai & Dikunci</span>
                       </span>
                     )}
 
                     {!isTeacher && labMode === "task" && currentTask && (
-                      <span className="text-xs text-[#949ba4] font-medium">
+                      <span className="text-xs text-slate-500 font-medium">
                         Guru: {currentTask.teacherName} • Jenjang {currentTask.gradeLevel} • PIN {currentTask.roomCode}
                       </span>
                     )}
 
                     {isTeacher && (
-                      <span className="text-xs text-[#57F287] font-medium">
+                      <span className="text-xs text-emerald-700 font-medium">
                         ● Meja Bebas Uji Reagen & Spontanitas
                       </span>
                     )}
                   </div>
 
-                  <h3 className="font-bold text-sm text-white">
+                  <h3 className="font-bold text-sm text-slate-900">
                     {isTeacher
                       ? "Laboratorium Virtual Guru: Uji Coba & Demonstrasi Reaksi"
                       : labMode === "task"
@@ -1126,7 +1127,7 @@ export default function SmartScienceLabViewer() {
                       : "Eksplorasi Meja Bebas (Sandbox Mode)"}
                   </h3>
 
-                  <p className="text-xs text-[#dbdee1] leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     {isTeacher ? (
                       "Sebagai guru pengampu, Anda berada dalam mode Sandbox tanpa batasan tugas. Anda bebas menambahkan reagen apa pun, memeriksa reaksi alami spontan, serta memastikan keamanan simulasi sebelum merancangnya menjadi tugas kelas."
                     ) : labMode === "task" ? (
@@ -1134,7 +1135,7 @@ export default function SmartScienceLabViewer() {
                         📋 <strong>Instruksi Guru:</strong>{" "}
                         {currentTask?.instructions || "Campurkan reagen yang telah disiapkan di atas meja hingga bereaksi."}
                         {isTaskReactionDone && (
-                          <span className="text-[#57F287] font-semibold ml-2">
+                          <span className="text-emerald-700 font-semibold ml-2">
                             ✓ Target reaksi tercapai! Eksperimen dihentikan agar hasil tidak berubah.
                           </span>
                         )}
@@ -1151,7 +1152,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={() => setIsAddChemicalModalOpen(true)}
-                        className="px-3.5 py-1.5 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                         <span>+ Tambah Zat</span>
@@ -1160,7 +1161,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={handleResetWorkbench}
-                        className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
                         title="Kosongkan Meja"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -1173,7 +1174,7 @@ export default function SmartScienceLabViewer() {
                           setTeacherBuilderSection("create");
                           setActiveTab("teacher_builder");
                         }}
-                        className="px-3.5 py-1.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                        className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
                       >
                         <ClipboardList className="w-4 h-4" />
                         <span>Portal Guru →</span>
@@ -1184,7 +1185,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={() => setIsAddChemicalModalOpen(true)}
-                        className="px-3.5 py-1.5 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
                       >
                         <Plus className="w-4 h-4" />
                         <span>+ Tambah Bahan Kimia</span>
@@ -1193,7 +1194,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={handleResetWorkbench}
-                        className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
                         title="Bersihkan Meja"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -1206,10 +1207,10 @@ export default function SmartScienceLabViewer() {
                         <button
                           type="button"
                           onClick={() => setIsQuizModalOpen(true)}
-                          className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow ${
+                          className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm ${
                             isTaskReactionDone
-                              ? "bg-[#FEE75C] text-black hover:bg-yellow-400 animate-pulse"
-                              : "bg-[#1e1f22] text-[#dbdee1] hover:bg-[#35373c] border border-[#3b3e45]"
+                              ? "bg-amber-400 hover:bg-amber-500 text-slate-950 font-black animate-pulse"
+                              : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200"
                           }`}
                         >
                           <Award className="w-3.5 h-3.5" />
@@ -1224,7 +1225,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={handleResetWorkbench}
-                        className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
                         title="Ulangi Eksperimen"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -1240,10 +1241,10 @@ export default function SmartScienceLabViewer() {
                           setIsTaskReactionDone(false);
                           setActiveReaction(null);
                         }}
-                        className="px-3 py-1.5 bg-[#2b2d31] hover:bg-[#35373c] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 border border-[#3b3e45]"
+                        className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
                         title="Kembali ke meja lab bebas"
                       >
-                        <FlaskConical className="w-3.5 h-3.5 text-[#57F287]" />
+                        <FlaskConical className="w-3.5 h-3.5 text-emerald-600" />
                         <span>Meja Bebas</span>
                       </button>
                     </>
@@ -1252,7 +1253,7 @@ export default function SmartScienceLabViewer() {
               </div>
 
               {/* 3D Workbench Stage Canvas Container - Clean Laboratory Environment */}
-              <div className="bg-[#f1f5f9] border border-[#3b3e45] rounded-2xl overflow-hidden relative shadow-2xl h-[490px] sm:h-[560px]">
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-sm h-[490px] sm:h-[560px]">
                 {/* Layer 0: Camera Feed (Visually hidden - runs strictly for MediaPipe vision tracking without showing webcam video) */}
                 {isCameraActive && (
                   <div className="absolute inset-0 opacity-0 pointer-events-none -z-10">
@@ -1291,13 +1292,13 @@ export default function SmartScienceLabViewer() {
 
                 {/* Layer 3: HUD Status Overlay */}
                 <div className="absolute top-3 left-3 z-30 flex flex-col gap-1.5 pointer-events-none">
-                  <span className="bg-[#1e1f22]/90 backdrop-blur-md text-[#57F287] text-[11px] font-bold px-2.5 py-1 rounded-lg border border-[#35363c] flex items-center gap-1.5 shadow">
-                    <span className="w-2 h-2 rounded-full bg-[#57F287] animate-pulse" />
+                  <span className="bg-white/95 backdrop-blur-md text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     Hand Skeleton Tracker Active
                   </span>
 
                   {isExperimentLocked && (
-                    <span className="bg-[#ed4245]/90 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-red-700 flex items-center gap-1.5 shadow animate-pulse">
+                    <span className="bg-rose-50 text-rose-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-rose-200 flex items-center gap-1.5 shadow-sm animate-pulse">
                       <Lock className="w-3.5 h-3.5" />
                       Praktikum Selesai (Bejana Terkunci)
                     </span>
@@ -1305,12 +1306,12 @@ export default function SmartScienceLabViewer() {
                 </div>
 
                 <div className="absolute top-3 right-3 z-30 flex items-center gap-2 pointer-events-none">
-                  <div className="bg-[#1e1f22]/90 backdrop-blur-md border border-[#35363c] px-3 py-1.5 rounded-lg text-xs shadow space-y-0.5 text-right">
-                    <div className="flex items-center justify-end gap-1.5 text-xs font-bold text-[#57F287]">
-                      <span className={`w-2 h-2 rounded-full ${handTransform.handDetected ? "bg-[#57F287] animate-pulse" : "bg-[#ed4245]"}`} />
+                  <div className="bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl text-xs shadow-sm space-y-0.5 text-right">
+                    <div className="flex items-center justify-end gap-1.5 text-xs font-bold text-emerald-700">
+                      <span className={`w-2 h-2 rounded-full ${handTransform.handDetected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
                       <span>{handTransform.handDetected ? "Sensor Tangan: Terdeteksi" : "Sensor: Arahkan Tangan..."}</span>
                     </div>
-                    <div className="text-[10px] text-[#949ba4]">
+                    <div className="text-[10px] text-slate-500">
                       {isExperimentLocked
                         ? "🔒 Terkunci - Praktikum Selesai"
                         : handTransform.isGrabbing
@@ -1325,13 +1326,13 @@ export default function SmartScienceLabViewer() {
                 {/* Sandbox Empty Table Banner */}
                 {labMode === "sandbox" && vessels.length === 0 && (
                   <div className="absolute inset-x-0 bottom-16 flex justify-center pointer-events-none z-30">
-                    <div className="bg-[#1e1f22]/95 backdrop-blur-md border border-[#35363c] text-white px-4 py-2 rounded-xl shadow-2xl flex items-center gap-3 pointer-events-auto">
-                      <FlaskConical className="w-4 h-4 text-[#57F287]" />
-                      <span className="text-xs text-[#dbdee1]">Meja lab kosong. Klik <strong>+ Tambah Bahan</strong> untuk menaruh zat kimia.</span>
+                    <div className="bg-white/95 backdrop-blur-md border border-slate-200 text-slate-800 px-4 py-2 rounded-xl shadow-lg flex items-center gap-3 pointer-events-auto">
+                      <FlaskConical className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs text-slate-600">Meja lab kosong. Klik <strong>+ Tambah Bahan</strong> untuk menaruh zat kimia.</span>
                       <button
                         type="button"
                         onClick={() => setIsAddChemicalModalOpen(true)}
-                        className="px-3 py-1 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow"
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Pilih Zat</span>
@@ -1341,12 +1342,12 @@ export default function SmartScienceLabViewer() {
                 )}
 
                 {/* Layer 4: Floating Quick Controls */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-[#1e1f22]/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#35363c] shadow-2xl pointer-events-auto">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 shadow-md text-slate-700 pointer-events-auto">
                   <button
                     type="button"
                     onClick={() => setIsCameraActive((prev) => !prev)}
                     className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      isCameraActive ? "bg-[#35373c] text-white hover:bg-[#404249]" : "bg-[#ed4245] text-white"
+                      isCameraActive ? "bg-slate-100 text-slate-800 hover:bg-slate-200" : "bg-rose-600 text-white"
                     }`}
                   >
                     {isCameraActive ? "🖐️ Sensor: ON" : "🖐️ Sensor: OFF"}
@@ -1356,7 +1357,7 @@ export default function SmartScienceLabViewer() {
                     <button
                       type="button"
                       onClick={() => setIsAddChemicalModalOpen(true)}
-                      className="px-3 py-1 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow"
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>+ Zat</span>
@@ -1366,7 +1367,7 @@ export default function SmartScienceLabViewer() {
                   <button
                     type="button"
                     onClick={handleResetWorkbench}
-                    className="p-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white rounded-full transition-colors"
+                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition-colors border border-slate-200"
                     title="Reset Posisi Bejana"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -1375,7 +1376,7 @@ export default function SmartScienceLabViewer() {
                   <button
                     type="button"
                     onClick={() => setIsAiAssistantOpen(true)}
-                    className="px-3 py-1 bg-[#5865F2] hover:bg-[#4752c4] text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+                    className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
                   >
                     <Sparkles className="w-3 h-3" />
                     <span>Tanya AI</span>
@@ -1385,18 +1386,18 @@ export default function SmartScienceLabViewer() {
 
               {/* Task Completion Celebration Modal (Auto-Stop in Task Mode) */}
               {labMode === "task" && isTaskReactionDone && !isSuccessModalDismissed && (
-                <div className="bg-gradient-to-r from-[#2b2d31] via-[#1e1f22] to-[#2b2d31] border-2 border-[#57F287] rounded-xl p-5 text-white shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="bg-white border-2 border-emerald-500 rounded-2xl p-5 text-slate-900 shadow-xl animate-in zoom-in-95 duration-200">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">🎉</span>
-                        <h4 className="font-extrabold text-base text-[#57F287]">
+                        <h4 className="font-extrabold text-base text-emerald-700">
                           TARGET PRAKTIKUM TERCAPAI! (Eksperimen Dihentikan)
                         </h4>
                       </div>
-                      <p className="text-xs text-[#dbdee1]">
+                      <p className="text-xs text-slate-600">
                         Kamu berhasil mereaksikan zat hingga menghasilkan produk{" "}
-                        <strong className="text-white underline">
+                        <strong className="text-slate-900 underline">
                           {activeReaction?.resultName || activeReaction?.title}
                         </strong>
                         . Meja lab dikunci otomatis oleh sistem agar hasil pengamatan tidak berubah.
@@ -1408,9 +1409,9 @@ export default function SmartScienceLabViewer() {
                         <button
                           type="button"
                           onClick={() => setIsQuizModalOpen(true)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 bg-[#5865F2] hover:bg-[#4752c4] text-white font-bold text-xs rounded-lg flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-105"
+                          className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-transform hover:scale-105"
                         >
-                          <Award className="w-4 h-4 text-[#FEE75C]" />
+                          <Award className="w-4 h-4 text-slate-950" />
                           <span>Kerjakan Kuis Evaluasi AI →</span>
                         </button>
                       )}
@@ -1418,7 +1419,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={handleResetWorkbench}
-                        className="px-3 py-2.5 bg-[#35373c] hover:bg-[#404249] text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1"
+                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
                         title="Ulangi praktikum dari awal"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -1428,7 +1429,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={() => setIsSuccessModalDismissed(true)}
-                        className="p-2 text-[#949ba4] hover:text-white rounded hover:bg-[#35373c]"
+                        className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
                         title="Tutup banner"
                       >
                         <X className="w-4 h-4" />
@@ -1440,26 +1441,26 @@ export default function SmartScienceLabViewer() {
 
               {/* Dedicated Reaction Observation Panel (Out of Camera & 3D Viewport) */}
               {activeReaction && (
-                <div className="bg-[#2b2d31] border-2 border-[#5865F2]/40 rounded-xl p-4 sm:p-6 text-[#dbdee1] space-y-4 shadow-2xl transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 text-slate-800 space-y-4 shadow-sm transition-all animate-in fade-in slide-in-from-top-2 duration-300">
                   {/* Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#3b3e45] pb-3.5">
-                    <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base text-white max-w-full">
-                      <span className="p-1.5 rounded-lg bg-[#5865F2]/20 text-[#5865F2] border border-[#5865F2]/30 flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-[#57F287]" />
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
+                    <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base text-slate-900 max-w-full">
+                      <span className="p-1.5 rounded-lg bg-sky-50 text-sky-600 border border-sky-200 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
                       </span>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                        <span className="text-white font-extrabold text-base">Hasil Reaksi Terdeteksi:</span>
-                        <span className="text-[#57F287] font-bold">{activeReaction.title}</span>
+                        <span className="text-slate-900 font-extrabold text-base">Hasil Reaksi Terdeteksi:</span>
+                        <span className="text-emerald-700 font-bold">{activeReaction.title}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold bg-[#1e1f22] text-[#5865F2] px-3 py-1 rounded-full border border-[#5865F2]/40 shadow-sm">
+                      <span className="text-xs font-bold bg-slate-50 text-sky-700 px-3 py-1 rounded-full border border-slate-200 shadow-xs">
                         Kurikulum Jenjang {activeReaction.level}
                       </span>
                       <button
                         type="button"
                         onClick={() => setActiveReaction(null)}
-                        className="p-1.5 px-3 text-xs font-semibold text-[#949ba4] hover:text-white hover:bg-[#35373c] rounded-lg transition-colors border border-transparent hover:border-[#4e5058]"
+                        className="p-1.5 px-3 text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
                       >
                         ✕ Tutup
                       </button>
@@ -1468,28 +1469,28 @@ export default function SmartScienceLabViewer() {
 
                   {/* Persamaan Kimia & Produk */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
-                    <div className="lg:col-span-8 p-3.5 bg-[#1e1f22] border border-[#3b3e45] rounded-xl flex flex-col justify-center gap-1.5 shadow-inner">
-                      <div className="flex items-center justify-between text-[11px] font-bold tracking-wider uppercase text-[#949ba4]">
+                    <div className="lg:col-span-8 p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-center gap-1.5 shadow-xs">
+                      <div className="flex items-center justify-between text-[11px] font-bold tracking-wider uppercase text-slate-500">
                         <span>Persamaan Reaksi Kimia (Stoikiometri)</span>
-                        <span className="text-xs text-[#5865F2] font-mono">Status: Seimbang</span>
+                        <span className="text-xs text-sky-700 font-mono font-bold">Status: Seimbang</span>
                       </div>
-                      <div className="text-sm sm:text-base font-bold font-mono text-[#57F287] overflow-x-auto py-1">
+                      <div className="text-sm sm:text-base font-bold font-mono text-sky-900 overflow-x-auto py-1">
                         <code>{activeReaction.equation}</code>
                       </div>
                     </div>
-                    <div className="lg:col-span-4 p-3.5 bg-[#1e1f22] border border-[#3b3e45] rounded-xl flex flex-col justify-center gap-1 shadow-inner">
-                      <span className="text-[11px] font-bold tracking-wider uppercase text-[#949ba4]">Produk Reaksi</span>
+                    <div className="lg:col-span-4 p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-center gap-1 shadow-xs">
+                      <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Produk Reaksi</span>
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-3.5 h-3.5 rounded-full border border-white/30 shrink-0 shadow"
+                          className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0 shadow-xs"
                           style={{ backgroundColor: activeReaction.resultColor || "#38bdf8" }}
                         />
-                        <span className="text-sm font-extrabold text-white truncate">
+                        <span className="text-sm font-extrabold text-slate-900 truncate">
                           {activeReaction.resultName || "Produk Kimiawi"}
                         </span>
                       </div>
-                      <div className="text-xs text-[#949ba4] font-mono">
-                        Formula: <strong className="text-[#dbdee1]">{activeReaction.resultFormula}</strong>
+                      <div className="text-xs text-slate-500 font-mono">
+                        Formula: <strong className="text-slate-800">{activeReaction.resultFormula}</strong>
                       </div>
                     </div>
                   </div>
@@ -1497,61 +1498,61 @@ export default function SmartScienceLabViewer() {
                   {/* 3 Structured Columns: Alasan Terjadinya Reaksi, Penjelasan Sains Rinci, Ciri-Ciri Fisik & Termal */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch pt-1">
                     {/* Kolom 1: Alasan Terjadinya Reaksi */}
-                    <div className="bg-[#1e1f22] border border-[#3b3e45] rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-[#FEE75C]/50 transition-colors">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-amber-300 transition-colors">
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-[#FEE75C] uppercase tracking-wide border-b border-[#2e3035] pb-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-amber-800 uppercase tracking-wide border-b border-slate-200 pb-2">
                           <span className="text-base">💡</span>
                           <span>Alasan Terjadinya Reaksi</span>
                         </div>
-                        <p className="text-xs text-[#dbdee1] leading-relaxed">
+                        <p className="text-xs text-slate-700 leading-relaxed">
                           {activeReaction.reasonWhy ||
                             "Reaksi terjadi akibat adanya driving force termodinamika atau afinitas ikatan antar-partikel zat (seperti pelepasan proton, pembentukan endapan tak larut, atau transfer elektron) menuju kondisi energi bebas yang lebih stabil."}
                         </p>
                       </div>
-                      <div className="text-[10px] text-[#949ba4] italic pt-1 border-t border-[#2e3035]">
+                      <div className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-200">
                         *Mekanisme molekuler & afinitas ikatan
                       </div>
                     </div>
 
                     {/* Kolom 2: Penjelasan Sains Rinci */}
-                    <div className="bg-[#1e1f22] border border-[#3b3e45] rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-[#57F287]/50 transition-colors">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-emerald-300 transition-colors">
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-[#57F287] uppercase tracking-wide border-b border-[#2e3035] pb-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 uppercase tracking-wide border-b border-slate-200 pb-2">
                           <span className="text-base">📖</span>
                           <span>Penjelasan Sains Rinci</span>
                         </div>
-                        <p className="text-xs text-[#dbdee1] leading-relaxed">
+                        <p className="text-xs text-slate-700 leading-relaxed">
                           {activeReaction.explanation}
                         </p>
                       </div>
-                      <div className="text-[10px] text-[#949ba4] italic pt-1 border-t border-[#2e3035]">
+                      <div className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-200">
                         *Konsep materi kurikulum sains
                       </div>
                     </div>
 
                     {/* Kolom 3: Ciri-Ciri Fisik Teramati & Suhu Termal */}
-                    <div className="bg-[#1e1f22] border border-[#3b3e45] rounded-xl p-4 flex flex-col justify-between space-y-3 hover:border-[#38bdf8]/50 transition-colors">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-3 hover:border-sky-300 transition-colors">
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-[#38bdf8] uppercase tracking-wide border-b border-[#2e3035] pb-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-sky-800 uppercase tracking-wide border-b border-slate-200 pb-2">
                           <span className="text-base">👁️</span>
                           <span>Ciri-Ciri Fisik Teramati</span>
                         </div>
-                        <p className="text-xs text-[#dbdee1] leading-relaxed">
+                        <p className="text-xs text-slate-700 leading-relaxed">
                           {activeReaction.observablePhenomena ||
                             "Teramati perubahan warna larutan, pembentukan fase baru, dan perubahan temperatur wadah sesuai karakteristik produk reaksi."}
                         </p>
                       </div>
 
                       {/* Termal Badge */}
-                      <div className="pt-2 border-t border-[#2e3035] space-y-1">
-                        <span className="text-[10px] font-bold text-[#949ba4] uppercase">Perubahan Suhu Termal:</span>
+                      <div className="pt-2 border-t border-slate-200 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Perubahan Suhu Termal:</span>
                         <div
                           className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${
                             activeReaction.temperatureChange > 0
-                              ? "bg-[#ef4444]/10 text-[#f87171] border-[#ef4444]/30"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
                               : activeReaction.temperatureChange < 0
-                              ? "bg-[#38bdf8]/10 text-[#38bdf8] border-[#38bdf8]/30"
-                              : "bg-[#2b2d31] text-[#dbdee1] border-[#3b3e45]"
+                              ? "bg-sky-50 text-sky-700 border-sky-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
                           }`}
                         >
                           <span>
@@ -1574,9 +1575,9 @@ export default function SmartScienceLabViewer() {
                   </div>
 
                   {/* Action Footer */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#3b3e45]">
-                    <div className="text-xs text-[#949ba4] flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-[#57F287]" />
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                    <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <span>Hasil reaksi tercatat ke log observasi praktikum kelas.</span>
                     </div>
                     <div className="flex items-center gap-2.5">
@@ -1587,7 +1588,7 @@ export default function SmartScienceLabViewer() {
                             setTeacherBuilderSection("create");
                             setActiveTab("teacher_builder");
                           }}
-                          className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2 font-semibold text-xs rounded-lg flex items-center justify-center gap-2 shadow transition-colors"
+                          className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
                         >
                           <Plus className="w-4 h-4" />
                           <span>Rancang Jadi Tugas Siswa →</span>
@@ -1597,9 +1598,9 @@ export default function SmartScienceLabViewer() {
                           <button
                             type="button"
                             onClick={() => setIsQuizModalOpen(true)}
-                            className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2 font-semibold text-xs rounded-lg flex items-center justify-center gap-2 shadow transition-colors"
+                            className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
                           >
-                            <Award className="w-4 h-4 text-[#FEE75C]" />
+                            <Award className="w-4 h-4 text-amber-300" />
                             <span>Lanjut ke Kuis Pemahaman AI →</span>
                           </button>
                         )
@@ -1607,9 +1608,9 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={() => setIsAiAssistantOpen(true)}
-                        className="bg-[#2b2d31] hover:bg-[#35373c] text-white border border-[#3b3e45] px-3 py-2 font-semibold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                        className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-3 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-[#FEE75C]" />
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                         <span>Konsultasi Asisten Lab-AI</span>
                       </button>
                     </div>
@@ -1624,12 +1625,12 @@ export default function SmartScienceLabViewer() {
               =================================================================== */}
           {activeTab === "tasks" && (
             <div className="space-y-5 max-w-5xl mx-auto w-full">
-              <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-xl p-5 flex flex-wrap items-center justify-between gap-3 shadow-md">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3 shadow-sm">
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-white">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
                     Daftar Tugas Praktikum Sains
                   </h3>
-                  <p className="text-xs text-[#949ba4] mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     Pilih tugas praktikum yang telah disiapkan guru untuk dimulai di Meja 3D.
                   </p>
                 </div>
@@ -1640,12 +1641,12 @@ export default function SmartScienceLabViewer() {
                     value={roomCode}
                     onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                     placeholder="PIN ROOM"
-                    className="w-28 px-3 py-1.5 bg-[#1e1f22] border border-[#3b3e45] text-xs font-bold text-white text-center rounded-lg outline-none focus:border-[#5865F2]"
+                    className="w-28 px-3 py-1.5 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 text-center rounded-xl outline-none focus:border-sky-500 focus:bg-white"
                   />
                   <button
                     type="button"
                     onClick={fetchTasks}
-                    className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors shadow"
+                    className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 text-xs font-semibold rounded-xl transition-colors shadow-sm"
                   >
                     Cari
                   </button>
@@ -1653,13 +1654,13 @@ export default function SmartScienceLabViewer() {
               </div>
 
               {tasks.length === 0 ? (
-                <div className="text-center py-12 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-xl bg-[#2b2d31] p-8 space-y-4 max-w-lg mx-auto">
-                  <div className="w-12 h-12 rounded-full bg-[#1e1f22] flex items-center justify-center mx-auto text-[#949ba4] border border-[#3b3e45]">
-                    <ClipboardList className="w-6 h-6 text-[#5865F2]" />
+                <div className="text-center py-12 text-slate-500 text-xs border border-dashed border-slate-300 rounded-2xl bg-white p-8 space-y-4 max-w-lg mx-auto shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto text-slate-400 border border-slate-200">
+                    <ClipboardList className="w-6 h-6 text-sky-600" />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-white font-bold text-sm">Belum Ada Tugas Praktikum Aktif</h4>
-                    <p className="text-xs text-[#949ba4] leading-relaxed">
+                    <h4 className="text-slate-900 font-bold text-sm">Belum Ada Tugas Praktikum Aktif</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       {isTeacher
                         ? `Belum ada tugas yang diterbitkan untuk Room ${roomCode}. Silakan rancang tugas baru untuk kelas ini.`
                         : `Guru pengampu belum menerbitkan tugas praktikum baru untuk Room ${roomCode}. Anda dapat bereksplorasi di Meja Praktikum 3D.`}
@@ -1672,7 +1673,7 @@ export default function SmartScienceLabViewer() {
                         setTeacherBuilderSection("create");
                         setActiveTab("teacher_builder");
                       }}
-                      className="bg-[#5865F2] hover:bg-[#4752c4] text-white px-5 py-2.5 text-xs font-semibold rounded-lg shadow inline-flex items-center gap-2 transition-colors"
+                      className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 text-xs font-semibold rounded-xl shadow-sm inline-flex items-center gap-2 transition-colors"
                     >
                       <PlusCircle className="w-4 h-4" />
                       <span>+ Masuk ke Portal Guru &amp; Buat Tugas</span>
@@ -1681,7 +1682,7 @@ export default function SmartScienceLabViewer() {
                     <button
                       type="button"
                       onClick={() => setActiveTab("lab")}
-                      className="bg-[#23a55a] hover:bg-[#1f9250] text-white px-5 py-2.5 text-xs font-semibold rounded-lg shadow inline-flex items-center gap-2 transition-colors"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-xs font-semibold rounded-xl shadow-sm inline-flex items-center gap-2 transition-colors"
                     >
                       <FlaskConical className="w-4 h-4" />
                       <span>Eksplorasi Meja Praktikum 3D (Sandbox) →</span>
@@ -1693,22 +1694,22 @@ export default function SmartScienceLabViewer() {
                   {tasks.map((task) => (
                     <div
                       key={task.id}
-                      className="bg-[#2b2d31] hover:bg-[#35373c] border border-[#3b3e45] rounded-xl p-5 space-y-3 transition-colors flex flex-col justify-between shadow-md"
+                      className="bg-white hover:bg-slate-50/80 border border-slate-200 hover:border-sky-300 rounded-2xl p-5 space-y-3 transition-colors flex flex-col justify-between shadow-sm"
                     >
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold bg-[#5865F2] text-white px-2 py-0.5 rounded uppercase">
+                          <span className="text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded uppercase">
                             {task.gradeLevel}
                           </span>
-                          <span className="text-xs text-[#949ba4]">Guru: {task.teacherName}</span>
+                          <span className="text-xs text-slate-500">Guru: {task.teacherName}</span>
                         </div>
 
-                        <h4 className="font-bold text-sm text-white">{task.title}</h4>
-                        <p className="text-xs text-[#dbdee1] leading-relaxed">
+                        <h4 className="font-bold text-sm text-slate-900">{task.title}</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
                           {task.instructions}
                         </p>
 
-                        <div className="text-xs text-[#57F287] font-semibold pt-1">
+                        <div className="text-xs text-emerald-700 font-semibold pt-1">
                           🔬 {task.chemicalIds?.length || 0} Reagen Kimia Tersedia di Meja 3D
                         </div>
                       </div>
@@ -1716,7 +1717,7 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={() => applyTaskToWorkbench(task)}
-                        className="bg-[#5865F2] hover:bg-[#4752c4] text-white w-full py-2.5 text-xs font-semibold rounded-lg transition-colors shadow text-center mt-2"
+                        className="bg-sky-600 hover:bg-sky-700 text-white w-full py-2.5 text-xs font-semibold rounded-xl transition-colors shadow-sm text-center mt-2"
                       >
                         ▶ Buka Meja Lab & Mulai Praktikum
                       </button>
@@ -1761,6 +1762,10 @@ export default function SmartScienceLabViewer() {
         isOpen={isAiAssistantOpen}
         onClose={() => setIsAiAssistantOpen(false)}
         activeChemicalNames={activeChemNames}
+        vessels={vessels}
+        activeReaction={activeReaction}
+        currentTask={currentTask}
+        labMode={labMode}
         currentStep={currentTask?.title || "Eksplorasi Mandiri"}
       />
 
@@ -1777,19 +1782,19 @@ export default function SmartScienceLabViewer() {
 
       {/* Modal 3: Sandbox Mode - Chemical Catalog Picker Modal */}
       {isAddChemicalModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="p-4 border-b border-[#202225] flex items-center justify-between bg-[#1e1f22]">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#23a55a] flex items-center justify-center text-white">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm">
                   <FlaskConical className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-sm">
+                  <h3 className="font-bold text-slate-900 text-sm">
                     Katalog Reagen Kimia (Mode Sandbox)
                   </h3>
-                  <p className="text-[11px] text-[#949ba4]">
+                  <p className="text-[11px] text-slate-500">
                     Pilih bahan kimia untuk diletakkan di atas meja praktik lab 3D.
                   </p>
                 </div>
@@ -1798,22 +1803,22 @@ export default function SmartScienceLabViewer() {
               <button
                 type="button"
                 onClick={() => setIsAddChemicalModalOpen(false)}
-                className="p-1 text-[#949ba4] hover:text-white rounded-lg hover:bg-[#35373c] transition-colors"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Search & Filter Toolbar */}
-            <div className="p-3 border-b border-[#202225] bg-[#2b2d31] space-y-2.5">
+            <div className="p-3 border-b border-slate-100 bg-white space-y-2.5">
               <div className="relative">
-                <Search className="w-4 h-4 text-[#949ba4] absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchChemicalQuery}
                   onChange={(e) => setSearchChemicalQuery(e.target.value)}
                   placeholder="Cari zat kimia (misal: NaOH, Air, Asam Klorida, Garam)..."
-                  className="w-full pl-9 pr-3 py-2 bg-[#1e1f22] border border-[#3b3e45] rounded-lg text-xs text-white placeholder-[#949ba4] outline-none focus:border-[#5865F2]"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-sky-500 focus:bg-white"
                 />
               </div>
 
@@ -1824,10 +1829,10 @@ export default function SmartScienceLabViewer() {
                     key={cat}
                     type="button"
                     onClick={() => setSelectedCategoryFilter(cat)}
-                    className={`px-2.5 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${
+                    className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${
                       selectedCategoryFilter === cat
-                        ? "bg-[#5865F2] text-white"
-                        : "bg-[#1e1f22] text-[#949ba4] hover:text-white hover:bg-[#35373c]"
+                        ? "bg-sky-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                     }`}
                   >
                     {cat === "ALL" ? "Semua Kategori" : cat.toUpperCase()}
@@ -1853,27 +1858,27 @@ export default function SmartScienceLabViewer() {
                 .map((chem) => (
                   <div
                     key={chem.id}
-                    className="p-3 bg-[#1e1f22] border border-[#3b3e45] rounded-xl flex items-center justify-between gap-3 hover:border-[#5865F2] transition-colors group"
+                    className="p-3 bg-slate-50 hover:bg-white border border-slate-200 hover:border-sky-300 rounded-xl flex items-center justify-between gap-3 transition-colors group shadow-xs hover:shadow-sm"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className="w-9 h-9 rounded-xl border border-black/30 flex items-center justify-center shrink-0 shadow"
+                        className="w-9 h-9 rounded-xl border border-black/10 flex items-center justify-center shrink-0 shadow-xs"
                         style={{ backgroundColor: chem.color || "#06b6d4" }}
                       >
-                        <FlaskConical className="w-4 h-4 text-white drop-shadow" />
+                        <FlaskConical className="w-4 h-4 text-white drop-shadow-xs" />
                       </div>
                       <div className="truncate">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-white text-xs">
+                          <span className="font-mono font-bold text-slate-900 text-xs">
                             {chem.formula}
                           </span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#35373c] text-[#949ba4]">
+                          <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-slate-200 text-slate-700">
                             {chem.level}
                           </span>
                         </div>
-                        <div className="text-xs text-[#dbdee1] truncate">{chem.name}</div>
+                        <div className="text-xs text-slate-700 truncate">{chem.name}</div>
                         {chem.category && (
-                          <div className="text-[10px] text-[#949ba4] capitalize">
+                          <div className="text-[10px] text-slate-400 capitalize">
                             {chem.category}
                           </div>
                         )}
@@ -1883,7 +1888,7 @@ export default function SmartScienceLabViewer() {
                     <button
                       type="button"
                       onClick={() => handleAddChemicalToWorkbench(chem)}
-                      className="px-3 py-1.5 bg-[#5865F2] group-hover:bg-[#4752c4] text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1 shadow transition-colors"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1 shadow-xs transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Taruh</span>
@@ -1893,14 +1898,14 @@ export default function SmartScienceLabViewer() {
             </div>
 
             {/* Footer */}
-            <div className="p-3 border-t border-[#202225] bg-[#1e1f22] flex items-center justify-between text-xs text-[#949ba4]">
+            <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
               <span>
                 {chemicalCatalog.length} reagen kimia siap digunakan di laboratorium 3D
               </span>
               <button
                 type="button"
                 onClick={() => setIsAddChemicalModalOpen(false)}
-                className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-white rounded-lg text-xs font-semibold"
+                className="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold shadow-xs"
               >
                 Tutup
               </button>

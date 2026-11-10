@@ -13,8 +13,10 @@ export async function GET(req: Request) {
         id,
         reactant_a_id AS reactantAId,
         reactant_b_id AS reactantBId,
+        reactant_c_id AS reactantCId,
         reactant_a_formula AS substanceA,
         reactant_b_formula AS substanceB,
+        reactant_c_formula AS substanceC,
         title,
         equation,
         product_name AS resultName,
@@ -55,8 +57,11 @@ export async function GET(req: Request) {
       id: r.id,
       reactantAId: r.reactantAId,
       reactantBId: r.reactantBId,
+      reactantCId: r.reactantCId,
       substanceA: r.reactantAFormula,
       substanceB: r.reactantBFormula,
+      substanceC: r.reactantCFormula,
+      substances: r.reactants,
       title: r.title,
       equation: r.equation,
       resultName: r.productName,
@@ -88,8 +93,11 @@ export async function GET(req: Request) {
         id: r.id,
         reactantAId: r.reactantAId,
         reactantBId: r.reactantBId,
+        reactantCId: r.reactantCId,
         substanceA: r.reactantAFormula,
         substanceB: r.reactantBFormula,
+        substanceC: r.reactantCFormula,
+        substances: r.reactants,
         title: r.title,
         equation: r.equation,
         resultName: r.productName,
@@ -125,8 +133,10 @@ export async function POST(req: Request) {
       const id = r.id || `rx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const reactantA = r.substanceA || r.reactantA || r.reactantAFormula || r.reactantAId;
       const reactantB = r.substanceB || r.reactantB || r.reactantBFormula || r.reactantBId;
+      const reactantC = r.substanceC || r.reactantC || r.reactantCFormula || r.reactantCId || null;
       const reactantAId = r.reactantAId || `ch_${String(reactantA).toLowerCase().replace(/[^a-z0-9]/g, "")}`;
       const reactantBId = r.reactantBId || `ch_${String(reactantB).toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+      const reactantCId = r.reactantCId || (reactantC ? `ch_${String(reactantC).toLowerCase().replace(/[^a-z0-9]/g, "")}` : null);
       const title = r.title || `Reaksi ${reactantA} + ${reactantB}`;
       const equation = r.equation || `${reactantA} + ${reactantB} → ${r.resultFormula || r.productFormula || "Produk Reaksi"}`;
       const productName = r.resultName || r.productName || "Hasil Reaksi Kimia";
@@ -142,13 +152,14 @@ export async function POST(req: Request) {
       await query(
         `
         INSERT INTO chemical_reactions (
-          id, reactant_a_id, reactant_b_id, reactant_a_formula, reactant_b_formula,
+          id, reactant_a_id, reactant_b_id, reactant_c_id, reactant_a_formula, reactant_b_formula, reactant_c_formula,
           title, equation, product_name, product_formula, product_color,
           visual_effect, temperature_change_c, explanation, reason_why, observable_phenomena, grade_level
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           reactant_a_formula=VALUES(reactant_a_formula), reactant_b_formula=VALUES(reactant_b_formula),
+          reactant_c_id=VALUES(reactant_c_id), reactant_c_formula=VALUES(reactant_c_formula),
           title=VALUES(title), equation=VALUES(equation), product_name=VALUES(product_name),
           product_formula=VALUES(product_formula), product_color=VALUES(product_color),
           visual_effect=VALUES(visual_effect), temperature_change_c=VALUES(temperature_change_c),
@@ -159,8 +170,10 @@ export async function POST(req: Request) {
           id,
           reactantAId,
           reactantBId,
+          reactantCId,
           reactantA,
           reactantB,
+          reactantC,
           title,
           equation,
           productName,
@@ -179,6 +192,7 @@ export async function POST(req: Request) {
         id,
         substanceA: reactantA,
         substanceB: reactantB,
+        substanceC: reactantC,
         title,
         equation,
         resultName: productName,

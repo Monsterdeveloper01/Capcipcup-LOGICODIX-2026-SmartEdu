@@ -292,25 +292,25 @@ export default function MainEduDashboard() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#1e1f22] text-[#dbdee1] flex flex-col font-sans select-none antialiased">
+    <div className="min-h-screen w-full bg-slate-50 text-slate-800 flex flex-col font-sans select-none antialiased">
       {/* =========================================================================
-          TOP NAVBAR
+          TOP NAVBAR (LAB CLEAN WHITE THEME)
           ========================================================================= */}
-      <header className="h-16 border-b border-[#202225] bg-[#2b2d31] px-4 sm:px-8 flex items-center justify-between shrink-0 shadow-md z-20">
+      <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 sm:px-8 flex items-center justify-between shrink-0 shadow-sm z-20 sticky top-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#5865F2] to-[#4752c4] flex items-center justify-center text-white shadow-lg">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-700 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
             <FlaskConical className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black text-white tracking-tight">
-                Capcipcup <span className="text-[#5865F2]">SmartEdu</span>
+              <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                CupLabs <span className="text-sky-600">SmartEdu</span>
               </h1>
-              <span className="text-[10px] bg-[#5865F2] text-white px-2 py-0.5 rounded-full font-bold">
-                KIMIA 3D
+              <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full font-bold">
+                LAB 3D
               </span>
             </div>
-            <p className="text-[11px] text-[#949ba4] hidden sm:block">
+            <p className="text-[11px] text-slate-500 hidden sm:block">
               Platform Pembelajaran & Laboratorium Virtual Sains Interaktif
             </p>
           </div>
@@ -321,7 +321,7 @@ export default function MainEduDashboard() {
           {/* Direct Link to 3D Virtual Lab */}
           <Link
             href="/lab?mode=sandbox"
-            className="px-3.5 py-2 bg-gradient-to-r from-[#23a55a] to-[#1f9250] hover:from-[#1f9250] hover:to-[#17723e] text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-md transition-all hover:scale-105"
+            className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all hover:scale-105"
           >
             <FlaskConical className="w-4 h-4" />
             <span className="hidden sm:inline">Buka Meja Lab 3D (Sandbox)</span>
@@ -330,19 +330,19 @@ export default function MainEduDashboard() {
 
           {/* Account Status */}
           {currentUser ? (
-            <div className="flex items-center gap-2 bg-[#1e1f22] border border-[#3b3e45] rounded-xl px-3 py-1.5 shadow-sm">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
               <div
                 className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
-                  isTeacher ? "bg-[#FEE75C] text-black" : "bg-[#5865F2] text-white"
+                  isTeacher ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-sky-100 text-sky-800 border border-sky-200"
                 }`}
               >
                 {currentUser.name.charAt(0)}
               </div>
               <div className="hidden md:block text-left">
-                <div className="text-xs font-bold text-white max-w-[140px] truncate leading-tight">
+                <div className="text-xs font-bold text-slate-900 max-w-[140px] truncate leading-tight">
                   {currentUser.name}
                 </div>
-                <span className="text-[10px] text-[#949ba4] font-medium">
+                <span className="text-[10px] text-slate-500 font-medium">
                   {isTeacher ? "Guru Pengampu" : "Siswa Praktikan"}
                 </span>
               </div>
@@ -350,7 +350,7 @@ export default function MainEduDashboard() {
                 type="button"
                 onClick={handleLogout}
                 title="Keluar / Ganti Akun"
-                className="p-1 text-[#949ba4] hover:text-[#ed4245] rounded-lg hover:bg-[#35373c] transition-colors ml-1 cursor-pointer"
+                className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors ml-1 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -359,7 +359,7 @@ export default function MainEduDashboard() {
             <button
               type="button"
               onClick={() => setIsAuthModalOpen(true)}
-              className="px-4 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow"
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
             >
               <LogIn className="w-4 h-4" />
               <span>Masuk Akun</span>
@@ -381,7 +381,7 @@ export default function MainEduDashboard() {
             {activeClassroom ? (
               <div className="space-y-6">
                 {/* Classroom Navigation Header */}
-                <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-2xl p-5 shadow-lg space-y-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <button
                       type="button"
@@ -389,26 +389,26 @@ export default function MainEduDashboard() {
                         setActiveClassroom(null);
                         setClassroomTab("tasks");
                       }}
-                      className="px-3 py-1.5 bg-[#1e1f22] hover:bg-[#35373c] border border-[#3b3e45] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+                      className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                       <span>Kembali ke Semua Kelas</span>
                     </button>
 
                     <div className="flex items-center gap-2">
-                      <div className="bg-[#1e1f22] px-3 py-1 rounded-xl border border-[#3b3e45] flex items-center gap-2">
-                        <span className="text-[10px] text-[#949ba4] font-bold uppercase">KODE KELAS:</span>
-                        <span className="font-mono font-black text-sm text-[#57F287] tracking-wider">
+                      <div className="bg-slate-50 px-3 py-1 rounded-xl border border-slate-200 flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase">KODE KELAS:</span>
+                        <span className="font-mono font-black text-sm text-sky-700 tracking-wider">
                           {activeClassroom.classCode}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleCopyCode(activeClassroom.classCode)}
-                          className="text-[#949ba4] hover:text-white p-1"
+                          className="text-slate-400 hover:text-slate-700 p-1"
                           title="Salin Kode Kelas"
                         >
                           {copiedCode === activeClassroom.classCode ? (
-                            <Check className="w-3.5 h-3.5 text-[#57F287]" />
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
                           ) : (
                             <Copy className="w-3.5 h-3.5" />
                           )}
@@ -417,7 +417,7 @@ export default function MainEduDashboard() {
 
                       <Link
                         href={`/lab?classCode=${activeClassroom.classCode}&mode=sandbox`}
-                        className="px-3.5 py-1.5 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow"
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
                       >
                         <FlaskConical className="w-3.5 h-3.5" />
                         <span>Meja Sandbox Kelas</span>
@@ -425,40 +425,40 @@ export default function MainEduDashboard() {
                     </div>
                   </div>
 
-                  <div className="border-t border-[#3b3e45] pt-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase bg-[#5865F2] text-white px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-black uppercase bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded">
                           {activeClassroom.gradeLevel}
                         </span>
-                        <h2 className="text-lg sm:text-xl font-extrabold text-white">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
                           {activeClassroom.name}
                         </h2>
                       </div>
-                      <p className="text-xs text-[#949ba4] mt-1">
+                      <p className="text-xs text-slate-500 mt-1">
                         {activeClassroom.description || "Ruang kelas praktikum sains interaktif."}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-[#dbdee1]">
-                      <span className="bg-[#1e1f22] px-3 py-1.5 rounded-lg border border-[#3b3e45] font-semibold">
+                    <div className="flex items-center gap-3 text-xs text-slate-600">
+                      <span className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-semibold">
                         👥 {classroomMembers.length} Siswa Terdaftar
                       </span>
-                      <span className="bg-[#1e1f22] px-3 py-1.5 rounded-lg border border-[#3b3e45] font-semibold">
+                      <span className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-semibold">
                         📋 {classroomTasks.length} Tugas Diterbitkan
                       </span>
                     </div>
                   </div>
 
                   {/* Classroom Sub-Tabs */}
-                  <div className="flex items-center gap-2 border-t border-[#3b3e45] pt-3">
+                  <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
                     <button
                       type="button"
                       onClick={() => setClassroomTab("tasks")}
                       className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                         classroomTab === "tasks" || classroomTab === "builder"
-                          ? "bg-[#5865F2] text-white shadow"
-                          : "bg-[#1e1f22] text-[#949ba4] hover:text-white"
+                          ? "bg-sky-600 text-white shadow-sm"
+                          : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
                       }`}
                     >
                       <ClipboardList className="w-4 h-4" />
@@ -470,8 +470,8 @@ export default function MainEduDashboard() {
                       onClick={() => setClassroomTab("members")}
                       className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                         classroomTab === "members"
-                          ? "bg-[#5865F2] text-white shadow"
-                          : "bg-[#1e1f22] text-[#949ba4] hover:text-white"
+                          ? "bg-sky-600 text-white shadow-sm"
+                          : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
                       }`}
                     >
                       <Users className="w-4 h-4" />
@@ -483,8 +483,8 @@ export default function MainEduDashboard() {
                       onClick={() => setClassroomTab("submissions")}
                       className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                         classroomTab === "submissions"
-                          ? "bg-[#5865F2] text-white shadow"
-                          : "bg-[#1e1f22] text-[#949ba4] hover:text-white"
+                          ? "bg-sky-600 text-white shadow-sm"
+                          : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
                       }`}
                     >
                       <Award className="w-4 h-4" />
@@ -515,14 +515,14 @@ export default function MainEduDashboard() {
                 ) : classroomTab === "tasks" ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-[#949ba4]">
-                        Daftar tugas praktikum yang aktif di kelas <strong>{activeClassroom.name}</strong>.
+                      <span className="text-xs text-slate-500">
+                        Daftar tugas praktikum yang aktif di kelas <strong className="text-slate-800">{activeClassroom.name}</strong>.
                       </span>
 
                       <button
                         type="button"
                         onClick={() => setClassroomTab("builder")}
-                        className="px-4 py-2 bg-gradient-to-r from-[#5865F2] to-[#4752c4] hover:from-[#4752c4] hover:to-[#3b43a3] text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg transition-transform hover:scale-[1.02]"
+                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-transform hover:scale-[1.02]"
                       >
                         <Plus className="w-4 h-4" />
                         <span>Rancang Tugas Baru di Kelas Ini</span>
@@ -530,23 +530,23 @@ export default function MainEduDashboard() {
                     </div>
 
                     {isLoadingTasks ? (
-                      <div className="text-center py-12 text-[#949ba4] text-xs">
-                        <div className="w-6 h-6 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <div className="text-center py-12 text-slate-400 text-xs">
+                        <div className="w-6 h-6 border-2 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                         Memuat tugas praktikum...
                       </div>
                     ) : classroomTasks.length === 0 ? (
-                      <div className="text-center py-12 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-2xl bg-[#2b2d31] p-8 space-y-4">
-                        <ClipboardList className="w-10 h-10 text-[#949ba4] mx-auto opacity-40" />
+                      <div className="text-center py-12 text-slate-500 text-xs border border-dashed border-slate-300 rounded-2xl bg-white p-8 space-y-4 shadow-sm">
+                        <ClipboardList className="w-10 h-10 text-slate-400 mx-auto opacity-40" />
                         <div className="space-y-1">
-                          <p className="font-bold text-sm text-white">Belum Ada Tugas di Kelas Ini</p>
-                          <p className="text-[11px] text-[#949ba4] max-w-md mx-auto">
+                          <p className="font-bold text-sm text-slate-900">Belum Ada Tugas di Kelas Ini</p>
+                          <p className="text-[11px] text-slate-500 max-w-md mx-auto">
                             Rancang tugas praktikum pertama untuk kelas ini menggunakan <strong>Mode Analisis RPP Otomatis AI</strong> atau <strong>Kustom Mandiri</strong>.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => setClassroomTab("builder")}
-                          className="px-5 py-2.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl shadow-md"
+                          className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-sm"
                         >
                           + Rancang Tugas Praktikum Sekarang
                         </button>
@@ -556,26 +556,26 @@ export default function MainEduDashboard() {
                         {classroomTasks.map((task) => (
                           <div
                             key={task.id}
-                            className="bg-[#2b2d31] hover:bg-[#35373c] border border-[#3b3e45] rounded-2xl p-5 space-y-3 transition-colors flex flex-col justify-between shadow-md"
+                            className="bg-white hover:bg-slate-50/80 border border-slate-200 hover:border-sky-300 rounded-2xl p-5 space-y-3 transition-colors flex flex-col justify-between shadow-sm"
                           >
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-black bg-[#5865F2] text-white px-2 py-0.5 rounded uppercase">
+                                <span className="text-[10px] font-black bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded uppercase">
                                   {task.gradeLevel}
                                 </span>
-                                <span className="text-[11px] text-[#949ba4]">Kelas: {task.roomCode}</span>
+                                <span className="text-[11px] text-slate-500">Kelas: {task.roomCode}</span>
                               </div>
 
-                              <h4 className="font-bold text-sm text-white">{task.title}</h4>
-                              <p className="text-xs text-[#dbdee1] leading-relaxed line-clamp-3">
+                              <h4 className="font-bold text-sm text-slate-900">{task.title}</h4>
+                              <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
                                 {task.instructions}
                               </p>
 
-                              <div className="flex items-center justify-between text-xs pt-2 border-t border-[#3b3e45]">
-                                <span className="text-[#57F287] font-semibold">
+                              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                                <span className="text-emerald-700 font-semibold">
                                   🔬 {task.chemicalIds?.length || 0} Reagen di Meja 3D
                                 </span>
-                                <span className="text-[#FEE75C] font-semibold">
+                                <span className="text-amber-700 font-semibold">
                                   📝 {task.questions?.length || 0} Butir Kuis
                                 </span>
                               </div>
@@ -584,7 +584,7 @@ export default function MainEduDashboard() {
                             <div className="flex items-center gap-2 pt-2">
                               <Link
                                 href={`/lab?taskId=${task.id}&mode=sandbox`}
-                                className="flex-1 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl transition-colors shadow flex items-center justify-center gap-1.5"
+                                className="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-1.5"
                               >
                                 <Play className="w-3.5 h-3.5" />
                                 <span>Uji Coba di Lab 3D (Sandbox)</span>
@@ -593,7 +593,7 @@ export default function MainEduDashboard() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
-                                className="p-2 bg-[#ed4245]/20 hover:bg-[#ed4245] text-[#ed4245] hover:text-white rounded-xl transition-colors"
+                                className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors border border-rose-200"
                                 title="Hapus Tugas"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -607,17 +607,17 @@ export default function MainEduDashboard() {
                 ) : classroomTab === "members" ? (
                   /* Sub-Tab 2: Members */
                   <div className="space-y-4">
-                    <div className="p-4 bg-[#2b2d31] border border-[#3b3e45] rounded-2xl flex items-center justify-between">
+                    <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-sm">
                       <div>
-                        <h4 className="font-bold text-sm text-white">Siswa Anggota Kelas</h4>
-                        <p className="text-xs text-[#949ba4]">
-                          Bagikan Kode Kelas <strong className="text-[#57F287] font-mono">{activeClassroom.classCode}</strong> kepada murid agar bergabung ke kelas ini.
+                        <h4 className="font-bold text-sm text-slate-900">Siswa Anggota Kelas</h4>
+                        <p className="text-xs text-slate-500">
+                          Bagikan Kode Kelas <strong className="text-sky-700 font-mono">{activeClassroom.classCode}</strong> kepada murid agar bergabung ke kelas ini.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleCopyCode(activeClassroom.classCode)}
-                        className="px-3 py-1.5 bg-[#1e1f22] hover:bg-[#35373c] border border-[#3b3e45] text-xs font-bold text-white rounded-xl flex items-center gap-1.5"
+                        className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 rounded-xl flex items-center gap-1.5 shadow-sm"
                       >
                         <Copy className="w-3.5 h-3.5" />
                         <span>Salin Kode Kelas</span>
@@ -625,16 +625,16 @@ export default function MainEduDashboard() {
                     </div>
 
                     {isLoadingMembers ? (
-                      <div className="text-center py-12 text-[#949ba4] text-xs">Memuat siswa...</div>
+                      <div className="text-center py-12 text-slate-400 text-xs">Memuat siswa...</div>
                     ) : classroomMembers.length === 0 ? (
-                      <div className="text-center py-12 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-2xl bg-[#2b2d31] p-6 space-y-2">
-                        <Users className="w-8 h-8 text-[#949ba4] mx-auto opacity-40" />
+                      <div className="text-center py-12 text-slate-500 text-xs border border-dashed border-slate-300 rounded-2xl bg-white p-6 space-y-2 shadow-sm">
+                        <Users className="w-8 h-8 text-slate-400 mx-auto opacity-40" />
                         <p>Belum ada siswa yang bergabung di kelas ini.</p>
                       </div>
                     ) : (
-                      <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-2xl overflow-hidden shadow">
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                         <table className="w-full text-left text-xs">
-                          <thead className="bg-[#1e1f22] text-[#949ba4] text-[10px] uppercase font-bold border-b border-[#3b3e45]">
+                          <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
                             <tr>
                               <th className="px-4 py-3">Nama Siswa</th>
                               <th className="px-4 py-3">Username</th>
@@ -642,22 +642,22 @@ export default function MainEduDashboard() {
                               <th className="px-4 py-3">Bergabung</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#3b3e45]">
+                          <tbody className="divide-y divide-slate-100">
                             {classroomMembers.map((m) => (
-                              <tr key={m.id} className="hover:bg-[#35373c]/50">
-                                <td className="px-4 py-3 font-bold text-white flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-[#5865F2] text-white flex items-center justify-center font-bold text-[10px]">
+                              <tr key={m.id} className="hover:bg-slate-50/70">
+                                <td className="px-4 py-3 font-bold text-slate-900 flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-sky-100 text-sky-800 border border-sky-200 flex items-center justify-center font-bold text-[10px]">
                                     {m.studentName?.charAt(0) || "S"}
                                   </div>
                                   <span>{m.studentName}</span>
                                 </td>
-                                <td className="px-4 py-3 text-[#949ba4] font-mono">{m.studentUsername}</td>
+                                <td className="px-4 py-3 text-slate-500 font-mono">{m.studentUsername}</td>
                                 <td className="px-4 py-3">
-                                  <span className="text-[#57F287] font-bold text-[10px] bg-[#23a55a]/20 px-2 py-0.5 rounded">
+                                  <span className="text-emerald-700 font-bold text-[10px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
                                     Aktif
                                   </span>
                                 </td>
-                                <td className="px-4 py-3 text-[#949ba4] text-[11px]">
+                                <td className="px-4 py-3 text-slate-500 text-[11px]">
                                   {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString("id-ID") : "-"}
                                 </td>
                               </tr>
@@ -670,18 +670,18 @@ export default function MainEduDashboard() {
                 ) : (
                   /* Sub-Tab 3: Submissions */
                   <div className="space-y-4">
-                    <h4 className="font-bold text-sm text-white">Rekap Nilai Siswa Kelas {activeClassroom.name}</h4>
+                    <h4 className="font-bold text-sm text-slate-900">Rekap Nilai Siswa Kelas {activeClassroom.name}</h4>
                     {isLoadingSubmissions ? (
-                      <div className="text-center py-12 text-[#949ba4] text-xs">Memuat nilai...</div>
+                      <div className="text-center py-12 text-slate-400 text-xs">Memuat nilai...</div>
                     ) : classroomSubmissions.length === 0 ? (
-                      <div className="text-center py-12 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-2xl bg-[#2b2d31] p-6 space-y-2">
-                        <Award className="w-8 h-8 text-[#949ba4] mx-auto opacity-40" />
+                      <div className="text-center py-12 text-slate-500 text-xs border border-dashed border-slate-300 rounded-2xl bg-white p-6 space-y-2 shadow-sm">
+                        <Award className="w-8 h-8 text-slate-400 mx-auto opacity-40" />
                         <p>Belum ada siswa yang mengumpulkan kuis praktikum.</p>
                       </div>
                     ) : (
-                      <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-2xl overflow-hidden shadow">
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                         <table className="w-full text-left text-xs">
-                          <thead className="bg-[#1e1f22] text-[#949ba4] text-[10px] uppercase font-bold border-b border-[#3b3e45]">
+                          <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
                             <tr>
                               <th className="px-4 py-3">Nama Siswa</th>
                               <th className="px-4 py-3">Reaksi 3D</th>
@@ -690,26 +690,26 @@ export default function MainEduDashboard() {
                               <th className="px-4 py-3">Waktu</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#3b3e45]">
+                          <tbody className="divide-y divide-slate-100">
                             {classroomSubmissions.map((s) => (
-                              <tr key={s.id} className="hover:bg-[#35373c]/50">
-                                <td className="px-4 py-3 font-bold text-white">{s.studentName}</td>
+                              <tr key={s.id} className="hover:bg-slate-50/70">
+                                <td className="px-4 py-3 font-bold text-slate-900">{s.studentName}</td>
                                 <td className="px-4 py-3">
-                                  <span className="text-[#57F287] font-semibold">✓ Sukses</span>
+                                  <span className="text-emerald-700 font-semibold">✓ Sukses</span>
                                 </td>
                                 <td className="px-4 py-3">
                                   <span
                                     className={`font-black px-2 py-0.5 rounded text-[11px] ${
                                       s.score >= 80
-                                        ? "bg-[#57F287]/20 text-[#57F287]"
-                                        : "bg-[#FEE75C]/20 text-[#FEE75C]"
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : "bg-amber-50 text-amber-700 border border-amber-200"
                                     }`}
                                   >
                                     {s.score}/100
                                   </span>
                                 </td>
-                                <td className="px-4 py-3 text-[#dbdee1] max-w-xs truncate">{s.aiAnalysis}</td>
-                                <td className="px-4 py-3 text-[#949ba4] text-[11px]">
+                                <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{s.aiAnalysis}</td>
+                                <td className="px-4 py-3 text-slate-500 text-[11px]">
                                   {s.completedAt ? new Date(s.completedAt).toLocaleTimeString("id-ID") : "-"}
                                 </td>
                               </tr>
@@ -725,22 +725,22 @@ export default function MainEduDashboard() {
               /* All Classrooms View for Teacher */
               <div className="space-y-6">
                 {/* Teacher Hero Welcome Banner */}
-                <div className="bg-gradient-to-r from-[#2b2d31] via-[#1e1f22] to-[#2b2d31] border border-[#3b3e45] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
                   <div className="max-w-2xl space-y-3 z-10 relative">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase bg-[#FEE75C] text-black px-2.5 py-0.5 rounded-full shadow">
+                      <span className="text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full shadow-sm">
                         PORTAL UTAMA GURU
                       </span>
-                      <span className="text-xs text-[#57F287] font-bold">
+                      <span className="text-xs text-emerald-700 font-bold">
                         ● Sistem Pembelajaran Aktif
                       </span>
                     </div>
 
-                    <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight">
+                    <h2 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">
                       Selamat Datang, {currentUser.name} 👨‍🏫
                     </h2>
 
-                    <p className="text-xs sm:text-sm text-[#dbdee1] leading-relaxed">
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                       Kelola ruang kelas praktikum sains, terbitkan tugas dengan <strong>AI RPP Generator</strong>, dan uji coba eksperimen di laboratorium 3D secara leluasa.
                     </p>
 
@@ -748,7 +748,7 @@ export default function MainEduDashboard() {
                       <button
                         type="button"
                         onClick={() => setIsCreateClassModalOpen(true)}
-                        className="px-4 py-2.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
+                        className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-transform hover:scale-105"
                       >
                         <Plus className="w-4 h-4" />
                         <span>+ Buat Ruang Kelas Baru</span>
@@ -756,7 +756,7 @@ export default function MainEduDashboard() {
 
                       <Link
                         href="/lab?mode=sandbox"
-                        className="px-4 py-2.5 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
+                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-transform hover:scale-105"
                       >
                         <FlaskConical className="w-4 h-4" />
                         <span>Masuk Meja Lab 3D (Sandbox Guru)</span>
@@ -769,11 +769,11 @@ export default function MainEduDashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                        <School className="w-5 h-5 text-[#5865F2]" />
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <School className="w-5 h-5 text-sky-600" />
                         <span>Daftar Ruang Kelas Anda ({classrooms.length})</span>
                       </h3>
-                      <p className="text-xs text-[#949ba4]">
+                      <p className="text-xs text-slate-500">
                         Pilih salah satu kelas untuk memberikan tugas praktikum, melihat murid, atau menyalin kode kelas.
                       </p>
                     </div>
@@ -781,7 +781,7 @@ export default function MainEduDashboard() {
                     <button
                       type="button"
                       onClick={() => setIsCreateClassModalOpen(true)}
-                      className="px-3.5 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow"
+                      className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Buat Kelas</span>
@@ -789,23 +789,23 @@ export default function MainEduDashboard() {
                   </div>
 
                   {isLoadingClassrooms ? (
-                    <div className="text-center py-16 text-[#949ba4] text-xs">
-                      <div className="w-8 h-8 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <div className="text-center py-16 text-slate-400 text-xs">
+                      <div className="w-8 h-8 border-2 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                       Memuat ruang kelas...
                     </div>
                   ) : classrooms.length === 0 ? (
-                    <div className="text-center py-16 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-3xl bg-[#2b2d31] p-8 space-y-4">
-                      <School className="w-12 h-12 text-[#949ba4] mx-auto opacity-40" />
+                    <div className="text-center py-16 text-slate-500 text-xs border border-dashed border-slate-300 rounded-3xl bg-white p-8 space-y-4 shadow-sm">
+                      <School className="w-12 h-12 text-slate-400 mx-auto opacity-40" />
                       <div className="space-y-1">
-                        <p className="font-bold text-base text-white">Belum Ada Ruang Kelas</p>
-                        <p className="text-xs text-[#949ba4]">
+                        <p className="font-bold text-base text-slate-900">Belum Ada Ruang Kelas</p>
+                        <p className="text-xs text-slate-500">
                           Anda belum memiliki ruang kelas. Buat kelas pertama untuk mulai menugaskan praktikum 3D kepada siswa.
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setIsCreateClassModalOpen(true)}
-                        className="px-5 py-2.5 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl shadow-lg"
+                        className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-sm"
                       >
                         + Buat Ruang Kelas Pertama
                       </button>
@@ -819,11 +819,11 @@ export default function MainEduDashboard() {
                             setActiveClassroom(cls);
                             setClassroomTab("tasks");
                           }}
-                          className="bg-[#2b2d31] hover:bg-[#35373c] border border-[#3b3e45] hover:border-[#5865F2] rounded-2xl p-5 space-y-4 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-xl group flex flex-col justify-between"
+                          className="bg-white hover:bg-slate-50/80 border border-slate-200 hover:border-sky-300 rounded-2xl p-5 space-y-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md group flex flex-col justify-between"
                         >
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black uppercase bg-[#5865F2] text-white px-2 py-0.5 rounded">
+                              <span className="text-[10px] font-black uppercase bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded">
                                 {cls.gradeLevel}
                               </span>
 
@@ -832,36 +832,36 @@ export default function MainEduDashboard() {
                                   e.stopPropagation();
                                   handleCopyCode(cls.classCode);
                                 }}
-                                className="bg-[#1e1f22] px-2.5 py-0.5 rounded-lg border border-[#3b3e45] text-xs font-mono font-bold text-[#57F287] flex items-center gap-1.5 hover:border-[#57F287] transition-colors"
+                                className="bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-200 text-xs font-mono font-bold text-sky-700 flex items-center gap-1.5 hover:border-sky-400 transition-colors"
                                 title="Klik untuk salin kode kelas"
                               >
                                 <span>PIN {cls.classCode}</span>
                                 {copiedCode === cls.classCode ? (
-                                  <Check className="w-3 h-3 text-[#57F287]" />
+                                  <Check className="w-3 h-3 text-emerald-600" />
                                 ) : (
-                                  <Copy className="w-3 h-3 text-[#949ba4]" />
+                                  <Copy className="w-3 h-3 text-slate-400" />
                                 )}
                               </div>
                             </div>
 
                             <div>
-                              <h4 className="font-extrabold text-base text-white group-hover:text-[#5865F2] transition-colors line-clamp-1">
+                              <h4 className="font-extrabold text-base text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">
                                 {cls.name}
                               </h4>
-                              <p className="text-xs text-[#949ba4] mt-1 line-clamp-2 leading-relaxed">
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
                                 {cls.description || "Ruang kelas praktikum sains interaktif."}
                               </p>
                             </div>
                           </div>
 
-                          <div className="space-y-3 pt-3 border-t border-[#3b3e45]">
-                            <div className="flex items-center justify-between text-xs text-[#dbdee1]">
+                          <div className="space-y-3 pt-3 border-t border-slate-100">
+                            <div className="flex items-center justify-between text-xs text-slate-600">
                               <span className="flex items-center gap-1.5 font-medium">
-                                <Users className="w-3.5 h-3.5 text-[#5865F2]" />
+                                <Users className="w-3.5 h-3.5 text-sky-600" />
                                 {cls.studentCount || 0} Siswa
                               </span>
                               <span className="flex items-center gap-1.5 font-medium">
-                                <ClipboardList className="w-3.5 h-3.5 text-[#FEE75C]" />
+                                <ClipboardList className="w-3.5 h-3.5 text-amber-600" />
                                 {cls.taskCount || 0} Tugas
                               </span>
                             </div>
@@ -869,7 +869,7 @@ export default function MainEduDashboard() {
                             <div className="flex items-center gap-2 pt-1">
                               <button
                                 type="button"
-                                className="flex-1 py-2 bg-[#5865F2] group-hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl transition-colors shadow flex items-center justify-center gap-1.5"
+                                className="flex-1 py-2 bg-sky-600 group-hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-1.5"
                               >
                                 <span>Buka Kelas</span>
                                 <ChevronRight className="w-3.5 h-3.5" />
@@ -878,7 +878,7 @@ export default function MainEduDashboard() {
                               <button
                                 type="button"
                                 onClick={(e) => handleDeleteClassroom(cls.id, e)}
-                                className="p-2 bg-[#ed4245]/20 hover:bg-[#ed4245] text-[#ed4245] hover:text-white rounded-xl transition-colors"
+                                className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors border border-rose-200"
                                 title="Hapus Kelas"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -899,29 +899,29 @@ export default function MainEduDashboard() {
               ===================================================================== */
           <div className="space-y-6 animate-in fade-in">
             {/* Student Hero Banner */}
-            <div className="bg-gradient-to-r from-[#2b2d31] via-[#1e1f22] to-[#2b2d31] border border-[#3b3e45] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
               <div className="max-w-2xl space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase bg-[#5865F2] text-white px-2.5 py-0.5 rounded-full shadow">
+                  <span className="text-[10px] font-black uppercase bg-sky-50 text-sky-700 border border-sky-200 px-2.5 py-0.5 rounded-full shadow-sm">
                     DASHBOARD SISWA
                   </span>
-                  <span className="text-xs text-[#57F287] font-bold">
+                  <span className="text-xs text-emerald-700 font-bold">
                     ● Siap Praktikum 3D
                   </span>
                 </div>
 
-                <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight">
+                <h2 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Halo, {currentUser.name} 🎓
                 </h2>
 
-                <p className="text-xs sm:text-sm text-[#dbdee1] leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                   Gabung ke ruang kelas gurumu dengan memasukkan Kode Kelas, kerjakan eksperimen interaktif di laboratorium 3D, dan amati reaksi kimia secara langsung!
                 </p>
 
                 <div className="pt-2">
                   <Link
                     href="/lab?mode=sandbox"
-                    className="px-4 py-2.5 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-xl inline-flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl inline-flex items-center gap-2 shadow-sm transition-transform hover:scale-105"
                   >
                     <FlaskConical className="w-4 h-4" />
                     <span>Eksplorasi Bebas di Meja Lab 3D (Mode Sandbox)</span>
@@ -931,12 +931,12 @@ export default function MainEduDashboard() {
             </div>
 
             {/* Join Classroom Card */}
-            <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-2xl p-5 shadow-lg space-y-3">
-              <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                <Plus className="w-4 h-4 text-[#5865F2]" />
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <Plus className="w-4 h-4 text-sky-600" />
                 <span>Gabung ke Ruang Kelas Guru</span>
               </h3>
-              <p className="text-xs text-[#949ba4]">
+              <p className="text-xs text-slate-500">
                 Minta Kode Kelas (PIN) dari gurumu untuk bergabung dan menerima tugas praktikum.
               </p>
 
@@ -946,12 +946,12 @@ export default function MainEduDashboard() {
                   value={joinClassCode}
                   onChange={(e) => setJoinClassCode(e.target.value.toUpperCase())}
                   placeholder="Contoh: LAB889"
-                  className="px-4 py-2 bg-[#1e1f22] border border-[#3b3e45] text-xs font-mono font-bold text-white rounded-xl outline-none focus:border-[#5865F2] w-48 tracking-wider"
+                  className="px-4 py-2 bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-slate-900 rounded-xl outline-none focus:border-sky-500 focus:bg-white w-48 tracking-wider"
                 />
                 <button
                   type="submit"
                   disabled={isJoiningClass || !joinClassCode.trim()}
-                  className="px-5 py-2 bg-[#5865F2] hover:bg-[#4752c4] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shadow flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
                   <span>{isJoiningClass ? "Memproses..." : "Gabung Kelas"}</span>
@@ -962,14 +962,14 @@ export default function MainEduDashboard() {
                 <div
                   className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in ${
                     joinClassMsg.type === "success"
-                      ? "bg-[#57F287]/20 border border-[#57F287] text-[#57F287]"
-                      : "bg-[#ed4245]/20 border border-[#ed4245] text-[#f2f3f5]"
+                      ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                      : "bg-rose-50 border border-rose-200 text-rose-800"
                   }`}
                 >
                   {joinClassMsg.type === "success" ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0 text-[#ed4245]" />
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                   )}
                   <span>{joinClassMsg.text}</span>
                 </div>
@@ -978,46 +978,46 @@ export default function MainEduDashboard() {
 
             {/* Enrolled Classrooms Grid */}
             <div className="space-y-4">
-              <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <School className="w-5 h-5 text-[#5865F2]" />
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                <School className="w-5 h-5 text-sky-600" />
                 <span>Kelas yang Anda Ikuti ({classrooms.length})</span>
               </h3>
 
               {isLoadingClassrooms ? (
-                <div className="text-center py-12 text-[#949ba4] text-xs">Memuat kelas...</div>
+                <div className="text-center py-12 text-slate-400 text-xs">Memuat kelas...</div>
               ) : classrooms.length === 0 ? (
-                <div className="text-center py-12 text-[#949ba4] text-xs border border-dashed border-[#3b3e45] rounded-2xl bg-[#2b2d31] p-6 space-y-2">
+                <div className="text-center py-12 text-slate-500 text-xs border border-dashed border-slate-300 rounded-2xl bg-white p-6 space-y-2 shadow-sm">
                   <p>Anda belum bergabung ke kelas mana pun.</p>
-                  <p className="text-[11px] text-[#949ba4]">Masukkan kode kelas dari guru di form atas.</p>
+                  <p className="text-[11px] text-slate-500">Masukkan kode kelas dari guru di form atas.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {classrooms.map((cls) => (
                     <div
                       key={cls.id}
-                      className="bg-[#2b2d31] border border-[#3b3e45] rounded-2xl p-5 space-y-3 shadow-md flex flex-col justify-between"
+                      className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 shadow-sm flex flex-col justify-between hover:border-sky-300 transition-colors"
                     >
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase bg-[#5865F2] text-white px-2 py-0.5 rounded">
+                          <span className="text-[10px] font-black uppercase bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded">
                             {cls.gradeLevel}
                           </span>
-                          <span className="text-xs font-mono font-bold text-[#57F287] bg-[#1e1f22] px-2 py-0.5 rounded border border-[#3b3e45]">
+                          <span className="text-xs font-mono font-bold text-sky-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
                             PIN {cls.classCode}
                           </span>
                         </div>
 
-                        <h4 className="font-bold text-base text-white">{cls.name}</h4>
-                        <p className="text-xs text-[#949ba4]">Guru: {cls.teacherName}</p>
-                        <p className="text-xs text-[#dbdee1] line-clamp-2 leading-relaxed">
+                        <h4 className="font-bold text-base text-slate-900">{cls.name}</h4>
+                        <p className="text-xs text-slate-500">Guru: {cls.teacherName}</p>
+                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                           {cls.description}
                         </p>
                       </div>
 
-                      <div className="pt-2 border-t border-[#3b3e45] flex items-center gap-2">
+                      <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
                         <Link
                           href={`/lab?classCode=${cls.classCode}&mode=task`}
-                          className="flex-1 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl transition-colors shadow text-center flex items-center justify-center gap-1.5"
+                          className="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm text-center flex items-center justify-center gap-1.5"
                         >
                           <Play className="w-3.5 h-3.5" />
                           <span>Mulai Tugas Lab</span>
@@ -1033,19 +1033,19 @@ export default function MainEduDashboard() {
           /* =====================================================================
               VIEW 3: GUEST / UNREGISTERED USER LANDING
               ===================================================================== */
-          <div className="space-y-8 py-6 max-w-4xl mx-auto text-center animate-in fade-in">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#5865F2] to-[#4752c4] flex items-center justify-center text-white shadow-2xl mx-auto">
+          <div className="space-y-8 py-10 max-w-4xl mx-auto text-center animate-in fade-in">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-700 flex items-center justify-center text-white shadow-xl shadow-sky-600/20 mx-auto">
               <FlaskConical className="w-8 h-8" />
             </div>
 
             <div className="space-y-3">
-              <span className="text-xs font-black uppercase bg-[#5865F2] text-white px-3 py-1 rounded-full shadow">
-                VIRTUAL SCIENCE LABORATORY
+              <span className="text-xs font-black uppercase bg-sky-50 text-sky-700 border border-sky-200 px-3 py-1 rounded-full shadow-sm">
+                CUPLABS VIRTUAL SCIENCE LABORATORY
               </span>
-              <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+              <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
                 Simulasi Praktikum Kimia 3D & Manajemen Kelas Interaktif
               </h2>
-              <p className="text-sm text-[#dbdee1] max-w-xl mx-auto leading-relaxed">
+              <p className="text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
                 Platform canggih untuk guru merancang tugas praktikum menggunakan <strong>Gemini AI RPP Auto-Pilot</strong> dan siswa bereksperimen langsung di meja 3D dengan deteksi reaksi spontan & sensor tangan.
               </p>
             </div>
@@ -1054,7 +1054,7 @@ export default function MainEduDashboard() {
               <button
                 type="button"
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-6 py-3 bg-[#5865F2] hover:bg-[#4752c4] text-white font-bold text-xs sm:text-sm rounded-xl shadow-xl transition-transform hover:scale-105 flex items-center gap-2"
+                className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-transform hover:scale-105 flex items-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Masuk Akun (Guru / Siswa)</span>
@@ -1062,7 +1062,7 @@ export default function MainEduDashboard() {
 
               <Link
                 href="/lab?mode=sandbox"
-                className="px-6 py-3 bg-[#23a55a] hover:bg-[#1f9250] text-white font-bold text-xs sm:text-sm rounded-xl shadow-xl transition-transform hover:scale-105 flex items-center gap-2"
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-transform hover:scale-105 flex items-center gap-2"
               >
                 <FlaskConical className="w-4 h-4" />
                 <span>Coba Meja Lab 3D Langsung (Sandbox)</span>
@@ -1076,49 +1076,49 @@ export default function MainEduDashboard() {
           MODAL 1: BUAT RUANG KELAS BARU (GURU)
           ========================================================================= */}
       {isCreateClassModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#313338] border border-[#3b3e45] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-[#3b3e45] pb-3">
-              <h3 className="font-extrabold text-base text-white flex items-center gap-2">
-                <School className="w-5 h-5 text-[#5865F2]" />
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                <School className="w-5 h-5 text-sky-600" />
                 <span>Buat Ruang Kelas Baru</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setIsCreateClassModalOpen(false)}
-                className="text-[#949ba4] hover:text-white"
+                className="text-slate-400 hover:text-slate-700"
               >
                 ✕
               </button>
             </div>
 
             {createClassError && (
-              <div className="p-3 bg-[#ed4245]/20 border border-[#ed4245] text-xs font-semibold text-white rounded-xl flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-[#ed4245] shrink-0" />
+              <div className="p-3 bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-800 rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{createClassError}</span>
               </div>
             )}
 
             <form onSubmit={handleCreateClassroom} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-[#dbdee1] uppercase">Nama Kelas:</label>
+                <label className="text-xs font-bold text-slate-700 uppercase">Nama Kelas:</label>
                 <input
                   type="text"
                   value={newClassName}
                   onChange={(e) => setNewClassName(e.target.value)}
                   placeholder="Contoh: Praktikum Kimia 10 IPA 1"
-                  className="w-full p-2.5 bg-[#1e1f22] border border-[#3b3e45] focus:border-[#5865F2] text-xs font-semibold text-white rounded-xl outline-none"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 focus:border-sky-500 focus:bg-white text-xs font-semibold text-slate-900 rounded-xl outline-none"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#dbdee1] uppercase">Jenjang:</label>
+                  <label className="text-xs font-bold text-slate-700 uppercase">Jenjang:</label>
                   <select
                     value={newClassGrade}
                     onChange={(e) => setNewClassGrade(e.target.value)}
-                    className="w-full p-2.5 bg-[#1e1f22] border border-[#3b3e45] text-xs font-semibold text-white rounded-xl outline-none"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 focus:bg-white"
                   >
                     <option value="SD Kelas 5">SD (Sains Dasar)</option>
                     <option value="SMP Kelas 8">SMP (Zat & Asam Basa)</option>
@@ -1129,7 +1129,7 @@ export default function MainEduDashboard() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#dbdee1] uppercase">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
                     Kode Kelas (PIN):
                   </label>
                   <input
@@ -1137,34 +1137,34 @@ export default function MainEduDashboard() {
                     value={newClassCode}
                     onChange={(e) => setNewClassCode(e.target.value.toUpperCase())}
                     placeholder="Auto (Kosongkan)"
-                    className="w-full p-2.5 bg-[#1e1f22] border border-[#3b3e45] focus:border-[#5865F2] text-xs font-mono font-bold text-[#57F287] rounded-xl outline-none tracking-wider"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 focus:border-sky-500 focus:bg-white text-xs font-mono font-bold text-sky-700 rounded-xl outline-none tracking-wider"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-[#dbdee1] uppercase">Deskripsi Kelas:</label>
+                <label className="text-xs font-bold text-slate-700 uppercase">Deskripsi Kelas:</label>
                 <textarea
                   rows={2}
                   value={newClassDesc}
                   onChange={(e) => setNewClassDesc(e.target.value)}
                   placeholder="Materi praktikum, jadwal laboratorium, dll..."
-                  className="w-full p-2.5 bg-[#1e1f22] border border-[#3b3e45] focus:border-[#5865F2] text-xs text-white rounded-xl outline-none"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 focus:border-sky-500 focus:bg-white text-xs text-slate-900 rounded-xl outline-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#3b3e45]">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsCreateClassModalOpen(false)}
-                  className="px-4 py-2 bg-[#35373c] hover:bg-[#404249] text-white text-xs font-semibold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingClass}
-                  className="px-5 py-2 bg-[#5865F2] hover:bg-[#4752c4] text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>{isCreatingClass ? "Membuat..." : "Buat Kelas"}</span>

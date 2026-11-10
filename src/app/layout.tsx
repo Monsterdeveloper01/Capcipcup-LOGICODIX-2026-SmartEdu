@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Capcipcup SmartEdu - Smart & Fun Education (LOGICODIX 2026)",
+  title: "CupLabs - Laboratorium Sains Virtual 3D & AI Interaktif",
   description:
-    "Solusi digital interaktif, aksesibel, dan menyenangkan untuk proses belajar-mengajar berbasis AI.",
+    "CupLabs: Platform laboratorium sains virtual 3D, Web-AR, dan asisten AI interaktif untuk praktikum kimia dan sains modern.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

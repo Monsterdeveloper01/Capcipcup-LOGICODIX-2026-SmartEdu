@@ -22,6 +22,7 @@ export interface ChemicalVessel {
   isReacted?: boolean;
   reactionNote?: string;
   temperatureC?: number;
+  components?: string[]; // Daftar formula/unsur konstituen di dalam bejana ini
 }
 
 export interface ReactionDetail {
@@ -30,6 +31,8 @@ export interface ReactionDetail {
   equation: string;
   substanceA: string;
   substanceB: string;
+  substanceC?: string; // Reaktan ke-3 opsional
+  substances?: string[]; // Daftar semua reaktan yang terlibat
   resultName: string;
   resultFormula: string;
   resultColor: string;
@@ -552,6 +555,37 @@ export function extractSubstanceTokens(formula?: string): string[] {
     .filter((token) => token.length > 0);
 }
 
+// Extract all constituent chemical tokens currently present inside a vessel (including multi-step additions)
+export function getVesselConstituentTokens(vessel: ChemicalVessel): string[] {
+  const set = new Set<string>();
+  const addToken = (str?: string) => {
+    if (!str) return;
+    const norm = normChemical(str);
+    if (norm) set.add(norm);
+    extractSubstanceTokens(str).forEach((t) => set.add(t));
+  };
+
+  addToken(vessel.formula);
+  if (vessel.components) {
+    vessel.components.forEach(addToken);
+  }
+  const f = (vessel.formula || "").toLowerCase();
+  const n = (vessel.name || "").toLowerCase();
+  if (f.includes("ch3coo") || n.includes("cuka")) set.add("CH3COOH");
+  if (f.includes("lipid") || n.includes("minyak")) set.add("LIPID");
+  if (f.includes("nahco3") || n.includes("soda kue") || n.includes("baking")) set.add("NAHCO3");
+  if (f.includes("naoh") || n.includes("natrium hidroksida") || n.includes("soda api")) set.add("NAOH");
+  if (f.includes("h2o") || n.includes("air") || n.includes("aquades")) set.add("H2O");
+  if (f.includes("kmno4") || n.includes("permanganat")) set.add("KMNO4");
+  if (f.includes("hcl") || n.includes("klorida")) set.add("HCL");
+  if (f.includes("ki") || n.includes("iodida")) set.add("KI");
+  if (f.includes("cuso4") || n.includes("tembaga")) set.add("CUSO4");
+  if (f.includes("fe") || n.includes("besi")) set.add("FE");
+  if (f.includes("pb(no3)2") || f.includes("pbno32") || n.includes("timbal")) set.add("PBNO32");
+
+  return Array.from(set);
+}
+
 // Helper to determine if a vessel contains an aqueous solution / liquid phase
 export function isVesselAqueous(vessel: ChemicalVessel): boolean {
   const f = (vessel.formula || "").toLowerCase();
@@ -826,16 +860,32 @@ function VesselsSimulation({
     const fA = normChemical(vesselA.formula);
     const fB = normChemical(vesselB.formula);
 
+    const constA = getVesselConstituentTokens(vesselA);
+    const constB = getVesselConstituentTokens(vesselB);
+    const combinedTokens = Array.from(new Set([...constA, ...constB]));
+
+    // Step 0: MULTI-COMPONENT REACTION CHECK (3 substances or more: Lampu Lava, Saponifikasi, Redoks Asam)
+    const multiMatch = REACTION_CATALOG.find((rx) => {
+      if (rx.reactants && rx.reactants.length >= 3) {
+        const allPresent = rx.reactants.every((req) => combinedTokens.includes(normChemical(req)));
+        if (!allPresent) return false;
+        // Verify vesselA actually contributed at least one required chemical to the trio
+        const aContributed = rx.reactants.some((req) => constA.includes(normChemical(req)));
+        return allPresent && aContributed;
+      }
+      return false;
+    });
+
     const tokensA = extractSubstanceTokens(vesselA.formula);
     const tokensB = extractSubstanceTokens(vesselB.formula);
 
     // 1. GUARD: Self-pouring or pouring identical chemicals (e.g. NaOH into NaOH, H2O into H2O)
-    // NEVER trigger reaction or concatenate formulas for identical substances or subsets!
+    // NEVER trigger reaction or concatenate formulas for identical substances or subsets UNLESS multi-reactant matches!
     const isSameChemical = fA === fB || (fA.length > 0 && fB.length > 0 && fA === fB);
     const aAlreadyInB = tokensA.length > 0 && tokensA.every((t) => tokensB.includes(t));
     const bAlreadyInA = tokensB.length > 0 && tokensB.every((t) => tokensA.includes(t));
 
-    if (isSameChemical || aAlreadyInB || bAlreadyInA) {
+    if (!multiMatch && (isSameChemical || aAlreadyInB || bAlreadyInA)) {
       reactionCooldownRef.current[vesselPairKey] = now;
       setVessels((prev) =>
         prev.map((v) => {
@@ -852,7 +902,7 @@ function VesselsSimulation({
     }
 
     // 2. GUARD: Dilution (pouring water into an already aqueous solution)
-    if (fA === "H2O" && (vesselB.formula.toLowerCase().includes("aq") || vesselB.formula.toLowerCase().includes("h2o"))) {
+    if (!multiMatch && fA === "H2O" && (vesselB.formula.toLowerCase().includes("aq") || vesselB.formula.toLowerCase().includes("h2o"))) {
       reactionCooldownRef.current[vesselPairKey] = now;
       setVessels((prev) =>
         prev.map((v) => {
@@ -884,14 +934,16 @@ function VesselsSimulation({
       vesselB.position[2],
     ];
 
-    // Step 1: Match in dynamic database reactions or reliable local catalog using phase-aware matcher
-    const dbMatch = dbReactions.find((rx) => {
-      const matchAtoA = matchReactant(rx.substanceA, vesselA) && matchReactant(rx.substanceB, vesselB);
-      const matchAtoB = matchReactant(rx.substanceA, vesselB) && matchReactant(rx.substanceB, vesselA);
-      return matchAtoA || matchAtoB;
-    });
+    // Step 1: Match multi-component reaction first, then 2-reactant DB / catalog reactions
+    const dbMatch = !multiMatch
+      ? dbReactions.find((rx) => {
+          const matchAtoA = matchReactant(rx.substanceA, vesselA) && matchReactant(rx.substanceB, vesselB);
+          const matchAtoB = matchReactant(rx.substanceA, vesselB) && matchReactant(rx.substanceB, vesselA);
+          return matchAtoA || matchAtoB;
+        })
+      : null;
 
-    const catalogMatch = !dbMatch
+    const catalogMatch = !multiMatch && !dbMatch
       ? REACTION_CATALOG.find((rx) => {
           const matchAtoA = matchReactant(rx.reactantAFormula, vesselA) && matchReactant(rx.reactantBFormula, vesselB);
           const matchAtoB = matchReactant(rx.reactantAFormula, vesselB) && matchReactant(rx.reactantBFormula, vesselA);
@@ -899,7 +951,26 @@ function VesselsSimulation({
         })
       : null;
 
-    const matched: ReactionDetail | null = dbMatch
+    const matched: ReactionDetail | null = multiMatch
+      ? {
+          id: multiMatch.id,
+          title: multiMatch.title,
+          equation: multiMatch.equation,
+          substanceA: multiMatch.reactantAFormula,
+          substanceB: multiMatch.reactantBFormula,
+          substanceC: multiMatch.reactantCFormula,
+          substances: multiMatch.reactants,
+          resultName: multiMatch.productName,
+          resultFormula: multiMatch.productFormula,
+          resultColor: multiMatch.productColor,
+          effectType: multiMatch.visualEffect,
+          temperatureChange: multiMatch.temperatureChangeC,
+          explanation: multiMatch.explanation,
+          reasonWhy: multiMatch.reasonWhy,
+          observablePhenomena: multiMatch.observablePhenomena,
+          level: multiMatch.level,
+        }
+      : dbMatch
       ? dbMatch
       : catalogMatch
       ? {
@@ -908,6 +979,8 @@ function VesselsSimulation({
           equation: catalogMatch.equation,
           substanceA: catalogMatch.reactantAFormula,
           substanceB: catalogMatch.reactantBFormula,
+          substanceC: catalogMatch.reactantCFormula,
+          substances: catalogMatch.reactants,
           resultName: catalogMatch.productName,
           resultFormula: catalogMatch.productFormula,
           resultColor: catalogMatch.productColor,
@@ -935,7 +1008,7 @@ function VesselsSimulation({
 
       reactionCooldownRef.current[vesselPairKey] = now;
 
-      // Transform target vessel B's appearance (color, volume, note)
+      // Transform target vessel B's appearance (color, volume, note, components)
       setVessels((prev) =>
         prev.map((v) => {
           if (v.id === vesselB.id) {
@@ -948,6 +1021,7 @@ function VesselsSimulation({
               temperatureC: (v.temperatureC || 25) + matched.temperatureChange,
               isReacted: true,
               reactionNote: matched.title,
+              components: combinedTokens,
             };
           }
           return v;
@@ -998,6 +1072,7 @@ function VesselsSimulation({
               temperatureC: v.temperatureC || 25,
               isReacted: true,
               reactionNote: physicalReaction.title,
+              components: combinedTokens,
             };
           }
           return v;
@@ -1016,6 +1091,7 @@ function VesselsSimulation({
             return {
               ...v,
               liquidLevel: Math.min(0.85, v.liquidLevel + 0.08),
+              components: combinedTokens,
             };
           }
           return v;
@@ -1068,6 +1144,7 @@ function VesselsSimulation({
             temperatureC: v.temperatureC || 25,
             isReacted: true,
             reactionNote: physicalReaction.title,
+            components: combinedTokens,
           };
         }
         return v;
@@ -1488,16 +1565,16 @@ function ChemicalVesselItem({
         />
       </mesh>
 
-      {/* Floating Formula & Name Tag */}
+      {/* Floating Formula & Name Tag - Clean Laboratory Typography (No Dark Backdrop) */}
       <Float speed={2} rotationIntensity={0} floatIntensity={0.2}>
         <group position={[0, 1.35, 0]}>
           <Text
             fontSize={0.19}
-            color="#ffffff"
+            color="#0f172a"
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.02}
-            outlineColor="#000000"
+            outlineWidth={0.014}
+            outlineColor="#ffffff"
             maxWidth={1.8}
             textAlign="center"
           >
@@ -1506,11 +1583,11 @@ function ChemicalVesselItem({
           <Text
             position={[0, -0.16, 0]}
             fontSize={0.09}
-            color="#94a3b8"
+            color="#475569"
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.015}
-            outlineColor="#000000"
+            outlineWidth={0.008}
+            outlineColor="#ffffff"
             maxWidth={2.0}
             textAlign="center"
           >

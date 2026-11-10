@@ -19,8 +19,11 @@ export interface ChemicalReaction {
   id: string;
   reactantAId: string;
   reactantBId: string;
+  reactantCId?: string; // Reaktan ke-3 opsional untuk reaksi multikomponen
   reactantAFormula: string;
   reactantBFormula: string;
+  reactantCFormula?: string; // Formula reaktan ke-3
+  reactants?: string[]; // Daftar formula/token semua reaktan yang diperlukan (2 atau 3+)
   title: string;
   equation: string;
   productName: string;

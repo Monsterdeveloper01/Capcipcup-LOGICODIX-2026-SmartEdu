@@ -93,3 +93,27 @@ export async function POST(req: Request) {
    - Jika ingin menyimpan input/output AI ke database, gunakan helper `query` dari [`src/lib/db.ts`](file:///D:/Application/examppp/htdocs/capcipcup/src/lib/db.ts).
 3. **Fleksibilitas Desain:**
    - Seluruh logika bisnis, pembuatan prompt, struktur JSON kuis, dan alur percakapan diserahkan kepada perancangan tim.
+
+---
+
+## 5. Rencana & Spesifikasi Fitur: Dual-Graphics 3D Lab (Mode Low vs Mode HD Nyata)
+
+Dokumen spesifikasi ini mencatat rancangan sistem grafis ganda untuk Laboratorium Virtual Sains 3D Capcipcup. Pengguna dapat berganti antara performa ringan (Low) dan visual fisik fotorealistik (HD Nyata) langsung dari antarmuka meja lab.
+
+### A. Tabel Perbandingan Spesifikasi Visual
+
+| Aspek Grafis | ⚡ Mode Low (Performa Ringan / Default Hemat Daya) | 💎 Mode HD (Ultra Realistis & Nyata) |
+| :--- | :--- | :--- |
+| **Material Kaca Wadah** | `meshPhysicalMaterial` standar tanpa transmisi berat (`opacity = 0.35`, `roughness = 0.05`). Sangat ringan untuk laptop kentang & perangkat mobile. | **True Borosilicate Glass 3.3:** Refraksi fisik optik (`transmission = 0.92`, `ior = 1.52`, `thickness = 0.4`), kilau specular tajam (`clearcoat = 1.0`, `clearcoatRoughness = 0.02`), dan distorsi visual objek di balik kaca. |
+| **Zat Cair & Fluida** | Silinder fasa cairan semi-transparan dengan emissive warna ringan. | **Fluida Fisik Refraktif:** Indeks bias larutan air ($ior = 1.33$), penyerapan kedalaman warna (*volumetric optical depth*), gelombang dinamis halus (*micro-ripples*) di permukaan meniskus, dan pembiasan cahaya garis batas dua fasa (misal minyak di atas air). |
+| **Reaksi Kimia (Partikel)** | Partikel 2D sprite dasar (20–30 partikel) berkinerja tinggi 60 FPS di semua perangkat. | **Partikel Volumetrik HD (100+ partikel):**<br>• *Effervescence:* Buih gas mendesis dengan kilau gelembung specular.<br>• *Turbulent Steam:* Asap/uap tebal lembut rotasional dengan thermal glow di pusat reaksi.<br>• *Golden Rain:* Kerlap-kerlip kristal emas berkilau (*twinkling anisotropic sparkles*).<br>• *Precipitate Tendrils:* Difusi koloid organik menyebar perlahan dalam cairan. |
+| **Meja & Ruang Laboratorium** | Meja solid warna putih/abu-abu dengan grid helper dasar. | **Countertop Epoksi Glossy / Marmer Lab:** Pantulan refleksi meja terhadap bejana kaca di atasnya, detail grout ubin lantai vinil, panel lampu neon plafon dengan highlight specular. |
+| **Renderer Three.js** | `dpr = 1`, `shadow-mapSize = [512, 512]`, antialias standar. | `dpr = [1, 2]` (*Retina HD Sharp*), *Soft Ambient Contact Shadows* (`PCFSoftShadowMap`, `shadow-mapSize = [2048, 2048]`), akurasi pencahayaan HDR. |
+
+### B. Mekanisme State & User Interface
+1. **Penyimpanan Pengaturan:** State `graphicsQuality` bernilai `"low"` atau `"hd"`, disimpan di `localStorage` (`capcipcup_lab_graphics_quality`) agar preferensi pengguna diingat otomatis setiap kali membuka lab.
+2. **Kontrol UI:** Tombol toggle kualitas grafis di bagian atas meja 3D:
+   - `[ ⚡ Mode: Low ]` / `[ 💎 Mode: HD Nyata ]`
+3. **File Terkait:**
+   - [`src/components/lab/SmartScienceLabViewer.tsx`](file:///D:/Application/examppp/htdocs/capcipcup/src/components/lab/SmartScienceLabViewer.tsx): Mengelola state `graphicsQuality` dan tombol toggle UI.
+   - [`src/components/lab/ChemistryLabScene.tsx`](file:///D:/Application/examppp/htdocs/capcipcup/src/components/lab/ChemistryLabScene.tsx): Menerima prop `graphicsQuality` untuk mengaktifkan pengaturan PBR transmission, partikel HD, pencahayaan, dan shadow map.
