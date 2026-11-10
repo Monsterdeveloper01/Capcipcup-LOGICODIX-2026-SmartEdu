@@ -5,6 +5,7 @@ import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Text, Float } from "@react-three/drei";
 import * as THREE from "three";
 import { HandTransform } from "@/components/camera/HandGestureTracker";
+import { REACTION_CATALOG } from "@/lib/lab/chemicals-db";
 
 export type VesselType = "beaker" | "flask" | "test_tube";
 
@@ -32,7 +33,7 @@ export interface ReactionDetail {
   resultName: string;
   resultFormula: string;
   resultColor: string;
-  effectType: "bubbles" | "steam" | "spark" | "precipitate" | "color_change";
+  effectType: "bubbles" | "steam" | "spark" | "precipitate" | "color_change" | "two_phase";
   temperatureChange: number; // + or -
   explanation: string;
   level: "SD" | "SMP" | "SMA";
@@ -137,6 +138,7 @@ interface ChemistryLabSceneProps {
   setVessels: React.Dispatch<React.SetStateAction<ChemicalVessel[]>>;
   activeReaction: ReactionDetail | null;
   reactions?: ReactionDetail[];
+  isLocked?: boolean;
 }
 
 export default function ChemistryLabScene({
@@ -146,8 +148,16 @@ export default function ChemistryLabScene({
   setVessels,
   activeReaction,
   reactions,
+  isLocked = false,
 }: ChemistryLabSceneProps) {
   const grabbedIdRef = useRef<string | null>(null);
+
+  // When locked, force release any held vessel
+  useEffect(() => {
+    if (isLocked) {
+      grabbedIdRef.current = null;
+    }
+  }, [isLocked]);
 
   return (
     <div className="w-full h-full relative select-none">
@@ -190,11 +200,12 @@ export default function ChemistryLabScene({
         <VesselsSimulation
           vessels={vessels}
           setVessels={setVessels}
-          handTransform={handTransform}
+          handTransform={isLocked ? undefined : handTransform}
           grabbedIdRef={grabbedIdRef}
           onReactionDetected={onReactionDetected}
           activeReaction={activeReaction}
           reactions={reactions}
+          isLocked={isLocked}
         />
       </Canvas>
     </div>
@@ -461,6 +472,41 @@ function LabWorkbench() {
   );
 }
 
+// Clean and sanitize chemical symbols for 3D Text rendering (avoids missing glyph box [X] from Unicode subscripts)
+export function sanitizeChemicalText(text?: string, maxLen = 42): string {
+  if (!text) return "";
+  let clean = text
+    .replace(/₂/g, "2")
+    .replace(/₃/g, "3")
+    .replace(/₄/g, "4")
+    .replace(/₅/g, "5")
+    .replace(/₆/g, "6")
+    .replace(/₇/g, "7")
+    .replace(/₈/g, "8")
+    .replace(/₉/g, "9")
+    .replace(/₀/g, "0")
+    .replace(/⁺/g, "+")
+    .replace(/⁻/g, "-")
+    .replace(/•/g, "·")
+    .replace(/R-COO-R'/gi, "Minyak (Lipid)")
+    .replace(/R-COO-R/gi, "Minyak (Lipid)")
+    .trim();
+
+  if (maxLen && clean.length > maxLen) {
+    clean = clean.substring(0, maxLen - 1) + "…";
+  }
+  return clean;
+}
+
+// Strip phase notations like (aq), (s), (l), (g) and non-alphanumeric chars for robust chemistry matching
+export function normChemical(s?: string): string {
+  if (!s) return "";
+  return sanitizeChemicalText(s, 100)
+    .replace(/\s*\((aq|s|l|g|padat|cair|gas|larutan)\)/gi, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
+}
+
 // Physics & Interaction Engine for 3D Chemical Vessels
 function VesselsSimulation({
   vessels,
@@ -470,6 +516,7 @@ function VesselsSimulation({
   onReactionDetected,
   activeReaction,
   reactions: initialReactions,
+  isLocked = false,
 }: {
   vessels: ChemicalVessel[];
   setVessels: React.Dispatch<React.SetStateAction<ChemicalVessel[]>>;
@@ -478,6 +525,7 @@ function VesselsSimulation({
   onReactionDetected?: (reaction: ReactionDetail, vesselA: ChemicalVessel, vesselB: ChemicalVessel) => void;
   activeReaction: ReactionDetail | null;
   reactions?: ReactionDetail[];
+  isLocked?: boolean;
 }) {
   const handSphereRef = useRef<THREE.Mesh>(null);
   const vesselsRef = useRef<ChemicalVessel[]>(vessels);
@@ -517,6 +565,16 @@ function VesselsSimulation({
 
   // 60 FPS Animation & Proximity Loop
   useFrame((state, delta) => {
+    if (isLocked) {
+      if (grabbedIdRef.current) grabbedIdRef.current = null;
+      if (mouseDraggedId) setMouseDraggedId(null);
+      if (pouringTargetId) setPouringTargetId(null);
+      setTargetedId(null);
+      grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, 0, 0.2);
+      if (handSphereRef.current) handSphereRef.current.visible = false;
+      return;
+    }
+
     const isHandActive = Boolean(handTransform && handTransform.handDetected);
     const handPos = handTransform?.handPosition3D;
     const isGrabbing = Boolean(handTransform?.isGrabbing);
@@ -655,13 +713,73 @@ function VesselsSimulation({
     }
   });
 
-  // Reaction Matcher (Local Catalog + Real-Time Gemini AI Fallback)
+  // Reaction Matcher (Deterministic DB / Catalog Rules + Safe Fallback Physical Mixture)
   const checkAndTriggerReaction = async (vesselA: ChemicalVessel, vesselB: ChemicalVessel) => {
-    const pairKey = [vesselA.formula, vesselB.formula].sort().join("+");
+    // Unique key identifying this specific pair of beakers/flasks by ID (prevents re-trigger loops)
+    const vesselPairKey = [vesselA.id, vesselB.id].sort().join("::");
     const now = Date.now();
 
-    // Prevent re-triggering within 3 seconds
-    if (reactionCooldownRef.current[pairKey] && now - reactionCooldownRef.current[pairKey] < 3000) {
+    // Prevent re-triggering within 3.5 seconds for this specific vessel pair
+    if (reactionCooldownRef.current[vesselPairKey] && now - reactionCooldownRef.current[vesselPairKey] < 3500) {
+      return;
+    }
+
+    const fA = normChemical(vesselA.formula);
+    const fB = normChemical(vesselB.formula);
+
+    // 1. GUARD: Self-pouring or pouring identical chemicals (e.g. NaOH into NaOH, H2O into H2O)
+    // NEVER trigger reaction or concatenate formulas for identical substances!
+    if (
+      fA === fB ||
+      (fA.length > 1 && fB.length > 1 && (fA === fB || (fA.includes(fB) && fB.includes(fA))))
+    ) {
+      reactionCooldownRef.current[vesselPairKey] = now;
+      setVessels((prev) =>
+        prev.map((v) => {
+          if (v.id === vesselB.id) {
+            return {
+              ...v,
+              liquidLevel: Math.min(0.85, v.liquidLevel + 0.1),
+            };
+          }
+          return v;
+        })
+      );
+      return;
+    }
+
+    // 2. GUARD: Dilution (pouring water into an already aqueous solution)
+    if (fA === "H2O" && (vesselB.formula.toLowerCase().includes("aq") || vesselB.formula.toLowerCase().includes("h2o"))) {
+      reactionCooldownRef.current[vesselPairKey] = now;
+      setVessels((prev) =>
+        prev.map((v) => {
+          if (v.id === vesselB.id) {
+            return {
+              ...v,
+              liquidLevel: Math.min(0.85, v.liquidLevel + 0.1),
+            };
+          }
+          return v;
+        })
+      );
+      return;
+    }
+
+    // 3. GUARD: Target vessel already contains this reactant or already underwent this mixture
+    // (Prevents recursive A + B + A + B... loops)
+    if (fB.includes(fA) || (vesselB.formula && vesselB.formula.includes(sanitizeChemicalText(vesselA.formula, 20)))) {
+      reactionCooldownRef.current[vesselPairKey] = now;
+      setVessels((prev) =>
+        prev.map((v) => {
+          if (v.id === vesselB.id) {
+            return {
+              ...v,
+              liquidLevel: Math.min(0.85, v.liquidLevel + 0.08),
+            };
+          }
+          return v;
+        })
+      );
       return;
     }
 
@@ -672,15 +790,54 @@ function VesselsSimulation({
       vesselB.position[2],
     ];
 
-    // Step 1: Match in dynamic database reactions
-    const matched = dbReactions.find(
-      (rx) =>
-        (rx.substanceA === vesselA.formula && rx.substanceB === vesselB.formula) ||
-        (rx.substanceA === vesselB.formula && rx.substanceB === vesselA.formula)
-    );
+    // Step 1: Match in dynamic database reactions or reliable local catalog
+    const dbMatch = dbReactions.find((rx) => {
+      const rxA = normChemical(rx.substanceA);
+      const rxB = normChemical(rx.substanceB);
+      return (rxA === fA && rxB === fB) || (rxA === fB && rxB === fA);
+    });
+
+    const catalogMatch = !dbMatch
+      ? REACTION_CATALOG.find((rx) => {
+          const rxA = normChemical(rx.reactantAFormula);
+          const rxB = normChemical(rx.reactantBFormula);
+          return (rxA === fA && rxB === fB) || (rxA === fB && rxB === fA);
+        })
+      : null;
+
+    const matched: ReactionDetail | null = dbMatch
+      ? dbMatch
+      : catalogMatch
+      ? {
+          id: catalogMatch.id,
+          title: catalogMatch.title,
+          equation: catalogMatch.equation,
+          substanceA: catalogMatch.reactantAFormula,
+          substanceB: catalogMatch.reactantBFormula,
+          resultName: catalogMatch.productName,
+          resultFormula: catalogMatch.productFormula,
+          resultColor: catalogMatch.productColor,
+          effectType: catalogMatch.visualEffect,
+          temperatureChange: catalogMatch.temperatureChangeC,
+          explanation: catalogMatch.explanation,
+          level: catalogMatch.level,
+        }
+      : null;
 
     if (matched) {
-      reactionCooldownRef.current[pairKey] = now;
+      // If target vessel already underwent this exact reaction, just top up volume
+      if (
+        vesselB.isReacted &&
+        (vesselB.reactionNote === matched.title || normChemical(vesselB.formula) === normChemical(matched.resultFormula))
+      ) {
+        reactionCooldownRef.current[vesselPairKey] = now;
+        setVessels((prev) =>
+          prev.map((v) => (v.id === vesselB.id ? { ...v, liquidLevel: Math.min(0.85, v.liquidLevel + 0.1) } : v))
+        );
+        return;
+      }
+
+      reactionCooldownRef.current[vesselPairKey] = now;
 
       // Transform target vessel B's appearance (color, volume, note)
       setVessels((prev) =>
@@ -691,7 +848,7 @@ function VesselsSimulation({
               color: matched.resultColor,
               name: matched.resultName,
               formula: matched.resultFormula,
-              liquidLevel: Math.min(0.95, v.liquidLevel + 0.2),
+              liquidLevel: Math.min(0.85, v.liquidLevel + 0.15),
               temperatureC: (v.temperatureC || 25) + matched.temperatureChange,
               isReacted: true,
               reactionNote: matched.title,
@@ -705,75 +862,108 @@ function VesselsSimulation({
       return;
     }
 
-    // Step 2: DYNAMIC AI REACTION PREDICTION (Zero Database Dependency!)
-    if (isSimulatingAiRef.current) return;
-    isSimulatingAiRef.current = true;
-    reactionCooldownRef.current[pairKey] = now;
+    // Step 2: DETERMINISTIC SCIENTIFIC PHYSICAL MIXTURE (Zero Token Dependency, 100% Reliable & Fast)
+    reactionCooldownRef.current[vesselPairKey] = now;
 
-    try {
-      const res = await fetch("/api/lab/simulate-reaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reactantA: { name: vesselA.name, formula: vesselA.formula },
-          reactantB: { name: vesselB.name, formula: vesselB.formula },
-        }),
-      });
+    // Check if this is an Oil & Water Immiscible Emulsion System
+    const isOilWater =
+      (fA.includes("LIPID") || fA.includes("MINYAK") || fB.includes("LIPID") || fB.includes("MINYAK")) &&
+      (fA.includes("H2O") || fA.includes("AIR") || fB.includes("H2O") || fB.includes("AIR"));
 
-      const data = await res.json();
-      if (res.ok && data.reaction) {
-        const aiRx = data.reaction;
+    if (isOilWater) {
+      const physicalReaction: ReactionDetail = {
+        id: `rx_lipid_water_${Date.now()}`,
+        title: "Pemisahan Dua Fasa (Minyak & Air Tidak Menyatu)",
+        equation: "H2O (Air) + Minyak -> Sistem Dua Fasa (Emulsi Tidak Stabil)",
+        substanceA: vesselA.formula,
+        substanceB: vesselB.formula,
+        resultName: "Air & Minyak (Dua Lapisan Terpisah)",
+        resultFormula: "H2O // Lipid",
+        resultColor: "#eab308",
+        effectType: "two_phase",
+        temperatureChange: 0,
+        explanation: "Minyak bersifat nonpolar sedangkan air bersifat polar. Keduanya memiliki tegangan antarmuka tinggi dan densitas berbeda sehingga minyak mengapung di atas air tanpa bercampur secara molekuler.",
+        level: "SMP",
+        reactionPosition: rxPos,
+        targetVesselId: vesselB.id,
+      };
 
-        const dynamicReaction: ReactionDetail = {
-          id: `ai_rx_${Date.now()}`,
-          title: aiRx.title || `Reaksi ${vesselA.formula} + ${vesselB.formula}`,
-          equation: aiRx.equation || `${vesselA.formula} + ${vesselB.formula} → Hasil Reaksi`,
-          substanceA: vesselA.formula,
-          substanceB: vesselB.formula,
-          resultName: aiRx.productName || "Produk Campuran AI",
-          resultFormula: aiRx.productFormula || "Hasil Reaksi",
-          resultColor: aiRx.productColor || "#06b6d4",
-          effectType: aiRx.visualEffect || "bubbles",
-          temperatureChange: Number(aiRx.temperatureChangeC) || 0,
-          explanation: aiRx.explanation || "Reaksi kimia menghasilkan interaksi molekuler baru.",
-          level: aiRx.level || "SMA",
-          reactionPosition: rxPos,
-          targetVesselId: vesselB.id,
-        };
+      setVessels((prev) =>
+        prev.map((v) => {
+          if (v.id === vesselB.id) {
+            return {
+              ...v,
+              color: physicalReaction.resultColor,
+              name: physicalReaction.resultName,
+              formula: physicalReaction.resultFormula,
+              liquidLevel: Math.min(0.85, v.liquidLevel + 0.15),
+              temperatureC: v.temperatureC || 25,
+              isReacted: true,
+              reactionNote: physicalReaction.title,
+            };
+          }
+          return v;
+        })
+      );
 
-        // Cache into local state for future instant lookups
-        setDbReactions((prev) => [...prev, dynamicReaction]);
-
-        // Transform target vessel B with AI predicted color and volume
-        setVessels((prev) =>
-          prev.map((v) => {
-            if (v.id === vesselB.id) {
-              return {
-                ...v,
-                color: dynamicReaction.resultColor,
-                name: dynamicReaction.resultName,
-                formula: dynamicReaction.resultFormula,
-                liquidLevel: Math.min(0.95, v.liquidLevel + 0.2),
-                temperatureC: (v.temperatureC || 25) + dynamicReaction.temperatureChange,
-                isReacted: true,
-                reactionNote: dynamicReaction.title,
-              };
-            }
-            return v;
-          })
-        );
-
-        onReactionDetected?.(dynamicReaction, vesselA, vesselB);
-      }
-    } catch (err) {
-      console.warn("AI dynamic reaction error:", err);
-    } finally {
-      isSimulatingAiRef.current = false;
+      onReactionDetected?.(physicalReaction, vesselA, vesselB);
+      return;
     }
+
+    // General Physical Solution Mixture: Clean, concise and capped formatting
+    const colA = new THREE.Color(vesselA.color || "#38bdf8");
+    const colB = new THREE.Color(vesselB.color || "#38bdf8");
+    const blendedColor = "#" + colA.lerp(colB, 0.5).getHexString();
+
+    const cleanFormA = sanitizeChemicalText(vesselA.formula, 14);
+    const cleanFormB = sanitizeChemicalText(vesselB.formula, 14);
+    const cleanNameA = sanitizeChemicalText(vesselA.name, 18).replace(/Campuran\s*/gi, "");
+    const cleanNameB = sanitizeChemicalText(vesselB.name, 18).replace(/Campuran\s*/gi, "");
+
+    const compactFormula = `${cleanFormA} + ${cleanFormB}`;
+    const compactName = `Campuran ${cleanNameA} & ${cleanNameB}`;
+
+    const physicalReaction: ReactionDetail = {
+      id: `mix_${fA}_${fB}_${Date.now()}`,
+      title: `Campuran Larutan ${cleanFormA} & ${cleanFormB}`,
+      equation: `${cleanFormA} + ${cleanFormB} -> Campuran Fisik Homogen`,
+      substanceA: vesselA.formula,
+      substanceB: vesselB.formula,
+      resultName: compactName,
+      resultFormula: compactFormula,
+      resultColor: blendedColor,
+      effectType: "color_change",
+      temperatureChange: 0,
+      explanation: "Kedua zat berbaur membentuk campuran larutan homogen tanpa reaksi kimia khusus. Suhu bejana tetap stabil pada suhu ruang.",
+      level: "SMP",
+      reactionPosition: rxPos,
+      targetVesselId: vesselB.id,
+    };
+
+    setVessels((prev) =>
+      prev.map((v) => {
+        if (v.id === vesselB.id) {
+          return {
+            ...v,
+            color: physicalReaction.resultColor,
+            name: physicalReaction.resultName,
+            formula: physicalReaction.resultFormula,
+            liquidLevel: Math.min(0.85, v.liquidLevel + 0.15),
+            temperatureC: v.temperatureC || 25,
+            isReacted: true,
+            reactionNote: physicalReaction.title,
+          };
+        }
+        return v;
+      })
+    );
+
+    onReactionDetected?.(physicalReaction, vesselA, vesselB);
   };
 
   // Mouse Drag Handlers
   const handlePointerDown = (id: string, e: ThreeEvent<PointerEvent>) => {
+    if (isLocked) return;
     e.stopPropagation();
     setMouseDraggedId(id);
     grabbedIdRef.current = id;
@@ -868,22 +1058,31 @@ function VesselsSimulation({
 }
 
 // Helper to detect clear / water-like chemical solutions
-function checkIsClearLiquid(formula?: string, name?: string, color?: string): boolean {
+// IMPORTANT: Only returns true for UNREACTED pure clear chemicals.
+// Reaction products with specific colors (e.g. #eab308 yellow oil) must NOT be flagged clear.
+function checkIsClearLiquid(formula?: string, name?: string, color?: string, isReacted?: boolean): boolean {
+  // If this vessel already reacted and has a non-clear product color, it is NOT clear
+  const c = (color || "").toLowerCase().trim();
+  if (isReacted) {
+    // Only a very narrow set of product colors remain clear after reacting
+    const clearProductColors = ["#ffffff", "#f8fafc", "#f1f5f9", "#e2e8f0", "#e0f2fe", "#e0f7fa", "#f0fdf4"];
+    return clearProductColors.includes(c);
+  }
+
   const f = (formula || "").toUpperCase().trim();
   const n = (name || "").toLowerCase().trim();
-  const c = (color || "").toLowerCase().trim();
 
-  // Clear chemicals: Water, dilute acids, bases, salt solutions
+  // Clear chemicals: Water, dilute acids, bases, salt solutions (unreacted originals only)
   if (["H2O", "HCL", "NAOH", "CH3COOH", "NACL", "KI", "PB(NO3)2"].includes(f)) return true;
   if (
-    n.includes("air") ||
-    n.includes("klorida") ||
-    n.includes("hidroksida") ||
+    n.includes("air murni") ||
+    n.includes("asam klorida") ||
+    n.includes("natrium hidroksida") ||
     n.includes("cuka") ||
     n.includes("bening") ||
-    n.includes("iodida") ||
+    n.includes("kalium iodida") ||
     n.includes("timbal") ||
-    n.includes("garam")
+    n.includes("garam dapur")
   ) {
     return true;
   }
@@ -893,6 +1092,21 @@ function checkIsClearLiquid(formula?: string, name?: string, color?: string): bo
     return true;
   }
   return false;
+}
+
+// Helper to check if a reaction product is an immiscible two-phase system (oil/water separation)
+function checkIsTwoPhaseSystem(formula?: string, name?: string): boolean {
+  const f = (formula || "").toUpperCase();
+  const n = (name || "").toLowerCase();
+  return (
+    f.includes("//") ||
+    f.includes("R-COO-R") ||
+    n.includes("berlapis") ||
+    n.includes("dua fasa") ||
+    n.includes("dua lapisan") ||
+    n.includes("tidak menyatu") ||
+    (n.includes("minyak") && n.includes("air"))
+  );
 }
 
 // Micro-bubbles floating gently inside liquids
@@ -969,7 +1183,8 @@ function ChemicalVesselItem({
   const liquidMeshRef = useRef<THREE.Mesh>(null);
   const liquidMaterialRef = useRef<THREE.MeshPhysicalMaterial>(null);
 
-  const isClear = checkIsClearLiquid(vessel.formula, vessel.name, vessel.color);
+  const isClear = checkIsClearLiquid(vessel.formula, vessel.name, vessel.color, vessel.isReacted);
+  const isTwoPhase = checkIsTwoPhaseSystem(vessel.formula, vessel.name);
 
   // Smooth color morphing & physical wrist pouring tilt
   useFrame((_, delta) => {
@@ -1000,13 +1215,26 @@ function ChemicalVesselItem({
     // 2. Dynamic Liquid Color Transition
     if (liquidMaterialRef.current) {
       const targetColor = new THREE.Color(isClear ? "#e0f7fa" : vessel.color);
-      liquidMaterialRef.current.color.lerp(targetColor, 0.08);
+      // Fast color lerp: reacted products show their color vividly and quickly
+      const lerpSpeed = vessel.isReacted ? 0.35 : 0.08;
+      liquidMaterialRef.current.color.lerp(targetColor, lerpSpeed);
 
+      // Reacted products get stronger emissive glow so they're visible against white lab
       if (isBeingPouredInto || vessel.isReacted) {
+        const baseEmissive = isClear ? 0.15 : (vessel.isReacted ? 0.65 : 0.45);
         liquidMaterialRef.current.emissiveIntensity =
-          (isClear ? 0.15 : 0.45) + Math.sin(Date.now() * 0.008) * 0.25;
+          baseEmissive + Math.sin(Date.now() * 0.008) * 0.25;
       } else {
         liquidMaterialRef.current.emissiveIntensity = isClear ? 0.08 : 0.28;
+      }
+
+      // Reacted product liquid should be more opaque (less transparent) for visibility
+      if (vessel.isReacted && !isClear) {
+        liquidMaterialRef.current.opacity = THREE.MathUtils.lerp(
+          liquidMaterialRef.current.opacity,
+          0.92,
+          0.1
+        );
       }
     }
 
@@ -1036,6 +1264,7 @@ function ChemicalVesselItem({
           liquidMaterialRef={liquidMaterialRef}
           isClear={isClear}
           isBeingPouredInto={isBeingPouredInto}
+          isTwoPhase={isTwoPhase}
         />
       ) : vessel.type === "test_tube" ? (
         <TestTubeModel
@@ -1044,6 +1273,7 @@ function ChemicalVesselItem({
           liquidMaterialRef={liquidMaterialRef}
           isClear={isClear}
           isBeingPouredInto={isBeingPouredInto}
+          isTwoPhase={isTwoPhase}
         />
       ) : (
         <BeakerModel
@@ -1052,6 +1282,7 @@ function ChemicalVesselItem({
           liquidMaterialRef={liquidMaterialRef}
           isClear={isClear}
           isBeingPouredInto={isBeingPouredInto}
+          isTwoPhase={isTwoPhase}
         />
       )}
 
@@ -1062,6 +1293,7 @@ function ChemicalVesselItem({
           colorHex={activeReactionEffect.resultColor}
           vesselType={vessel.type}
           liquidLevel={vessel.liquidLevel || 0.65}
+          isTwoPhase={isTwoPhase}
         />
       )}
 
@@ -1095,8 +1327,10 @@ function ChemicalVesselItem({
             anchorY="middle"
             outlineWidth={0.02}
             outlineColor="#000000"
+            maxWidth={1.8}
+            textAlign="center"
           >
-            {vessel.formula}
+            {sanitizeChemicalText(vessel.formula, 24)}
           </Text>
           <Text
             position={[0, -0.16, 0]}
@@ -1106,8 +1340,10 @@ function ChemicalVesselItem({
             anchorY="middle"
             outlineWidth={0.015}
             outlineColor="#000000"
+            maxWidth={2.2}
+            textAlign="center"
           >
-            {vessel.name}
+            {sanitizeChemicalText(vessel.name, 32)}
           </Text>
         </group>
       </Float>
@@ -1122,12 +1358,14 @@ function BeakerModel({
   liquidMaterialRef,
   isClear,
   isBeingPouredInto,
+  isTwoPhase = false,
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
   liquidMaterialRef: React.RefObject<any>;
   isClear: boolean;
   isBeingPouredInto: boolean;
+  isTwoPhase?: boolean;
 }) {
   const radius = 0.42;
   const height = 0.95;
@@ -1169,8 +1407,8 @@ function BeakerModel({
         <meshPhysicalMaterial color="#f8fafc" transparent opacity={0.65} roughness={0.08} metalness={0.1} />
       </mesh>
 
-      {/* Rolled Beaker Glass Lip Rim */}
-      <mesh position={[0, height, 0]}>
+      {/* Rolled Beaker Glass Lip Rim (Lies flat horizontally on top rim) */}
+      <mesh position={[0, height, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <torusGeometry args={[radius, 0.024, 16, 36]} />
         <meshPhysicalMaterial color="#ffffff" transparent opacity={0.7} roughness={0.05} metalness={0.1} />
       </mesh>
@@ -1222,38 +1460,104 @@ function BeakerModel({
       </group>
 
       {/* 2. Luminous Radiant Liquid Body (Vibrantly Visible!) */}
-      <mesh
-        ref={liquidMeshRef as any}
-        position={[0, liquidHeight / 2 + 0.035, 0]}
-      >
-        <cylinderGeometry
-          args={[radius * 0.93, radius * 0.90, liquidHeight, 32]}
-        />
-        <meshStandardMaterial
-          ref={liquidMaterialRef}
-          color={vessel.color}
-          emissive={vessel.color}
-          emissiveIntensity={0.55}
-          roughness={0.12}
-          metalness={0.1}
-          transparent
-          opacity={0.88}
-        />
-      </mesh>
+      {isTwoPhase ? (
+        /* TWO-PHASE IMMISCIBLE LIQUID: Lower Water Layer + Upper Oil Layer */
+        <group>
+          {/* Bottom Layer: Water (clear blue, lower 60%) */}
+          <mesh position={[0, (liquidHeight * 0.6) / 2 + 0.035, 0]}>
+            <cylinderGeometry
+              args={[radius * 0.93, radius * 0.90, liquidHeight * 0.6, 32]}
+            />
+            <meshStandardMaterial
+              color="#60a5fa"
+              emissive="#60a5fa"
+              emissiveIntensity={0.35}
+              roughness={0.12}
+              metalness={0.1}
+              transparent
+              opacity={0.82}
+            />
+          </mesh>
 
-      {/* Liquid Top Meniscus Gloss Surface */}
-      <mesh position={[0, liquidHeight + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[radius * 0.92, 32]} />
-        <meshStandardMaterial
-          color={vessel.color}
-          emissive={vessel.color}
-          emissiveIntensity={0.65}
-          roughness={0.04}
-          metalness={0.2}
-          transparent
-          opacity={0.95}
-        />
-      </mesh>
+          {/* Separation Boundary Line (Visible meniscus between oil and water) */}
+          <mesh position={[0, liquidHeight * 0.6 + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[radius * 0.80, radius * 0.93, 32]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.55} />
+          </mesh>
+
+          {/* Top Layer: Oil (yellow, upper 40% — floats because density < water) */}
+          <mesh
+            ref={liquidMeshRef as any}
+            position={[0, liquidHeight * 0.6 + (liquidHeight * 0.4) / 2 + 0.035, 0]}
+          >
+            <cylinderGeometry
+              args={[radius * 0.93, radius * 0.93, liquidHeight * 0.4, 32]}
+            />
+            <meshStandardMaterial
+              ref={liquidMaterialRef}
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.65}
+              roughness={0.15}
+              metalness={0.05}
+              transparent
+              opacity={0.9}
+            />
+          </mesh>
+
+          {/* Oil Surface Gloss */}
+          <mesh position={[0, liquidHeight + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[radius * 0.92, 32]} />
+            <meshStandardMaterial
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.7}
+              roughness={0.06}
+              metalness={0.15}
+              transparent
+              opacity={0.92}
+            />
+          </mesh>
+        </group>
+      ) : (
+        /* SINGLE-PHASE UNIFORM LIQUID */
+        <group>
+          <mesh
+            ref={liquidMeshRef as any}
+            position={[0, liquidHeight / 2 + 0.035, 0]}
+          >
+            <cylinderGeometry
+              args={[radius * 0.93, radius * 0.90, liquidHeight, 32]}
+            />
+            <meshStandardMaterial
+              ref={liquidMaterialRef}
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={vessel.isReacted ? 0.65 : 0.55}
+              roughness={0.12}
+              metalness={0.1}
+              transparent
+              opacity={vessel.isReacted && !isClear ? 0.92 : 0.88}
+            />
+          </mesh>
+        </group>
+      )}
+
+      {/* Liquid Top Meniscus Gloss Surface (only for single-phase) */}
+      {!isTwoPhase && (
+        <mesh position={[0, liquidHeight + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[radius * 0.92, 32]} />
+          <meshStandardMaterial
+            color={vessel.color}
+            emissive={vessel.color}
+            emissiveIntensity={vessel.isReacted ? 0.7 : 0.65}
+            roughness={0.04}
+            metalness={0.2}
+            transparent
+            opacity={0.95}
+          />
+        </mesh>
+      )}
 
       {/* Internal Micro-Bubbles */}
       <InFluidMicroBubbles radius={radius * 0.88} height={liquidHeight} />
@@ -1268,19 +1572,26 @@ function ErlenmeyerFlaskModel({
   liquidMaterialRef,
   isClear,
   isBeingPouredInto,
+  isTwoPhase = false,
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
   liquidMaterialRef: React.RefObject<any>;
   isClear: boolean;
   isBeingPouredInto: boolean;
+  isTwoPhase?: boolean;
 }) {
   const coneHeight = 0.65;
   const neckHeight = 0.38;
   const baseRadius = 0.49;
   const neckRadius = 0.22;
   const totalHeight = coneHeight + neckHeight;
-  const liquidHeight = Math.max(0.12, totalHeight * (vessel.liquidLevel || 0.65));
+
+  // Realistic lab practice: Liquid stays cleanly inside conical flask body (below 300ml graduation mark)
+  const effectiveLiquidH = Math.min(
+    coneHeight * 0.88,
+    Math.max(0.18, coneHeight * (vessel.liquidLevel || 0.65))
+  );
 
   return (
     <group>
@@ -1295,7 +1606,12 @@ function ErlenmeyerFlaskModel({
         />
       </mesh>
       {/* Upward Liquid Illumination */}
-      <pointLight position={[0, 0.28, 0]} color={vessel.color} intensity={2.2} distance={2.5} />
+      <pointLight
+        position={[0, 0.28, 0]}
+        color={isTwoPhase ? "#f59e0b" : vessel.color}
+        intensity={2.2}
+        distance={2.5}
+      />
 
       {/* 1. Conical Lower Body Glass */}
       <mesh castShadow position={[0, coneHeight / 2 + 0.03, 0]}>
@@ -1329,8 +1645,8 @@ function ErlenmeyerFlaskModel({
         />
       </mesh>
 
-      {/* Flared Rim Lip */}
-      <mesh position={[0, totalHeight + 0.03, 0]}>
+      {/* Flared Rim Lip (Lies flat horizontally on top rim) */}
+      <mesh position={[0, totalHeight + 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <torusGeometry args={[neckRadius * 1.15, 0.022, 16, 36]} />
         <meshPhysicalMaterial color="#ffffff" transparent opacity={0.7} roughness={0.05} metalness={0.1} />
       </mesh>
@@ -1369,98 +1685,157 @@ function ErlenmeyerFlaskModel({
       </group>
 
       {/* Conical Liquid Inside */}
-      {liquidHeight <= coneHeight ? (
-        <mesh
-          ref={liquidMeshRef as any}
-          position={[0, liquidHeight / 2 + 0.035, 0]}
-        >
-          <cylinderGeometry
-            args={[
-              baseRadius * 0.94 -
-                (baseRadius * 0.94 - neckRadius * 0.92) * (liquidHeight / coneHeight),
-              baseRadius * 0.94,
-              liquidHeight,
-              32,
-            ]}
-          />
-          <meshStandardMaterial
-            ref={liquidMaterialRef}
-            color={vessel.color}
-            emissive={vessel.color}
-            emissiveIntensity={0.55}
-            roughness={0.12}
-            metalness={0.1}
-            transparent
-            opacity={0.88}
-          />
-        </mesh>
-      ) : (
+      {isTwoPhase ? (
+        /* =========================================================================
+           TWO-PHASE IMMISCIBLE FLUID: ERLENMEYER FLASK
+           Lower Layer: Water (H2O, Blue/Clear) | Upper Layer: Oil (Lipid, Golden Yellow)
+           Confined cleanly inside the conical body!
+           ========================================================================= */
         <group>
-          {/* Full Cone Base */}
-          <mesh position={[0, coneHeight / 2 + 0.035, 0]}>
-            <cylinderGeometry
-              args={[neckRadius * 0.92, baseRadius * 0.94, coneHeight, 32]}
-            />
-            <meshStandardMaterial
-              ref={liquidMaterialRef}
-              color={vessel.color}
-              emissive={vessel.color}
-              emissiveIntensity={0.55}
-              roughness={0.12}
-              metalness={0.1}
-              transparent
-              opacity={0.88}
-            />
-          </mesh>
-          {/* Neck Liquid Portion */}
-          <mesh
-            ref={liquidMeshRef as any}
-            position={[0, coneHeight + (liquidHeight - coneHeight) / 2 + 0.035, 0]}
-          >
-            <cylinderGeometry
-              args={[
-                neckRadius * 0.92,
-                neckRadius * 0.92,
-                liquidHeight - coneHeight,
-                32,
-              ]}
-            />
-            <meshStandardMaterial
-              color={vessel.color}
-              emissive={vessel.color}
-              emissiveIntensity={0.55}
-              roughness={0.12}
-              metalness={0.1}
-              transparent
-              opacity={0.88}
-            />
-          </mesh>
+          {/* 1. LOWER LAYER: Water (H2O, 55% of volume, bottom of cone) */}
+          {(() => {
+            const waterH = effectiveLiquidH * 0.54;
+            const rWaterBottom = baseRadius * 0.94;
+            const rBoundary =
+              baseRadius * 0.94 -
+              (baseRadius * 0.94 - neckRadius * 0.92) * (waterH / coneHeight);
+
+            return (
+              <group>
+                <mesh position={[0, waterH / 2 + 0.035, 0]}>
+                  <cylinderGeometry
+                    args={[rBoundary, rWaterBottom, waterH, 32]}
+                  />
+                  <meshStandardMaterial
+                    color="#38bdf8"
+                    emissive="#0284c7"
+                    emissiveIntensity={0.50}
+                    roughness={0.08}
+                    metalness={0.1}
+                    transparent
+                    opacity={0.82}
+                  />
+                </mesh>
+
+                {/* Phase Boundary Disc (Meniscus line separating water and oil) */}
+                <mesh position={[0, waterH + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <circleGeometry args={[rBoundary * 0.99, 32]} />
+                  <meshStandardMaterial
+                    color="#fef08a"
+                    emissive="#ca8a04"
+                    emissiveIntensity={0.6}
+                    roughness={0.05}
+                    transparent
+                    opacity={0.65}
+                  />
+                </mesh>
+              </group>
+            );
+          })()}
+
+          {/* 2. UPPER LAYER: Oil (Lipid, 46% of volume, sits on top of water) */}
+          {(() => {
+            const waterH = effectiveLiquidH * 0.54;
+            const oilH = effectiveLiquidH * 0.46;
+            const rBoundary =
+              baseRadius * 0.94 -
+              (baseRadius * 0.94 - neckRadius * 0.92) * (waterH / coneHeight);
+            const rOilTop =
+              baseRadius * 0.94 -
+              (baseRadius * 0.94 - neckRadius * 0.92) * (effectiveLiquidH / coneHeight);
+
+            return (
+              <mesh
+                ref={liquidMeshRef as any}
+                position={[0, waterH + oilH / 2 + 0.035, 0]}
+              >
+                <cylinderGeometry
+                  args={[rOilTop, rBoundary, oilH, 32]}
+                />
+                <meshStandardMaterial
+                  color="#eab308"
+                  emissive="#ca8a04"
+                  emissiveIntensity={0.80}
+                  roughness={0.12}
+                  metalness={0.08}
+                  transparent
+                  opacity={0.92}
+                />
+              </mesh>
+            );
+          })()}
+
+          {/* Top Oil Meniscus Gloss Surface */}
+          {(() => {
+            const rOilTop =
+              baseRadius * 0.94 -
+              (baseRadius * 0.94 - neckRadius * 0.92) * (effectiveLiquidH / coneHeight);
+
+            return (
+              <mesh position={[0, effectiveLiquidH + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[rOilTop, 32]} />
+                <meshStandardMaterial
+                  color="#fbbf24"
+                  emissive="#d97706"
+                  emissiveIntensity={0.85}
+                  roughness={0.04}
+                  metalness={0.2}
+                  transparent
+                  opacity={0.95}
+                />
+              </mesh>
+            );
+          })()}
+        </group>
+      ) : (
+        /* SINGLE-PHASE UNIFORM CONICAL LIQUID */
+        <group>
+          {(() => {
+            const rTop =
+              baseRadius * 0.94 -
+              (baseRadius * 0.94 - neckRadius * 0.92) * (effectiveLiquidH / coneHeight);
+
+            return (
+              <group>
+                <mesh
+                  ref={liquidMeshRef as any}
+                  position={[0, effectiveLiquidH / 2 + 0.035, 0]}
+                >
+                  <cylinderGeometry
+                    args={[rTop, baseRadius * 0.94, effectiveLiquidH, 32]}
+                  />
+                  <meshStandardMaterial
+                    ref={liquidMaterialRef}
+                    color={vessel.color}
+                    emissive={vessel.color}
+                    emissiveIntensity={vessel.isReacted ? 0.65 : 0.55}
+                    roughness={0.12}
+                    metalness={0.1}
+                    transparent
+                    opacity={vessel.isReacted && !isClear ? 0.92 : 0.88}
+                  />
+                </mesh>
+
+                {/* Top Meniscus Gloss Surface */}
+                <mesh position={[0, effectiveLiquidH + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                  <circleGeometry args={[rTop, 32]} />
+                  <meshStandardMaterial
+                    color={vessel.color}
+                    emissive={vessel.color}
+                    emissiveIntensity={0.65}
+                    roughness={0.04}
+                    metalness={0.2}
+                    transparent
+                    opacity={0.95}
+                  />
+                </mesh>
+              </group>
+            );
+          })()}
         </group>
       )}
 
-      {/* Top Meniscus Gloss Surface */}
-      <mesh position={[0, liquidHeight + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry
-          args={[
-            liquidHeight <= coneHeight
-              ? baseRadius * 0.94 -
-                (baseRadius * 0.94 - neckRadius * 0.92) * (liquidHeight / coneHeight)
-              : neckRadius * 0.92,
-            32,
-          ]}
-        />
-        <meshStandardMaterial
-          color={vessel.color}
-          emissive={vessel.color}
-          emissiveIntensity={0.65}
-          roughness={0.04}
-          metalness={0.2}
-          transparent
-          opacity={0.95}
-        />
-      </mesh>
-
-      <InFluidMicroBubbles radius={baseRadius * 0.8} height={liquidHeight} />
+      <InFluidMicroBubbles radius={baseRadius * 0.75} height={effectiveLiquidH} />
     </group>
   );
 }
@@ -1472,12 +1847,14 @@ function TestTubeModel({
   liquidMaterialRef,
   isClear,
   isBeingPouredInto,
+  isTwoPhase = false,
 }: {
   vessel: ChemicalVessel;
   liquidMeshRef: React.RefObject<THREE.Mesh | null>;
   liquidMaterialRef: React.RefObject<any>;
   isClear: boolean;
   isBeingPouredInto: boolean;
+  isTwoPhase?: boolean;
 }) {
   const radius = 0.18;
   const tubeHeight = 1.0;
@@ -1527,8 +1904,8 @@ function TestTubeModel({
         />
       </mesh>
 
-      {/* Flared Glass Top Lip Rim */}
-      <mesh position={[0, tubeHeight + radius, 0]}>
+      {/* Flared Glass Top Lip Rim (Lies flat horizontally on top rim) */}
+      <mesh position={[0, tubeHeight + radius, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <torusGeometry args={[radius * 1.08, 0.018, 16, 32]} />
         <meshPhysicalMaterial color="#ffffff" transparent opacity={0.7} roughness={0.05} metalness={0.1} />
       </mesh>
@@ -1550,54 +1927,104 @@ function TestTubeModel({
       </mesh>
 
       {/* 2. Luminous Radiant Liquid Inside */}
-      <mesh
-        ref={liquidMeshRef as any}
-        position={[0, liquidHeight / 2 + radius, 0]}
-      >
-        <cylinderGeometry
-          args={[radius * 0.92, radius * 0.92, liquidHeight, 32]}
-        />
-        <meshStandardMaterial
-          ref={liquidMaterialRef}
-          color={vessel.color}
-          emissive={vessel.color}
-          emissiveIntensity={0.55}
-          roughness={0.12}
-          metalness={0.1}
-          transparent
-          opacity={0.88}
-        />
-      </mesh>
+      {isTwoPhase ? (
+        <group>
+          {/* Lower Water Layer */}
+          <mesh position={[0, (liquidHeight * 0.55) / 2 + radius, 0]}>
+            <cylinderGeometry args={[radius * 0.92, radius * 0.92, liquidHeight * 0.55, 32]} />
+            <meshStandardMaterial
+              color="#38bdf8"
+              emissive="#0284c7"
+              emissiveIntensity={0.45}
+              roughness={0.08}
+              transparent
+              opacity={0.82}
+            />
+          </mesh>
+          {/* Boundary Ring */}
+          <mesh position={[0, liquidHeight * 0.55 + radius, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[radius * 0.90, 32]} />
+            <meshStandardMaterial color="#ffffff" emissive="#38bdf8" transparent opacity={0.55} />
+          </mesh>
+          {/* Upper Oil Layer */}
+          <mesh
+            ref={liquidMeshRef as any}
+            position={[0, liquidHeight * 0.55 + (liquidHeight * 0.45) / 2 + radius, 0]}
+          >
+            <cylinderGeometry args={[radius * 0.92, radius * 0.92, liquidHeight * 0.45, 32]} />
+            <meshStandardMaterial
+              ref={liquidMaterialRef}
+              color="#eab308"
+              emissive="#ca8a04"
+              emissiveIntensity={0.75}
+              roughness={0.15}
+              transparent
+              opacity={0.92}
+            />
+          </mesh>
+          {/* Bottom Water Dome */}
+          <mesh position={[0, radius, 0]} rotation={[Math.PI, 0, 0]}>
+            <sphereGeometry args={[radius * 0.92, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.45} transparent opacity={0.82} />
+          </mesh>
+          {/* Top Meniscus */}
+          <mesh position={[0, liquidHeight + radius, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[radius * 0.92, 32]} />
+            <meshStandardMaterial color="#fbbf24" emissive="#d97706" emissiveIntensity={0.85} transparent opacity={0.95} />
+          </mesh>
+        </group>
+      ) : (
+        <group>
+          <mesh
+            ref={liquidMeshRef as any}
+            position={[0, liquidHeight / 2 + radius, 0]}
+          >
+            <cylinderGeometry
+              args={[radius * 0.92, radius * 0.92, liquidHeight, 32]}
+            />
+            <meshStandardMaterial
+              ref={liquidMaterialRef}
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.55}
+              roughness={0.12}
+              metalness={0.1}
+              transparent
+              opacity={0.88}
+            />
+          </mesh>
 
-      {/* Fluid Hemispherical Bottom Dome */}
-      <mesh position={[0, radius, 0]} rotation={[Math.PI, 0, 0]}>
-        <sphereGeometry
-          args={[radius * 0.92, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]}
-        />
-        <meshStandardMaterial
-          color={vessel.color}
-          emissive={vessel.color}
-          emissiveIntensity={0.55}
-          roughness={0.12}
-          metalness={0.1}
-          transparent
-          opacity={0.88}
-        />
-      </mesh>
+          {/* Fluid Hemispherical Bottom Dome */}
+          <mesh position={[0, radius, 0]} rotation={[Math.PI, 0, 0]}>
+            <sphereGeometry
+              args={[radius * 0.92, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]}
+            />
+            <meshStandardMaterial
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.55}
+              roughness={0.12}
+              metalness={0.1}
+              transparent
+              opacity={0.88}
+            />
+          </mesh>
 
-      {/* Top Meniscus Disk */}
-      <mesh position={[0, liquidHeight + radius, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[radius * 0.92, 32]} />
-        <meshStandardMaterial
-          color={vessel.color}
-          emissive={vessel.color}
-          emissiveIntensity={0.65}
-          roughness={0.04}
-          metalness={0.2}
-          transparent
-          opacity={0.95}
-        />
-      </mesh>
+          {/* Top Meniscus Disk */}
+          <mesh position={[0, liquidHeight + radius, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[radius * 0.92, 32]} />
+            <meshStandardMaterial
+              color={vessel.color}
+              emissive={vessel.color}
+              emissiveIntensity={0.65}
+              roughness={0.04}
+              metalness={0.2}
+              transparent
+              opacity={0.95}
+            />
+          </mesh>
+        </group>
+      )}
 
       <InFluidMicroBubbles radius={radius * 0.85} height={liquidHeight} count={14} />
     </group>
@@ -1785,11 +2212,13 @@ function ReactionVisualEffects({
   colorHex,
   vesselType = "beaker",
   liquidLevel = 0.65,
+  isTwoPhase = false,
 }: {
   effectType: string;
   colorHex: string;
   vesselType?: VesselType;
   liquidLevel?: number;
+  isTwoPhase?: boolean;
 }) {
   const rimHeight = vesselType === "test_tube" ? 1.32 : vesselType === "flask" ? 1.03 : 0.95;
   const liquidSurfaceY =
@@ -1806,12 +2235,19 @@ function ReactionVisualEffects({
       {/* 1. Dynamic Exothermic Reaction Luminescence Core (Deep inside fluid) */}
       <ReactionCoreLight
         effectType={effectType}
-        colorHex={colorHex}
+        colorHex={isTwoPhase ? "#eab308" : colorHex}
         position={[0, Math.max(0.15, liquidSurfaceY * 0.5), 0]}
       />
 
       {/* 2. Specific Physical Reaction Phenomenon */}
-      {effectType === "bubbles" ? (
+      {isTwoPhase ? (
+        <TwoPhaseSeparationEmulsion
+          colorHex={colorHex || "#eab308"}
+          liquidSurfaceY={liquidSurfaceY}
+          bodyRadius={bodyRadius}
+          vesselType={vesselType}
+        />
+      ) : effectType === "bubbles" ? (
         <EffervescenceBubbles
           colorHex={colorHex}
           rimHeight={rimHeight}
@@ -2319,5 +2755,101 @@ function ColorDiffusionSwirl({
       </bufferGeometry>
       <pointsMaterial size={0.06} color={colorHex} transparent opacity={0.78} />
     </points>
+  );
+}
+
+// 5G. Two-Phase Separation Emulsion (Oil-Water Immiscible Droplet Buoyancy Dynamics)
+function TwoPhaseSeparationEmulsion({
+  colorHex,
+  liquidSurfaceY,
+  bodyRadius,
+  vesselType = "beaker",
+}: {
+  colorHex: string;
+  liquidSurfaceY: number;
+  bodyRadius: number;
+  vesselType?: VesselType;
+}) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const boundaryRingRef = useRef<THREE.Mesh>(null);
+  const count = 120;
+
+  // Mid-level boundary between water and oil (approx 55% water height)
+  const boundaryY = liquidSurfaceY * 0.55;
+
+  const [positions, speeds] = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    const spd = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const r = Math.random() * (bodyRadius * 0.82);
+      const th = Math.random() * Math.PI * 2;
+      pos[i * 3] = r * Math.cos(th);
+      // Droplets distributed through water and accumulating in upper oil phase
+      pos[i * 3 + 1] = 0.05 + Math.random() * liquidSurfaceY;
+      pos[i * 3 + 2] = r * Math.sin(th);
+      spd[i] = 0.08 + Math.random() * 0.22; // Buoyant upward float speed
+    }
+    return [pos, spd];
+  }, [count, bodyRadius, liquidSurfaceY]);
+
+  useFrame((_, delta) => {
+    if (pointsRef.current) {
+      const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
+      const arr = posAttr.array as Float32Array;
+
+      for (let i = 0; i < count; i++) {
+        // Oil droplets float up due to lower density (0.92 g/cm3 vs 1.0 g/cm3)
+        arr[i * 3 + 1] += speeds[i] * delta;
+
+        // When reaching the top oil layer, they settle near boundary or top
+        if (arr[i * 3 + 1] > liquidSurfaceY - 0.02) {
+          arr[i * 3 + 1] = 0.05 + Math.random() * 0.15; // Reset near bottom to simulate continuous phase separation
+          const r = Math.random() * (bodyRadius * 0.80);
+          const th = Math.random() * Math.PI * 2;
+          arr[i * 3] = r * Math.cos(th);
+          arr[i * 3 + 2] = r * Math.sin(th);
+        }
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    // Oscillating fluid boundary wave
+    if (boundaryRingRef.current) {
+      const wave = Math.sin(Date.now() * 0.005) * 0.04;
+      boundaryRingRef.current.rotation.z = wave;
+    }
+  });
+
+  return (
+    <group>
+      {/* Golden buoyant oil droplets floating upwards to separate from polar water */}
+      <points ref={pointsRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.065}
+          color="#fbbf24"
+          transparent
+          opacity={0.88}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+
+      {/* Luminous immiscible meniscus separation disc */}
+      <mesh
+        ref={boundaryRingRef}
+        position={[0, boundaryY, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <ringGeometry args={[0.02, bodyRadius * 0.92, 32]} />
+        <meshBasicMaterial
+          color="#fef08a"
+          transparent
+          opacity={0.65}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
   );
 }

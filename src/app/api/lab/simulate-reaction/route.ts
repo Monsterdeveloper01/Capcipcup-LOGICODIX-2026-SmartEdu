@@ -39,46 +39,50 @@ export async function POST(req: Request) {
     }
 
     const ai = getAiClient();
-    const prompt = `Anda adalah Ahli Kimia Fisik dan Simulator Reaksi Kimia Otomatis.
+    const prompt = `Anda adalah Ahli Kimia Fisik dan Simulator Reaksi Kimia Laboratorium Nyata.
 Tugas Anda adalah memprediksi SECARA ILMIAH dan MENGHASILKAN PARAMETER VISUALISASI 3D saat dua zat kimia berikut dicampurkan di laboratorium:
 
 - Zat A: ${nameA} (${formulaA})
 - Zat B: ${nameB} (${formulaB})
 
-ANALISIS YANG HARUS DILAKUKAN:
-1. Apakah kedua zat ini bereaksi secara kimiawi (reaksi asam-basa, presipitasi/endapan, redoks, pembentukan gas, dehidrasi, dsb.)? Atau hanya pencampuran fisik tanpa reaksi kimia?
-2. Jika bereaksi:
-   - Tuliskan nama judul fenomena reaksi (contoh: "Reaksi Netralisasi Pembentukan Garam", "Reaksi Presipitasi Hujan Emas", "Reaksi Redoks Spontan").
-   - Tuliskan persamaan reaksi kimia seimbang (misal: "HCl + NaOH → NaCl + H₂O").
-   - Apa nama dan rumus produk akhir yang terbentuk?
-   - Apa warna cairan produk akhir dalam format HEX Color (contoh: "#ef4444" merah, "#10b981" hijau netral, "#fbbf24" kuning emas, "#1e40af" biru tua, "#f8fafc" putih susu, dsb.)?
-   - Apa efek visual 3D yang paling dominan? Pilih HANYA SALAH SATU:
-     * "bubbles" (timbul gelembung gas buih meluap)
-     * "steam" (timbul uap panas atau asap putih)
-     * "spark" (letupan api mini atau kilau kristal presipitasi)
-     * "precipitate" (terbentuk endapan suspensi padat)
-     * "color_change" (hanya perubahan warna gradien perlahan)
-   - Berapa estimasi perubahan suhu cairan dalam derajat Celsius (contoh: +15 jika eksotermik melepaskan panas, -5 jika endotermik menyerap panas/dingin, atau 0 jika tidak ada perubahan suhu)?
-   - Apakah ada bahaya K3 nyata jika dilakukan sembrono di lab (misal ledakan, gas racun, korosif)? Jika ada, tuliskan kalimat peringatan singkat di "dangerWarning".
-   - Tuliskan penjelasan edukatif ilmiah yang ramah dan mudah dipahami siswa dalam 2 kalimat.
-   - Tentukan jenjang materi yang relevan ("SD", "SMP", atau "SMA").
-3. Jika TIDAK BEREAKSI secara kimia:
+ATURAN HUKUM ILMIAH & KEKEKALAN MASSA (MUTLAK HARUS DIIKUTI):
+1. HUKUM KEKEKALAN UNSUR: Produk reaksi HANYA BOLEH mengandung atom/unsur yang ADA di Zat A dan Zat B. DILARANG KERAS memunculkan unsur kimia baru yang tidak ada dalam reaktan (Contoh: jika mencampurkan H2O dan NaOH, produk HANYA boleh mengandung H, O, dan Na. DILARANG MEMUNCULKAN Aluminium/Al, Besi/Fe, Karbon/C, dsb.).
+2. JIKA SALAH SATU ADALAH PELARUT AIR (H2O):
+   - Jika dicampur dengan minyak/lipid/lemak: Air bersifat polar dan minyak non-polar sehingga tidak menyatu dan membentuk dua lapisan (minyak mengapung di atas). DILARANG menggunakan rumus organik rumit seperti "R-COO-R'". Gunakan rumus ramah siswa: "H2O // Minyak", warna produk: "#eab308" (kuning minyak goreng), visualEffect: "color_change".
+   - Jika dicampur dengan asam kuat atau basa kuat (seperti NaOH padat), ini adalah proses pelarutan eksotermik kuat yang melepaskan kalor/panas ("Pelarutan Eksotermik Natrium Hidroksida", produk: NaOH (aq), efek: "steam", suhu: +25°C s/d +30°C).
+   - Jika dicampur garam netral yang larut, ini adalah pelarutan biasa.
+   - HINDARI penggunaan karakter unicode subscript (misal gunakan 'H2O' angka 2 biasa, BUKAN 'H₂O' agar font 3D tidak error).
+3. KELAYAKAN REAKSI:
+   - Apakah kedua zat ini bereaksi secara kimiawi (asam-basa, presipitasi/endapan, redoks, gas, pelarutan eksotermik/endotermik)?
+4. JIKA BEREAKSI:
+   - "isReacting": true
+   - "title": Nama judul reaksi ilmiah yang tepat (contoh: "Pelarutan Eksotermik Natrium Hidroksida", "Reaksi Netralisasi Asam-Basa", "Presipitasi Endapan").
+   - "equation": Persamaan reaksi seimbang (misal: "NaOH (s) + H₂O (l) → Na⁺ (aq) + OH⁻ (aq) + Panas").
+   - "productName": Nama produk kimia yang nyata.
+   - "productFormula": Rumus kimia produk yang valid secara stoikiometri.
+   - "productColor": Warna cairan produk dalam format HEX Color (contoh: "#e0f7fa" bening kebiruan aqua untuk NaOH aq, "#10b981" hijau netral, "#fbbf24" kuning, "#1e40af" biru tua, "#f8fafc" putih susu keruh).
+   - "visualEffect": Pilih HANYA SALAH SATU: "bubbles" | "steam" | "spark" | "precipitate" | "color_change"
+   - "temperatureChangeC": Estimasi perubahan suhu (°C), misal +28 untuk eksotermik, -5 untuk endotermik, 0 untuk netral.
+   - "dangerWarning": Peringatan bahaya K3 singkat jika zat korosif/berbahaya.
+   - "explanation": Penjelasan sains singkat yang akurat dalam 2 kalimat.
+   - "level": Jenjang materi ("SD" | "SMP" | "SMA").
+5. JIKA TIDAK BEREAKSI:
    - "isReacting": false
-   - Berikan warna hasil percampuran optik (misal warna A + warna B berbaur)
-   - visualEffect: "color_change"
-   - Jelaskan mengapa kedua zat tidak bereaksi (misal: sama-sama garam netral, atau tidak memiliki potensial reduksi yang cukup).
+   - Berikan warna optik hasil percampuran biasa.
+   - "visualEffect": "color_change"
+   - "explanation": Alasan mengapa tidak bereaksi.
 
-Kembalikan HANYA format JSON valid tanpa tanda kutip markdown, contoh:
+Kembalikan HANYA format JSON valid tanpa tanda kutip markdown:
 {
   "isReacting": true,
   "title": "Nama Reaksi",
   "equation": "Persamaan Reaksi Seimbang",
   "productName": "Nama Produk",
   "productFormula": "Rumus Produk",
-  "productColor": "#10b981",
+  "productColor": "#e0f7fa",
   "visualEffect": "steam",
-  "temperatureChangeC": 15,
-  "dangerWarning": "Gunakan sarung tangan karena reaksi melepaskan uap asam korosif.",
+  "temperatureChangeC": 25,
+  "dangerWarning": "Larutan basa kuat, hindari terkena kulit.",
   "explanation": "Penjelasan sains singkat...",
   "level": "SMP"
 }`;
@@ -93,8 +97,15 @@ Kembalikan HANYA format JSON valid tanpa tanda kutip markdown, contoh:
 
     const parsed = JSON.parse(cleanJson);
 
-    // Auto-save reaction discovery into MySQL database if valid
-    if (parsed && parsed.isReacting) {
+    // Auto-save reaction discovery into MySQL database if valid & not a generic placeholder
+    const isGenericFormula = (f: string) =>
+      !f ||
+      f.toLowerCase().includes("hasil") ||
+      f.toLowerCase().includes("campuran") ||
+      f.toLowerCase().includes("complex") ||
+      f.toLowerCase().includes("produk");
+
+    if (parsed && parsed.isReacting && !isGenericFormula(String(formulaA)) && !isGenericFormula(String(formulaB))) {
       try {
         const id = `rx_ai_${formulaA}_${formulaB}`.toLowerCase().replace(/[^a-z0-9_]/g, "");
         const reactantAId = `ch_${String(formulaA).toLowerCase().replace(/[^a-z0-9]/g, "")}`;

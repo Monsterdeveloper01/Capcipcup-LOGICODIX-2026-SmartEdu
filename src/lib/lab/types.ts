@@ -26,7 +26,7 @@ export interface ChemicalReaction {
   productName: string;
   productFormula: string;
   productColor: string;
-  visualEffect: "bubbles" | "steam" | "spark" | "precipitate" | "color_change";
+  visualEffect: "bubbles" | "steam" | "spark" | "precipitate" | "color_change" | "two_phase";
   temperatureChangeC: number;
   explanation: string;
   level: "SD" | "SMP" | "SMA";

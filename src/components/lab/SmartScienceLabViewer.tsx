@@ -31,6 +31,12 @@ import {
   BookOpen,
   HelpCircle,
   Beaker,
+  Search,
+  Lock,
+  Unlock,
+  Trash2,
+  SlidersHorizontal,
+  Flame,
 } from "lucide-react";
 
 // Dynamic import for 3D Canvas
@@ -89,6 +95,13 @@ export default function SmartScienceLabViewer() {
       })
       .catch((e) => console.warn("Failed fetching dynamic reactions:", e));
   }, []);
+
+  // Dual Student Lab Mode: "task" (Mode Tugas Terpandu Guru) vs "sandbox" (Mode Eksplorasi Bebas)
+  const [labMode, setLabMode] = useState<"task" | "sandbox">("task");
+  const [isAddChemicalModalOpen, setIsAddChemicalModalOpen] = useState<boolean>(false);
+  const [searchChemicalQuery, setSearchChemicalQuery] = useState<string>("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
+  const [isSuccessModalDismissed, setIsSuccessModalDismissed] = useState<boolean>(false);
 
   // Modals & Quiz State
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
@@ -165,13 +178,93 @@ export default function SmartScienceLabViewer() {
     });
 
     setVessels(taskVessels.length > 0 ? taskVessels : INITIAL_VESSELS);
+    setLabMode("task");
+    setIsSuccessModalDismissed(false);
     setActiveTab("lab");
   };
 
+  // Reaction Detection Handler (Dual Mode Rules)
   const handleReactionDetected = (reaction: ReactionDetail) => {
     setActiveReaction(reaction);
-    setIsTaskReactionDone(true);
+
+    if (labMode === "task") {
+      // In Task Mode: check if target reaction is fulfilled
+      const isTargetFulfilled = currentTask?.expectedReactionId
+        ? reaction.id === currentTask.expectedReactionId ||
+          reaction.title.toLowerCase().includes(currentTask.title.toLowerCase())
+        : true; // Default to true on first successful reaction if teacher didn't specify reaction id
+
+      if (isTargetFulfilled) {
+        setIsTaskReactionDone(true);
+        setIsSuccessModalDismissed(false);
+      }
+    }
   };
+
+  // Sandbox Mode: Add Any Chemical Reagent to Workbench
+  const handleAddChemicalToWorkbench = (chem: any) => {
+    const nextIdx = vessels.length;
+    // Smart workbench spacing:
+    // 1st item: -1.4, 2nd item: 1.4, 3rd item: -2.8, 4th item: 2.8, 5th item: 0
+    const slotPositions = [-1.4, 1.4, -2.8, 2.8, 0, -3.8, 3.8];
+    const posX = slotPositions[nextIdx] ?? ((nextIdx % 2 === 0 ? 1 : -1) * (1.2 + Math.floor(nextIdx / 2) * 1.3));
+
+    const newVessel: ChemicalVessel = {
+      id: `v_${chem.id}_${Date.now()}`,
+      name: chem.name,
+      formula: chem.formula,
+      type: nextIdx % 2 === 0 ? "beaker" : "flask",
+      color: chem.color || "#06b6d4",
+      initialColor: chem.color || "#06b6d4",
+      position: [posX, 0.55, 0.25],
+      level: chem.level || "SMA",
+      liquidLevel: 0.7,
+      temperatureC: 25,
+    };
+
+    setVessels((prev) => [...prev, newVessel]);
+    setIsAddChemicalModalOpen(false);
+  };
+
+  // Remove individual vessel from workbench
+  const handleRemoveVessel = (vesselId: string) => {
+    setVessels((prev) => prev.filter((v) => v.id !== vesselId));
+  };
+
+  // Reset Workbench positions and reactions
+  const handleResetWorkbench = () => {
+    if (labMode === "task" && currentTask) {
+      applyTaskToWorkbench(currentTask);
+    } else if (labMode === "sandbox") {
+      setVessels([]); // Di Mode Sandbox, reset mengosongkan seluruh meja
+      setActiveReaction(null);
+    } else {
+      setVessels(INITIAL_VESSELS);
+      setActiveReaction(null);
+    }
+    setIsTaskReactionDone(false);
+    setIsSuccessModalDismissed(false);
+  };
+
+  // Switch student lab mode
+  const handleSwitchMode = (mode: "task" | "sandbox") => {
+    setLabMode(mode);
+    setIsTaskReactionDone(false);
+    setIsSuccessModalDismissed(false);
+    setActiveReaction(null);
+    if (mode === "sandbox") {
+      setVessels([]); // Mode Sandbox: Meja lab dikosongkan total agar murid bebas memilih dari katalog!
+    } else if (mode === "task") {
+      if (currentTask) {
+        applyTaskToWorkbench(currentTask);
+      } else {
+        setVessels(INITIAL_VESSELS);
+      }
+    }
+  };
+
+  // Is experiment interaction locked (Target reached in task mode)
+  const isExperimentLocked = labMode === "task" && isTaskReactionDone;
 
   const handleSubmitQuiz = async (score: number, answers: any[]) => {
     setLastQuizScore(score);
@@ -267,6 +360,46 @@ export default function SmartScienceLabViewer() {
 
         {/* Navigation Menu */}
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-5 text-xs font-semibold">
+          {/* Section 0: Mode Praktikum Siswa */}
+          <div className="space-y-1.5 bg-[#1e1f22] p-2 rounded-xl border border-[#3b3e45]">
+            <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider px-1">
+              Mode Praktikum Siswa
+            </span>
+            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => handleSwitchMode("task")}
+                className={`py-1.5 px-2 rounded-lg text-left text-[11px] font-bold flex flex-col gap-0.5 transition-all ${
+                  labMode === "task"
+                    ? "bg-[#5865F2] text-white shadow"
+                    : "bg-[#2b2d31] text-[#949ba4] hover:text-white hover:bg-[#35373c]"
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  <span>Mode Tugas</span>
+                </div>
+                <span className="text-[9px] opacity-80 font-normal">Target Guru</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSwitchMode("sandbox")}
+                className={`py-1.5 px-2 rounded-lg text-left text-[11px] font-bold flex flex-col gap-0.5 transition-all ${
+                  labMode === "sandbox"
+                    ? "bg-[#23a55a] text-white shadow"
+                    : "bg-[#2b2d31] text-[#949ba4] hover:text-white hover:bg-[#35373c]"
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <FlaskConical className="w-3.5 h-3.5" />
+                  <span>Sandbox</span>
+                </div>
+                <span className="text-[9px] opacity-80 font-normal">Bebas Racik</span>
+              </button>
+            </div>
+          </div>
+
           {/* Section 1: Menu Utama */}
           <div className="space-y-1">
             <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
@@ -389,28 +522,72 @@ export default function SmartScienceLabViewer() {
 
           {/* Section 3: Reagen Aktif di Meja */}
           <div className="space-y-1.5 pt-2 border-t border-[#3b3e45]">
-            <span className="px-2 text-[10px] font-bold text-[#949ba4] uppercase tracking-wider flex items-center justify-between">
-              <span>Bahan di Meja 3D</span>
-              <span className="text-white font-mono">{vessels.length} Zat</span>
-            </span>
-
-            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-              {vessels.map((v, i) => (
-                <div
-                  key={v.id || i}
-                  className="px-2.5 py-1.5 bg-[#1e1f22] border border-[#3b3e45] rounded-md flex items-center justify-between text-[11px]"
+            <div className="px-1 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#949ba4] uppercase tracking-wider">
+                Bahan di Meja 3D ({vessels.length})
+              </span>
+              {labMode === "sandbox" && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddChemicalModalOpen(true)}
+                  className="text-[10px] text-[#57F287] hover:underline flex items-center gap-0.5 font-bold"
                 >
-                  <div className="truncate pr-1">
-                    <span className="font-mono font-bold text-white mr-1.5">{v.formula}</span>
-                    <span className="text-[#949ba4] truncate">{v.name}</span>
-                  </div>
-                  <span
-                    className="w-2.5 h-2.5 rounded-full border border-black shrink-0"
-                    style={{ backgroundColor: v.color }}
-                  />
-                </div>
-              ))}
+                  <Plus className="w-3 h-3" />
+                  Tambah
+                </button>
+              )}
             </div>
+
+            <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+              {vessels.length === 0 ? (
+                <div className="py-3 px-2 bg-[#1e1f22]/60 border border-dashed border-[#3b3e45] rounded-md text-center space-y-1">
+                  <p className="text-[11px] text-[#949ba4]">Meja praktik kosong</p>
+                  <p className="text-[10px] text-[#64748b]">Klik &quot;Tambah&quot; untuk memilih zat</p>
+                </div>
+              ) : (
+                vessels.map((v, i) => (
+                  <div
+                    key={v.id || i}
+                    className="px-2.5 py-1.5 bg-[#1e1f22] border border-[#3b3e45] rounded-md flex items-center justify-between text-[11px] group hover:border-[#5865F2] transition-colors"
+                  >
+                    <div className="flex items-center gap-2 truncate pr-1">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-black shrink-0"
+                        style={{ backgroundColor: v.color }}
+                      />
+                      <div className="truncate">
+                        <span className="font-mono font-bold text-white mr-1">{v.formula}</span>
+                        <span className="text-[#949ba4] truncate text-[10px]">{v.name}</span>
+                      </div>
+                    </div>
+
+                    {labMode === "sandbox" && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVessel(v.id)}
+                        className="opacity-60 hover:opacity-100 text-[#ed4245] p-0.5 rounded hover:bg-[#ed4245]/20 transition-all shrink-0"
+                        title="Hapus bejana dari meja"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {labMode === "sandbox" && (
+              <div className="pt-1 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddChemicalModalOpen(true)}
+                  className="w-full py-1.5 px-2 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Tambah Bahan Kimia</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -514,47 +691,123 @@ export default function SmartScienceLabViewer() {
               =================================================================== */}
           {activeTab === "lab" && (
             <div className="space-y-4 max-w-6xl mx-auto w-full">
-              {/* Task Banner (If teacher task is active) */}
-              {currentTask && (
-                <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-md">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#57F287] animate-pulse" />
-                      <span className="text-[10px] font-bold uppercase bg-[#5865F2] text-white px-2 py-0.5 rounded">
-                        Tugas Guru: {currentTask.teacherName}
-                      </span>
-                      <span className="text-xs text-[#949ba4] font-medium">
-                        Jenjang {currentTask.gradeLevel} • PIN {currentTask.roomCode}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-sm text-white">{currentTask.title}</h3>
-                    <p className="text-xs text-[#dbdee1] leading-relaxed">
-                      📋 <strong>Instruksi:</strong> {currentTask.instructions}
-                    </p>
-                  </div>
+              {/* Mode Bar & Task Target Banner */}
+              <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-xl p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded flex items-center gap-1.5 ${
+                        labMode === "task"
+                          ? "bg-[#5865F2] text-white"
+                          : "bg-[#23a55a] text-white"
+                      }`}
+                    >
+                      {labMode === "task" ? (
+                        <>
+                          <ClipboardList className="w-3 h-3" />
+                          <span>Mode Tugas Terpandu</span>
+                        </>
+                      ) : (
+                        <>
+                          <FlaskConical className="w-3 h-3" />
+                          <span>Mode Sandbox (Eksplorasi Bebas)</span>
+                        </>
+                      )}
+                    </span>
 
-                  <div className="flex items-center gap-2">
-                    {currentTask.questions && currentTask.questions.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setIsQuizModalOpen(true)}
-                        className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow ${
-                          isTaskReactionDone
-                            ? "bg-[#FEE75C] text-black hover:bg-yellow-400 animate-pulse"
-                            : "bg-[#1e1f22] text-[#dbdee1] hover:bg-[#35373c] border border-[#3b3e45]"
-                        }`}
-                      >
-                        <Award className="w-3.5 h-3.5" />
-                        <span>
-                          {lastQuizScore !== null
-                            ? `Kuis Selesai (${lastQuizScore}/100)`
-                            : "Kerjakan Kuis AI"}
-                        </span>
-                      </button>
+                    {labMode === "task" && isTaskReactionDone && (
+                      <span className="text-[10px] bg-[#ed4245] text-white font-bold px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
+                        <Lock className="w-3 h-3" />
+                        <span>Selesai & Dikunci</span>
+                      </span>
+                    )}
+
+                    {labMode === "task" && currentTask && (
+                      <span className="text-xs text-[#949ba4] font-medium">
+                        Guru: {currentTask.teacherName} • Jenjang {currentTask.gradeLevel} • PIN {currentTask.roomCode}
+                      </span>
                     )}
                   </div>
+
+                  <h3 className="font-bold text-sm text-white">
+                    {labMode === "task"
+                      ? currentTask?.title || "Eksperimen Netralisasi Asam Basa"
+                      : "Eksplorasi Meja Bebas (Sandbox Mode)"}
+                  </h3>
+
+                  <p className="text-xs text-[#dbdee1] leading-relaxed">
+                    {labMode === "task" ? (
+                      <>
+                        📋 <strong>Instruksi Guru:</strong>{" "}
+                        {currentTask?.instructions || "Campurkan reagen yang telah disiapkan di atas meja hingga bereaksi."}
+                        {isTaskReactionDone && (
+                          <span className="text-[#57F287] font-semibold ml-2">
+                            ✓ Target reaksi tercapai! Eksperimen dihentikan agar hasil tidak berubah.
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "Bebas menambahkan reagen kimia apa saja ke meja lab, meracik berbagai kombinasi cairan, dan mengamati reaksi alami tanpa batasan tugas guru."
+                    )}
+                  </p>
                 </div>
-              )}
+
+                <div className="flex items-center gap-2">
+                  {labMode === "sandbox" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddChemicalModalOpen(true)}
+                        className="px-3.5 py-1.5 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>+ Tambah Bahan Kimia</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleResetWorkbench}
+                        className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow"
+                        title="Bersihkan Meja"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset Meja</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {currentTask?.questions && currentTask.questions.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsQuizModalOpen(true)}
+                          className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow ${
+                            isTaskReactionDone
+                              ? "bg-[#FEE75C] text-black hover:bg-yellow-400 animate-pulse"
+                              : "bg-[#1e1f22] text-[#dbdee1] hover:bg-[#35373c] border border-[#3b3e45]"
+                          }`}
+                        >
+                          <Award className="w-3.5 h-3.5" />
+                          <span>
+                            {lastQuizScore !== null
+                              ? `Kuis Selesai (${lastQuizScore}/100)`
+                              : "Kerjakan Kuis AI"}
+                          </span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleResetWorkbench}
+                        className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow"
+                        title="Ulangi Eksperimen"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Ulangi</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
 
               {/* 3D Workbench Stage Canvas Container - Clean Laboratory Environment */}
               <div className="bg-[#f1f5f9] border border-[#3b3e45] rounded-2xl overflow-hidden relative shadow-2xl h-[490px] sm:h-[560px]">
@@ -570,7 +823,7 @@ export default function SmartScienceLabViewer() {
                   </div>
                 )}
 
-                {/* Layer 1: 3D WebGL Canvas (Beakers, Table, Liquids & Reactions on black background) */}
+                {/* Layer 1: 3D WebGL Canvas */}
                 <div className="absolute inset-0 z-10 pointer-events-auto">
                   <ChemistryLabScene
                     handTransform={isCameraActive ? handTransform : undefined}
@@ -579,10 +832,11 @@ export default function SmartScienceLabViewer() {
                     setVessels={setVessels}
                     activeReaction={activeReaction}
                     reactions={reactionsList}
+                    isLocked={isExperimentLocked}
                   />
                 </div>
 
-                {/* Layer 2: Glowing Hand Skeleton Tracker Canvas (Rendered directly OVER the 3D scene) */}
+                {/* Layer 2: Glowing Hand Skeleton Tracker Canvas */}
                 {isCameraActive && (
                   <div className="absolute inset-0 z-20 pointer-events-none">
                     <HandGestureTracker
@@ -594,11 +848,18 @@ export default function SmartScienceLabViewer() {
                 )}
 
                 {/* Layer 3: HUD Status Overlay */}
-                <div className="absolute top-3 left-3 z-30 flex items-center gap-2 pointer-events-none">
+                <div className="absolute top-3 left-3 z-30 flex flex-col gap-1.5 pointer-events-none">
                   <span className="bg-[#1e1f22]/90 backdrop-blur-md text-[#57F287] text-[11px] font-bold px-2.5 py-1 rounded-lg border border-[#35363c] flex items-center gap-1.5 shadow">
                     <span className="w-2 h-2 rounded-full bg-[#57F287] animate-pulse" />
                     Hand Skeleton Tracker Active
                   </span>
+
+                  {isExperimentLocked && (
+                    <span className="bg-[#ed4245]/90 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-red-700 flex items-center gap-1.5 shadow animate-pulse">
+                      <Lock className="w-3.5 h-3.5" />
+                      Praktikum Selesai (Bejana Terkunci)
+                    </span>
+                  )}
                 </div>
 
                 <div className="absolute top-3 right-3 z-30 flex items-center gap-2 pointer-events-none">
@@ -608,7 +869,9 @@ export default function SmartScienceLabViewer() {
                       <span>{handTransform.handDetected ? "Sensor Tangan: Terdeteksi" : "Sensor: Arahkan Tangan..."}</span>
                     </div>
                     <div className="text-[10px] text-[#949ba4]">
-                      {handTransform.isGrabbing
+                      {isExperimentLocked
+                        ? "🔒 Terkunci - Praktikum Selesai"
+                        : handTransform.isGrabbing
                         ? "✊ Memegang Bejana Kimia"
                         : handTransform.handDetected
                         ? "✋ Mode Membidik (Hover)"
@@ -616,6 +879,24 @@ export default function SmartScienceLabViewer() {
                     </div>
                   </div>
                 </div>
+
+                {/* Sandbox Empty Table Banner */}
+                {labMode === "sandbox" && vessels.length === 0 && (
+                  <div className="absolute inset-x-0 bottom-16 flex justify-center pointer-events-none z-30">
+                    <div className="bg-[#1e1f22]/95 backdrop-blur-md border border-[#35363c] text-white px-4 py-2 rounded-xl shadow-2xl flex items-center gap-3 pointer-events-auto">
+                      <FlaskConical className="w-4 h-4 text-[#57F287]" />
+                      <span className="text-xs text-[#dbdee1]">Meja lab kosong. Klik <strong>+ Tambah Bahan</strong> untuk menaruh zat kimia.</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddChemicalModalOpen(true)}
+                        className="px-3 py-1 bg-[#23a55a] hover:bg-[#1f9250] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Pilih Zat</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Layer 4: Floating Quick Controls */}
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-[#1e1f22]/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#35363c] shadow-2xl pointer-events-auto">
@@ -629,12 +910,20 @@ export default function SmartScienceLabViewer() {
                     {isCameraActive ? "🖐️ Sensor: ON" : "🖐️ Sensor: OFF"}
                   </button>
 
+                  {labMode === "sandbox" && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddChemicalModalOpen(true)}
+                      className="px-3 py-1 bg-[#23a55a] hover:bg-[#1f9250] text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Zat</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => {
-                      if (currentTask) applyTaskToWorkbench(currentTask);
-                      else setVessels(INITIAL_VESSELS);
-                    }}
+                    onClick={handleResetWorkbench}
                     className="p-1.5 bg-[#35373c] hover:bg-[#404249] text-[#dbdee1] hover:text-white rounded-full transition-colors"
                     title="Reset Posisi Bejana"
                   >
@@ -652,13 +941,68 @@ export default function SmartScienceLabViewer() {
                 </div>
               </div>
 
+              {/* Task Completion Celebration Modal (Auto-Stop in Task Mode) */}
+              {labMode === "task" && isTaskReactionDone && !isSuccessModalDismissed && (
+                <div className="bg-gradient-to-r from-[#2b2d31] via-[#1e1f22] to-[#2b2d31] border-2 border-[#57F287] rounded-xl p-5 text-white shadow-2xl animate-in zoom-in-95 duration-200">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🎉</span>
+                        <h4 className="font-extrabold text-base text-[#57F287]">
+                          TARGET PRAKTIKUM TERCAPAI! (Eksperimen Dihentikan)
+                        </h4>
+                      </div>
+                      <p className="text-xs text-[#dbdee1]">
+                        Kamu berhasil mereaksikan zat hingga menghasilkan produk{" "}
+                        <strong className="text-white underline">
+                          {activeReaction?.resultName || activeReaction?.title}
+                        </strong>
+                        . Meja lab dikunci otomatis oleh sistem agar hasil pengamatan tidak berubah.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                      {currentTask?.questions && currentTask.questions.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsQuizModalOpen(true)}
+                          className="flex-1 sm:flex-none px-4 py-2.5 bg-[#5865F2] hover:bg-[#4752c4] text-white font-bold text-xs rounded-lg flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-105"
+                        >
+                          <Award className="w-4 h-4 text-[#FEE75C]" />
+                          <span>Kerjakan Kuis Evaluasi AI →</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleResetWorkbench}
+                        className="px-3 py-2.5 bg-[#35373c] hover:bg-[#404249] text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1"
+                        title="Ulangi praktikum dari awal"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Ulangi</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsSuccessModalDismissed(true)}
+                        className="p-2 text-[#949ba4] hover:text-white rounded hover:bg-[#35373c]"
+                        title="Tutup banner"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Dedicated Reaction Observation Panel (Out of Camera & 3D Viewport) */}
               {activeReaction && (
                 <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-xl p-4 sm:p-5 text-[#dbdee1] space-y-3 shadow-xl transition-all animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#3b3e45] pb-3">
-                    <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base text-white">
+                    <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base text-white max-w-full">
                       <Sparkles className="w-5 h-5 text-[#57F287] flex-shrink-0" />
-                      <span>⚡ Reaksi Berhasil Terdeteksi: [{activeReaction.title}]</span>
+                      <span className="line-clamp-2 break-words">⚡ Reaksi Berhasil Terdeteksi: [{activeReaction.title}]</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold bg-[#1e1f22] text-[#57F287] px-2.5 py-0.5 rounded border border-[#3b3e45]">
@@ -846,6 +1190,140 @@ export default function SmartScienceLabViewer() {
           questions={currentTask.questions || []}
           onSubmitQuiz={handleSubmitQuiz}
         />
+      )}
+
+      {/* Modal 3: Sandbox Mode - Chemical Catalog Picker Modal */}
+      {isAddChemicalModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#2b2d31] border border-[#3b3e45] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-4 border-b border-[#202225] flex items-center justify-between bg-[#1e1f22]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#23a55a] flex items-center justify-center text-white">
+                  <FlaskConical className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">
+                    Katalog Reagen Kimia (Mode Sandbox)
+                  </h3>
+                  <p className="text-[11px] text-[#949ba4]">
+                    Pilih bahan kimia untuk diletakkan di atas meja praktik lab 3D.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddChemicalModalOpen(false)}
+                className="p-1 text-[#949ba4] hover:text-white rounded-lg hover:bg-[#35373c] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search & Filter Toolbar */}
+            <div className="p-3 border-b border-[#202225] bg-[#2b2d31] space-y-2.5">
+              <div className="relative">
+                <Search className="w-4 h-4 text-[#949ba4] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchChemicalQuery}
+                  onChange={(e) => setSearchChemicalQuery(e.target.value)}
+                  placeholder="Cari zat kimia (misal: NaOH, Air, Asam Klorida, Garam)..."
+                  className="w-full pl-9 pr-3 py-2 bg-[#1e1f22] border border-[#3b3e45] rounded-lg text-xs text-white placeholder-[#949ba4] outline-none focus:border-[#5865F2]"
+                />
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+                {["ALL", "asam", "basa", "garam", "oksidator", "organik", "indikator"].map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategoryFilter(cat)}
+                    className={`px-2.5 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${
+                      selectedCategoryFilter === cat
+                        ? "bg-[#5865F2] text-white"
+                        : "bg-[#1e1f22] text-[#949ba4] hover:text-white hover:bg-[#35373c]"
+                    }`}
+                  >
+                    {cat === "ALL" ? "Semua Kategori" : cat.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chemicals Grid View */}
+            <div className="p-4 overflow-y-auto flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {chemicalCatalog
+                .filter((chem) => {
+                  const q = searchChemicalQuery.toLowerCase();
+                  const matchSearch =
+                    chem.name.toLowerCase().includes(q) ||
+                    chem.formula.toLowerCase().includes(q) ||
+                    (chem.category || "").toLowerCase().includes(q);
+                  const matchCat =
+                    selectedCategoryFilter === "ALL" ||
+                    (chem.category || "").toLowerCase() === selectedCategoryFilter.toLowerCase();
+                  return matchSearch && matchCat;
+                })
+                .map((chem) => (
+                  <div
+                    key={chem.id}
+                    className="p-3 bg-[#1e1f22] border border-[#3b3e45] rounded-xl flex items-center justify-between gap-3 hover:border-[#5865F2] transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-9 h-9 rounded-xl border border-black/30 flex items-center justify-center shrink-0 shadow"
+                        style={{ backgroundColor: chem.color || "#06b6d4" }}
+                      >
+                        <FlaskConical className="w-4 h-4 text-white drop-shadow" />
+                      </div>
+                      <div className="truncate">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-white text-xs">
+                            {chem.formula}
+                          </span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#35373c] text-[#949ba4]">
+                            {chem.level}
+                          </span>
+                        </div>
+                        <div className="text-xs text-[#dbdee1] truncate">{chem.name}</div>
+                        {chem.category && (
+                          <div className="text-[10px] text-[#949ba4] capitalize">
+                            {chem.category}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddChemicalToWorkbench(chem)}
+                      className="px-3 py-1.5 bg-[#5865F2] group-hover:bg-[#4752c4] text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1 shadow transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Taruh</span>
+                    </button>
+                  </div>
+                ))}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-[#202225] bg-[#1e1f22] flex items-center justify-between text-xs text-[#949ba4]">
+              <span>
+                {chemicalCatalog.length} reagen kimia siap digunakan di laboratorium 3D
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAddChemicalModalOpen(false)}
+                className="px-3 py-1.5 bg-[#35373c] hover:bg-[#404249] text-white rounded-lg text-xs font-semibold"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
