@@ -1350,66 +1350,111 @@ function Interactive3DMeasurementTool({
 }) {
   const measurement = useMemo(() => evaluateChemicalProperties(vessel), [vessel]);
   const posX = vessel.position[0];
+  const baseY = vessel.position[1];
   const posZ = vessel.position[2];
 
   const groupRef = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (groupRef.current) {
-      groupRef.current.position.y = 0.54 + Math.sin(clock.getElapsedTime() * 2) * 0.012;
+      // Gentle micro-buoyancy bobbing (0.003 unit) anchored strictly to vessel base Y
+      groupRef.current.position.y = baseY + Math.sin(clock.getElapsedTime() * 1.5) * 0.003;
+      groupRef.current.position.x = posX;
+      groupRef.current.position.z = posZ;
     }
   });
 
   if (tool === "hand") return null;
 
   return (
-    <group ref={groupRef} position={[posX, 0.54, posZ]}>
+    <group ref={groupRef} position={[posX, baseY, posZ]}>
       {tool === "thermometer" && (
-        <group rotation={[0, 0, 0.08]}>
+        <group position={[0.06, 0, 0.02]} rotation={[0.03, 0, 0.09]}>
           {/* Glass Thermometer Outer Stem (Clear Borosilicate Glass) */}
-          <mesh position={[0, 0.45, 0]}>
-            <cylinderGeometry args={[0.035, 0.035, 0.95, 16]} />
+          {/* Stem length 1.02. Bottom connects to bulb at y = 0.25. Top extends out of beaker rim to y = 1.27. Center: y = 0.76 */}
+          <mesh position={[0, 0.76, 0]}>
+            <cylinderGeometry args={[0.032, 0.032, 1.02, 18]} />
             <meshPhysicalMaterial
               color="#ffffff"
               transparent
               transmission={0.92}
-              roughness={0.05}
+              roughness={0.04}
               ior={1.52}
               thickness={0.25}
               clearcoat={1}
             />
           </mesh>
 
-          {/* Bottom Red Alcohol Bulb (Reservoir) */}
-          <mesh position={[0, -0.02, 0]}>
-            <sphereGeometry args={[0.068, 20, 20]} />
-            <meshStandardMaterial color="#dc2626" emissive="#991b1b" emissiveIntensity={0.6} roughness={0.2} />
+          {/* Top Sealed Glass Rounded Cap */}
+          <mesh position={[0, 1.27, 0]}>
+            <sphereGeometry args={[0.032, 16, 16]} />
+            <meshPhysicalMaterial
+              color="#ffffff"
+              transparent
+              transmission={0.92}
+              roughness={0.04}
+              ior={1.52}
+              thickness={0.25}
+              clearcoat={1}
+            />
+          </mesh>
+
+          {/* Bottom Red Alcohol Bulb (Reservoir) - Suspended comfortably in liquid, safely above the beaker bottom floor */}
+          {/* Floor is at y = 0. Bulb center is at y = 0.22 (radius 0.062). Lowest point: y = 0.158, never piercing through floor! */}
+          <mesh position={[0, 0.22, 0]}>
+            <sphereGeometry args={[0.062, 24, 24]} />
+            <meshStandardMaterial
+              color="#dc2626"
+              emissive="#b91c1c"
+              emissiveIntensity={0.65}
+              roughness={0.15}
+            />
           </mesh>
 
           {/* Dynamic Red Liquid Column inside capillary */}
+          {/* Rises upwards from top of bulb (y = 0.25) according to solution temperature */}
           {(() => {
             const temp = measurement.temperatureC;
-            const normalizedHeight = Math.max(0.1, Math.min(0.82, (temp / 100) * 0.82));
+            const maxRise = 0.82;
+            const normalizedHeight = Math.max(0.12, Math.min(maxRise, (temp / 100) * maxRise));
             return (
-              <mesh position={[0, normalizedHeight / 2, 0]}>
-                <cylinderGeometry args={[0.012, 0.012, normalizedHeight, 12]} />
-                <meshStandardMaterial color="#ef4444" emissive="#b91c1c" emissiveIntensity={0.5} roughness={0.3} />
+              <mesh position={[0, 0.25 + normalizedHeight / 2, 0]}>
+                <cylinderGeometry args={[0.010, 0.010, normalizedHeight, 12]} />
+                <meshStandardMaterial
+                  color="#ef4444"
+                  emissive="#dc2626"
+                  emissiveIntensity={0.6}
+                  roughness={0.2}
+                />
               </mesh>
             );
           })()}
+
+          {/* Graduated Tick Marks on Thermometer Stem */}
+          {[0.35, 0.50, 0.65, 0.80, 0.95, 1.10].map((tickY, idx) => (
+            <mesh key={idx} position={[0.033, tickY, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.002, 0.002, 0.018, 6]} />
+              <meshBasicMaterial color="#334155" opacity={0.6} transparent />
+            </mesh>
+          ))}
         </group>
       )}
 
       {(tool === "litmus_red" || tool === "litmus_blue" || tool === "ph_meter") && (
-        <group rotation={[0, 0, 0.12]}>
-          {/* Tweezers / Forceps Clip at top */}
-          <mesh position={[0, 0.65, 0]}>
-            <boxGeometry args={[0.05, 0.18, 0.03]} />
-            <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.2} />
+        <group position={[0.05, 0, 0.02]} rotation={[0.03, 0, 0.08]}>
+          {/* Forceps / Tweezers Handle at the top (Held by scientist from above the beaker rim) */}
+          <mesh position={[0, 1.16, 0]}>
+            <boxGeometry args={[0.045, 0.22, 0.025]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.2} />
+          </mesh>
+          <mesh position={[0, 1.06, 0]}>
+            <boxGeometry args={[0.065, 0.05, 0.03]} />
+            <meshStandardMaterial color="#64748b" metalness={0.9} roughness={0.15} />
           </mesh>
 
-          {/* Dry Upper Paper Strip */}
-          <mesh position={[0, 0.42, 0]}>
-            <boxGeometry args={[0.12, 0.34, 0.006]} />
+          {/* Dry Upper Paper Strip (above solution level, clamped by tweezers) */}
+          {/* Spans from y = 0.58 to y = 1.05. Center: y = 0.815 */}
+          <mesh position={[0, 0.815, 0]}>
+            <boxGeometry args={[0.11, 0.47, 0.006]} />
             <meshStandardMaterial
               color={
                 tool === "litmus_red"
@@ -1422,9 +1467,10 @@ function Interactive3DMeasurementTool({
             />
           </mesh>
 
-          {/* Submerged Reacted Wet Strip (Color changes based on chemical solution) */}
-          <mesh position={[0, 0.15, 0]}>
-            <boxGeometry args={[0.12, 0.30, 0.008]} />
+          {/* Submerged Reacted Wet Strip (Immersed safely in solution, bottom at y = 0.25, well above beaker floor) */}
+          {/* Spans from y = 0.25 to y = 0.58. Center: y = 0.415 */}
+          <mesh position={[0, 0.415, 0]}>
+            <boxGeometry args={[0.11, 0.33, 0.008]} />
             <meshStandardMaterial
               color={
                 tool === "litmus_red"
@@ -1433,7 +1479,7 @@ function Interactive3DMeasurementTool({
                   ? measurement.litmusBlue.finalColor
                   : measurement.universalColor
               }
-              roughness={0.4}
+              roughness={0.35}
             />
           </mesh>
         </group>
