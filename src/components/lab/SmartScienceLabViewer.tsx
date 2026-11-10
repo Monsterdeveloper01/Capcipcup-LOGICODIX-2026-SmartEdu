@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -9,21 +9,27 @@ import HandGestureTracker, { HandTransform } from "@/components/camera/HandGestu
 import TeacherTaskBuilder from "./TeacherTaskBuilder";
 import AiLabAssistantModal from "./AiLabAssistantModal";
 import PostLabQuizModal from "./PostLabQuizModal";
+import StudentSubmissionDetailModal from "./StudentSubmissionDetailModal";
+import InteractiveMeasurementInspector from "./InteractiveMeasurementInspector";
+import { ChemicalFormula, ChemicalEquation } from "./ChemicalFormula";
 import AuthLoginModal from "@/components/auth/AuthLoginModal";
 import { AuthUser } from "@/lib/auth/types";
 import {
   ChemicalVessel,
   ReactionDetail,
   INITIAL_VESSELS,
+  InteractiveToolType,
 } from "./ChemistryLabScene";
-import { CHEMICAL_CATALOG } from "@/lib/lab/chemicals-db";
-import { LabTask } from "@/lib/lab/types";
+import { evaluateChemicalProperties, ChemicalMeasurement } from "@/lib/lab/chemicalProperties";
+import { CHEMICAL_CATALOG, REACTION_CATALOG } from "@/lib/lab/chemicals-db";
+import { LabTask, LabSubmission, ExperimentDetailLog } from "@/lib/lab/types";
 import {
   FlaskConical,
   RotateCcw,
   Plus,
   Sparkles,
   CheckCircle2,
+  AlertCircle,
   Award,
   GraduationCap,
   ClipboardList,
@@ -48,7 +54,11 @@ import {
   Users,
   PlusCircle,
   ArrowLeft,
+  Play,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import labSound from "@/lib/audio/labSoundEngine";
 
 // Dynamic import for 3D Canvas
 const ChemistryLabScene = dynamic(() => import("./ChemistryLabScene"), {
@@ -65,29 +75,143 @@ const ChemistryLabScene = dynamic(() => import("./ChemistryLabScene"), {
   ),
 });
 
+// Helper untuk memulihkan secara presisi reaksi kimia & bejana produk 3D yang tersimpan
+function resolveReactionForTask(
+  task: LabTask,
+  exp?: ExperimentDetailLog | null
+): { reaction: ReactionDetail; vessel: ChemicalVessel } {
+  const matched = REACTION_CATALOG.find((r) => {
+    if (task.expectedReactionId && r.id === task.expectedReactionId) return true;
+    if (exp?.reactionTitle && exp.reactionTitle !== "Reaksi Kimia Teramati di Meja Lab" && (r.title.toLowerCase() === exp.reactionTitle.toLowerCase() || r.equation === exp?.reactionEquation)) return true;
+    if (task.title) {
+      const tLower = task.title.toLowerCase();
+      const rLower = r.title.toLowerCase();
+      if (tLower.includes("redoks") && (rLower.includes("redoks") || r.id.includes("kmno4"))) return true;
+      if (tLower.includes("hujan emas") && r.id.includes("pbno32")) return true;
+      if (tLower.includes("asam basa") && r.id.includes("hcl_naoh")) return true;
+      if (tLower.includes("lava") && r.id.includes("lava")) return true;
+      if (tLower.includes("saponifikasi") && r.id.includes("sapon")) return true;
+      if (tLower.includes("amilum") && r.id.includes("iodine")) return true;
+      if (tLower.includes("cuka") && r.id.includes("cuka")) return true;
+    }
+    if (task.chemicalIds && r.reactantAId && task.chemicalIds.includes(r.reactantAId) && task.chemicalIds.includes(r.reactantBId)) return true;
+    return false;
+  });
+
+  const prodName = exp?.resultVessel?.name || matched?.productName || "Produk Hasil Reaksi";
+  const prodFormula = exp?.resultVessel?.formula || matched?.productFormula || "Senyawa Produk";
+  const prodColor = exp?.resultVessel?.color || matched?.productColor || "#10b981";
+  const prodTemp = (exp?.resultVessel?.temperatureC && exp.resultVessel.temperatureC !== 25)
+    ? exp.resultVessel.temperatureC
+    : (25 + (exp?.temperatureChange ?? matched?.temperatureChangeC ?? 0));
+
+  const completedVesselId = `v_product_${task.id}`;
+  const vessel: ChemicalVessel = {
+    id: completedVesselId,
+    name: prodName,
+    formula: prodFormula,
+    type: "flask",
+    color: prodColor,
+    initialColor: prodColor,
+    position: [0, 0.55, 0.25],
+    level: task.level || task.gradeLevel || "SMP",
+    liquidLevel: 0.85,
+    isReacted: true,
+    temperatureC: prodTemp,
+    components: [prodFormula],
+  };
+
+  const reaction: ReactionDetail = {
+    id: matched?.id || task.expectedReactionId || `rx_${task.id}`,
+    title: exp?.reactionTitle && exp.reactionTitle !== "Reaksi Kimia Teramati di Meja Lab" ? exp.reactionTitle : (matched?.title || task.title),
+    equation: exp?.reactionEquation || matched?.equation || "Persamaan Reaksi Kimiawi Seimbang",
+    substanceA: matched?.reactantAFormula || "Reaktan A",
+    substanceB: matched?.reactantBFormula || "Reaktan B",
+    substanceC: matched?.reactantCFormula,
+    substances: matched?.reactants,
+    resultName: prodName,
+    resultFormula: prodFormula,
+    resultColor: prodColor,
+    effectType: matched?.visualEffect || "bubbles",
+    temperatureChange: exp?.temperatureChange ?? matched?.temperatureChangeC ?? 0,
+    reasonWhy: exp?.reasonWhy || matched?.reasonWhy || "Reaksi terjadi akibat afinitas ikatan antar partikel dan pelepasan kalor eksotermik spontan molekuler menuju kondisi kestabilan energi yang lebih rendah.",
+    observablePhenomena: exp?.observablePhenomena || matched?.observablePhenomena || "Teramati pembentukan fase baru, perubahan warna larutan, dan perubahan temperatur wadah.",
+    explanation: exp?.explanation || matched?.explanation || task.instructions,
+    level: task.level || task.gradeLevel || matched?.level || "SMP",
+    targetVesselId: completedVesselId,
+  };
+
+  return { reaction, vessel };
+}
+
 export default function SmartScienceLabViewer() {
   // Navigation: "lab" | "tasks" | "teacher_builder"
   const [activeTab, setActiveTab] = useState<"lab" | "tasks" | "teacher_builder">("lab");
 
   // User Authentication State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [viewingSubmissionDetail, setViewingSubmissionDetail] = useState<LabSubmission | null>(null);
 
-  // Role helper: check if logged in as teacher / superadmin
+  // Role helper: check if logged in as teacher / student / guest
   const isTeacher = currentUser?.role === "teacher" || currentUser?.role === "superadmin";
+  const isStudent = currentUser?.role === "student";
+  const isGuest = !currentUser;
 
-  // Teacher Dashboard sub-section ("create" | "list" | "submissions")
-  const [teacherBuilderSection, setTeacherBuilderSection] = useState<"create" | "list" | "submissions">("create");
+  // Dual Student Lab Mode: "sandbox" (Mode Eksplorasi Bebas - Default) vs "task" (Saat membuka tugas dari Daftar Tugas)
+  const [labMode, setLabMode] = useState<"task" | "sandbox">("sandbox");
 
-  // Strict role guard: redirect non-teachers away from teacher builder view
+  // Teacher Dashboard sub-section ("create" | "list" | "submissions" | "ai_logs") - Default ke "list" agar saat masuk guru langsung melihat daftar tugas
+  const [teacherBuilderSection, setTeacherBuilderSection] = useState<"create" | "list" | "submissions" | "ai_logs">("list");
+
+  // Strict role guard: redirect non-teachers away from teacher builder view and guests away from tasks
   useEffect(() => {
-    if (activeTab === "teacher_builder" && !isTeacher) {
-      setActiveTab("lab");
+    if (!isAuthLoading) {
+      if (activeTab === "teacher_builder" && !isTeacher) {
+        setActiveTab("lab");
+      }
+      if (isGuest && activeTab === "tasks") {
+        setActiveTab("lab");
+      }
+      if (isGuest && labMode !== "sandbox") {
+        setLabMode("sandbox");
+        setCurrentTask(null);
+      }
     }
-  }, [activeTab, isTeacher]);
+  }, [activeTab, isTeacher, isGuest, isAuthLoading, labMode]);
 
   // Mobile drawer state
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
+
+  // SFX Audio Mute State (Procedural Lab Sound Effects)
+  const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => labSound.getIsMuted());
+
+  // Interactive Measurement Tools State (Termometer Celup & Kertas Lakmus / pH Meter)
+  const [activeTool, setActiveTool] = useState<InteractiveToolType>("hand");
+  const [dippedVesselId, setDippedVesselId] = useState<string | null>(null);
+  const [activeMeasurement, setActiveMeasurement] = useState<ChemicalMeasurement | null>(null);
+
+  const handleSelectTool = (tool: InteractiveToolType) => {
+    setActiveTool(tool);
+    if (tool === "hand") {
+      setActiveMeasurement(null);
+      setDippedVesselId(null);
+    } else if (vessels.length > 0) {
+      const targetV = dippedVesselId ? vessels.find((v) => v.id === dippedVesselId) : vessels[0];
+      if (targetV) {
+        setDippedVesselId(targetV.id);
+        setActiveMeasurement(evaluateChemicalProperties(targetV));
+        labSound.playGlassClink("soft");
+      }
+    }
+  };
+
+  const handleDipTool = (vessel: ChemicalVessel, tool: InteractiveToolType) => {
+    setDippedVesselId(vessel.id);
+    setActiveMeasurement(evaluateChemicalProperties(vessel));
+    labSound.playGlassClink("soft");
+  };
 
   // URL Search Params for Route /lab?taskId=...&mode=...&classCode=...
   const searchParams = useSearchParams();
@@ -99,34 +223,71 @@ export default function SmartScienceLabViewer() {
   const [roomCode, setRoomCode] = useState<string>(urlClassCode ? urlClassCode.toUpperCase() : "LAB889");
   const [tasks, setTasks] = useState<LabTask[]>([]);
   const [currentTask, setCurrentTask] = useState<LabTask | null>(null);
-  const [studentName, setStudentName] = useState<string>("Ahmad Faiz");
+  const [studentName, setStudentName] = useState<string>("Guest");
+  const [studentSubmissions, setStudentSubmissions] = useState<LabSubmission[]>([]);
 
-  // Read URL params on mount or when params change
+  // Ambil rekap pengerjaan tugas oleh siswa dari database
+  const fetchStudentSubmissions = useCallback(async (name?: string) => {
+    const clean = (name || currentUser?.name || studentName || "").trim();
+    if (!clean || clean === "Guest") {
+      setStudentSubmissions([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/lab/submissions?studentName=${encodeURIComponent(clean)}`);
+      const data = await res.json();
+      if (res.ok && data.submissions) {
+        setStudentSubmissions(data.submissions);
+      }
+    } catch (e) {
+      console.warn("Failed fetching student submissions:", e);
+    }
+  }, [currentUser?.name, studentName]);
+
+  // Read URL params on mount or when params change, and automatically load tasks
   useEffect(() => {
-    if (urlClassCode) {
-      setRoomCode(urlClassCode.toUpperCase());
-    }
-    if (urlMode === "sandbox") {
-      setLabMode("sandbox");
-      setCurrentTask(null);
-      setVessels([]);
-      setActiveTab("lab");
-    } else if (urlMode === "task") {
-      setLabMode("task");
-      setActiveTab("lab");
+    if (isGuest) {
+      setTasks([]);
+      return;
     }
 
-    if (urlTaskId) {
-      fetch(`/api/lab/tasks?taskId=${urlTaskId}`)
+    const code = (urlClassCode || roomCode || "").trim().toUpperCase();
+    if (code) {
+      setRoomCode(code);
+      fetch(`/api/lab/tasks?roomCode=${code}`)
         .then((r) => r.json())
         .then((data) => {
           if (data && data.tasks && data.tasks.length > 0) {
-            applyTaskToWorkbench(data.tasks[0]);
+            setTasks(data.tasks);
+
+            if (urlTaskId) {
+              const matched = data.tasks.find((t: LabTask) => t.id === urlTaskId);
+              if (matched) {
+                applyTaskToWorkbench(matched);
+                return;
+              }
+            }
+
+            // If entering task mode without a specific taskId, auto-apply the classroom's task to the workbench!
+            if (urlMode === "task" && !isGuest) {
+              applyTaskToWorkbench(data.tasks[0]);
+            }
+          } else {
+            setTasks([]);
           }
         })
-        .catch((e) => console.warn("Failed loading task from URL:", e));
+        .catch((e) => console.warn("Failed fetching room tasks:", e));
     }
-  }, [urlTaskId, urlMode, urlClassCode]);
+
+    if (urlMode === "sandbox" || isGuest) {
+      setLabMode("sandbox");
+      setCurrentTask(null);
+      if (urlMode === "sandbox") {
+        setVessels([]);
+      }
+      setActiveTab("lab");
+    }
+  }, [urlTaskId, urlMode, urlClassCode, isGuest]);
 
   // Check existing session from /api/auth/me on mount
   useEffect(() => {
@@ -137,19 +298,41 @@ export default function SmartScienceLabViewer() {
           setCurrentUser(data.user);
           if (data.user.role === "teacher") {
             setLabMode("sandbox");
+            setActiveTab("lab");
           } else if (data.user.role === "student") {
             setStudentName(data.user.name);
+            fetchStudentSubmissions(data.user.name);
           }
+        } else {
+          setCurrentUser(null);
+          setStudentName("Guest");
+          setLabMode("sandbox");
+          setCurrentTask(null);
+          setStudentSubmissions([]);
         }
       })
-      .catch((e) => console.warn("Failed fetching session user:", e));
-  }, []);
+      .catch((e) => {
+        console.warn("Failed fetching session user:", e);
+        setCurrentUser(null);
+        setStudentName("Guest");
+        setLabMode("sandbox");
+        setCurrentTask(null);
+        setStudentSubmissions([]);
+      })
+      .finally(() => {
+        setIsAuthLoading(false);
+      });
+  }, [fetchStudentSubmissions]);
 
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setCurrentUser(null);
-      setStudentName("Ahmad Faiz");
+      setStudentName("Guest");
+      setStudentSubmissions([]);
+      setLabMode("sandbox");
+      setCurrentTask(null);
+      setVessels([]);
       setActiveTab("lab");
     } catch (e) {
       console.warn("Logout error:", e);
@@ -159,12 +342,13 @@ export default function SmartScienceLabViewer() {
   const handleLoginSuccess = (user: AuthUser) => {
     setCurrentUser(user);
     if (user.role === "teacher") {
-      setLabMode("sandbox");
-      setActiveTab("teacher_builder");
-      setTeacherBuilderSection("create");
+      // Guru langsung diarahkan ke Dashboard Utama (bukan masuk ke lab)
+      window.location.href = "/";
+      return;
     } else {
       setStudentName(user.name);
       setActiveTab("tasks");
+      fetchStudentSubmissions(user.name);
     }
   };
 
@@ -209,8 +393,6 @@ export default function SmartScienceLabViewer() {
       .catch((e) => console.warn("Failed fetching dynamic reactions:", e));
   }, []);
 
-  // Dual Student Lab Mode: "sandbox" (Mode Eksplorasi Bebas - Default) vs "task" (Saat membuka tugas dari Daftar Tugas)
-  const [labMode, setLabMode] = useState<"task" | "sandbox">("sandbox");
   const [isAddChemicalModalOpen, setIsAddChemicalModalOpen] = useState<boolean>(false);
   const [searchChemicalQuery, setSearchChemicalQuery] = useState<string>("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
@@ -221,6 +403,19 @@ export default function SmartScienceLabViewer() {
   const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
   const [isTaskReactionDone, setIsTaskReactionDone] = useState<boolean>(false);
   const [lastQuizScore, setLastQuizScore] = useState<number | null>(null);
+
+  // Animasi reaksi & timer penguncian di mode tugas
+  const [isReactionAnimating, setIsReactionAnimating] = useState<boolean>(false);
+  const reactionLockTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Bersihkan timer penguncian saat komponen unmount
+  useEffect(() => {
+    return () => {
+      if (reactionLockTimerRef.current) {
+        clearTimeout(reactionLockTimerRef.current);
+      }
+    };
+  }, []);
 
   // Hand tracking state from MediaPipe
   const [handTransform, setHandTransform] = useState<HandTransform>({
@@ -238,14 +433,24 @@ export default function SmartScienceLabViewer() {
     setHandTransform(transform);
   }, []);
 
-  // Fetch tasks for the current room
+  // Fetch tasks for the current room (hanya jika user login, tamu tidak memuat tugas)
   useEffect(() => {
+    if (!currentUser) {
+      setTasks([]);
+      return;
+    }
     fetchTasks();
-  }, [roomCode]);
+  }, [currentUser, roomCode]);
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (overrideCode?: string) => {
+    if (!currentUser) {
+      setTasks([]);
+      return;
+    }
+    const code = (overrideCode || roomCode || "").trim().toUpperCase();
+    if (!code) return;
     try {
-      const res = await fetch(`/api/lab/tasks?roomCode=${roomCode}`);
+      const res = await fetch(`/api/lab/tasks?roomCode=${code}`);
       const data = await res.json();
       if (res.ok && data.tasks) {
         setTasks(data.tasks);
@@ -257,22 +462,42 @@ export default function SmartScienceLabViewer() {
 
   // Setup the 3D Workbench strictly based on the Teacher's Task
   const applyTaskToWorkbench = (task: LabTask) => {
+    if (reactionLockTimerRef.current) {
+      clearTimeout(reactionLockTimerRef.current);
+      reactionLockTimerRef.current = null;
+    }
+    setIsReactionAnimating(false);
     setCurrentTask(task);
-    setIsTaskReactionDone(false);
-    setLastQuizScore(null);
+
+    // Cek apakah siswa ini sudah pernah mengumpulkan tugas ini sebelumnya
+    const existingSub = studentSubmissions.find((s) => s.taskId === task.id);
+    if (existingSub) {
+      setIsTaskReactionDone(Boolean(existingSub.isReactionAchieved));
+      setLastQuizScore(existingSub.score);
+      // Mode Review (Terkunci): Kamera otomatis dinonaktifkan agar hand tracking mati
+      setIsCameraActive(false);
+    } else {
+      setIsTaskReactionDone(false);
+      setLastQuizScore(null);
+      // Praktikum baru aktif: aktifkan kamera untuk hand tracking
+      setIsCameraActive(true);
+    }
+
+    const rawIds = task.chemicalIds || [];
+    const ids: string[] = typeof rawIds === "string" ? JSON.parse(rawIds) : Array.isArray(rawIds) ? rawIds : [];
 
     // Build vessels only from chemicals assigned by the teacher
-    const taskVessels: ChemicalVessel[] = (task.chemicalIds || []).map((chemId, index) => {
+    const taskVessels: ChemicalVessel[] = ids.map((chemId, index) => {
       const chem = chemicalCatalog.find((c) => c.id === chemId) || CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
         id: chemId,
         name: "Bahan Kimia",
         formula: "Reagen",
         color: "#38bdf8",
-        level: task.level,
+        level: task.level || task.gradeLevel || "SMP",
       };
 
       // Spacing 2.3m antar bejana agar leluasa di atas meja praktik tanpa bertabrakan
-      const posX = (index - ((task.chemicalIds.length - 1) / 2)) * 2.3;
+      const posX = (index - ((ids.length - 1) / 2)) * 2.3;
       return {
         id: `v_${chem.id}_${index}`,
         name: chem.name,
@@ -281,14 +506,23 @@ export default function SmartScienceLabViewer() {
         color: chem.color,
         initialColor: chem.color,
         position: [posX, 0.55, 0.25],
-        level: task.level,
+        level: task.level || task.gradeLevel || "SMP",
         liquidLevel: 0.7,
         temperatureC: 25,
         components: [chem.formula],
       };
     });
 
-    setVessels(taskVessels.length > 0 ? taskVessels : []);
+    // Jika siswa telah menyelesaikan tugas, pulihkan bejana hasil reaksi dan panel observasi reaksi lengkap!
+    if (existingSub) {
+      const { reaction, vessel } = resolveReactionForTask(task, existingSub.experimentDetails);
+      setVessels([vessel]);
+      setActiveReaction(reaction);
+    } else {
+      setVessels(taskVessels.length > 0 ? taskVessels : []);
+      setActiveReaction(null);
+    }
+
     // Guru selalu menggunakan Mode Sandbox untuk uji coba bebas tanpa terkunci
     setLabMode(isTeacher ? "sandbox" : "task");
     setIsSuccessModalDismissed(false);
@@ -296,8 +530,12 @@ export default function SmartScienceLabViewer() {
   };
 
   // Reaction Detection Handler (Dual Mode Rules)
-  const handleReactionDetected = (reaction: ReactionDetail) => {
+  const handleReactionDetected = (reaction: ReactionDetail, vesselA?: ChemicalVessel, vesselB?: ChemicalVessel) => {
     setActiveReaction(reaction);
+
+    if (vesselB && dippedVesselId === vesselB.id) {
+      setActiveMeasurement(evaluateChemicalProperties(vesselB));
+    }
 
     if (!isTeacher && labMode === "task") {
       // In Task Mode: check if target reaction is fulfilled
@@ -306,9 +544,17 @@ export default function SmartScienceLabViewer() {
           reaction.title.toLowerCase().includes(currentTask.title.toLowerCase())
         : true; // Default to true on first successful reaction if teacher didn't specify reaction id
 
-      if (isTargetFulfilled) {
-        setIsTaskReactionDone(true);
-        setIsSuccessModalDismissed(false);
+      if (isTargetFulfilled && !isTaskReactionDone && !isReactionAnimating) {
+        // Jangan langsung kunci meja 3D! Beri jeda 4.5 detik agar animasi penuangan, uap/buih/partikel dapat dinikmati siswa
+        setIsReactionAnimating(true);
+        if (reactionLockTimerRef.current) clearTimeout(reactionLockTimerRef.current);
+        reactionLockTimerRef.current = setTimeout(() => {
+          setIsReactionAnimating(false);
+          setIsTaskReactionDone(true);
+          setIsSuccessModalDismissed(false);
+          // Saat eksperimen terkunci, otomatis matikan kamera agar hand tracking berhenti
+          setIsCameraActive(false);
+        }, 4500);
       }
     }
   };
@@ -336,16 +582,24 @@ export default function SmartScienceLabViewer() {
     };
 
     setVessels((prev) => [...prev, newVessel]);
+    labSound.playGlassClink("medium");
     setIsAddChemicalModalOpen(false);
   };
 
   // Remove individual vessel from workbench
   const handleRemoveVessel = (vesselId: string) => {
     setVessels((prev) => prev.filter((v) => v.id !== vesselId));
+    labSound.playGlassClink("soft");
   };
 
   // Reset Workbench positions and reactions
   const handleResetWorkbench = () => {
+    labSound.playGlassClink("soft");
+    if (reactionLockTimerRef.current) {
+      clearTimeout(reactionLockTimerRef.current);
+      reactionLockTimerRef.current = null;
+    }
+    setIsReactionAnimating(false);
     if (!isTeacher && labMode === "task" && currentTask) {
       applyTaskToWorkbench(currentTask);
     } else {
@@ -354,20 +608,29 @@ export default function SmartScienceLabViewer() {
     }
     setIsTaskReactionDone(false);
     setIsSuccessModalDismissed(false);
+    // Saat direset ulang, aktifkan kembali kamera agar hand tracking berfungsi
+    setIsCameraActive(true);
   };
 
   // Switch student lab mode
   const handleSwitchMode = (mode: "task" | "sandbox") => {
     if (isTeacher && mode !== "sandbox") return; // Guru terkunci di mode Sandbox
+    if (reactionLockTimerRef.current) {
+      clearTimeout(reactionLockTimerRef.current);
+      reactionLockTimerRef.current = null;
+    }
+    setIsReactionAnimating(false);
     setLabMode(mode);
     setIsTaskReactionDone(false);
     setIsSuccessModalDismissed(false);
     setActiveReaction(null);
     if (mode === "sandbox") {
+      setIsCameraActive(true);
       setCurrentTask(null);
       setVessels([]); // Mode Sandbox: Meja lab dikosongkan total agar murid bebas memilih dari katalog!
       setActiveTab("lab");
     } else if (mode === "task") {
+      setIsCameraActive(true);
       if (currentTask) {
         applyTaskToWorkbench(currentTask);
       } else if (tasks.length > 0) {
@@ -381,27 +644,132 @@ export default function SmartScienceLabViewer() {
   // Is experiment interaction locked (Target reached in task mode)
   const isExperimentLocked = !isTeacher && labMode === "task" && isTaskReactionDone;
 
+  // Kamera efektif: otomatis nonaktif saat meja praktikum dalam mode review / terkunci
+  const isCameraEffective = isCameraActive && !isExperimentLocked;
+
+  // Otomatis pastikan kamera nonaktif saat praktikum terkunci (mode review)
+  useEffect(() => {
+    if (isExperimentLocked) {
+      setIsCameraActive(false);
+    }
+  }, [isExperimentLocked]);
+
   const handleSubmitQuiz = async (score: number, answers: any[]) => {
     setLastQuizScore(score);
     if (!currentTask) return;
 
+    const studentUser = (currentUser?.name || studentName || "Guest").trim();
+    const mixedChems = vessels.map((v) => ({
+      name: v.name,
+      formula: v.formula,
+      color: v.color,
+    }));
+
+    const matchedRx = activeReaction || REACTION_CATALOG.find((r) =>
+      (currentTask.expectedReactionId && r.id === currentTask.expectedReactionId) ||
+      (currentTask.title && (r.title.toLowerCase().includes("redoks") || currentTask.title.toLowerCase().includes(r.title.toLowerCase())))
+    );
+
+    const kkm = currentTask.kkmScore ?? 75;
+    const isPassed = score >= kkm;
+    const wrongAnswers = answers.filter((a) => !a.isCorrect);
+    const correctAnswers = answers.filter((a) => a.isCorrect);
+
+    let diagnosticSummary = `Praktikum "${currentTask.title}" telah diselesaikan oleh ${studentUser}. Skor Kuis AI: ${score}/100 (Batas KKM: ${kkm}) — Status: ${isPassed ? "Tuntas Lulus KKM" : "Belum Tuntas (Di Bawah KKM)"}. Target Reaksi 3D: ${isTaskReactionDone ? "Berhasil Diamati Sempurna" : "Selesai Dieksplorasi"}. `;
+
+    if (wrongAnswers.length === 0) {
+      diagnosticSummary += `Siswa menunjukkan penguasaan konseptual sempurna (100% akurasi) terhadap seluruh butir soal mekanisme reaksi, stoikiometri seimbang, dan perubahan energi termal.`;
+    } else {
+      diagnosticSummary += `Siswa menguasai ${correctAnswers.length} dari ${answers.length} konsep kuis. Perlu penguatan pada area miskonsepsi berikut: ${wrongAnswers.map((w, i) => `[Soal ${i + 1}: ${w.question || "Konsep Reaksi"}]`).join(", ")}.`;
+    }
+
+    const tempChange = activeReaction
+      ? activeReaction.temperatureChange
+      : (matchedRx && 'temperatureChangeC' in matchedRx ? (matchedRx as any).temperatureChangeC : 0);
+
+    const prodName = activeReaction
+      ? activeReaction.resultName
+      : (matchedRx && 'productName' in matchedRx ? (matchedRx as any).productName : "Produk Kimiawi");
+
+    const prodFormula = activeReaction
+      ? activeReaction.resultFormula
+      : (matchedRx && 'productFormula' in matchedRx ? (matchedRx as any).productFormula : "Senyawa Produk");
+
+    const prodColor = activeReaction
+      ? activeReaction.resultColor
+      : (matchedRx && 'productColor' in matchedRx ? (matchedRx as any).productColor : "#38bdf8");
+
+    const experimentDetails: ExperimentDetailLog = {
+      reactionTitle: activeReaction?.title || matchedRx?.title || currentTask.title,
+      reactionEquation: activeReaction?.equation || matchedRx?.equation || "",
+      temperatureChange: tempChange,
+      observablePhenomena: activeReaction?.observablePhenomena || matchedRx?.observablePhenomena || "Reaksi kimia selesai teramati di meja 3D.",
+      explanation: activeReaction?.explanation || matchedRx?.explanation || currentTask.instructions || "",
+      reasonWhy: activeReaction?.reasonWhy || matchedRx?.reasonWhy || "",
+      mixedChemicals: mixedChems.length > 0 ? mixedChems : (currentTask.chemicalIds || []).map((cid: string) => {
+        const found = CHEMICAL_CATALOG.find((c) => c.id === cid);
+        return { name: found?.name || cid, formula: found?.formula || cid, color: found?.color || "#38bdf8" };
+      }),
+      resultVessel: vessels.length > 0 ? {
+        name: vessels[0].name,
+        formula: vessels[0].formula,
+        color: vessels[0].color,
+        temperatureC: vessels[0].temperatureC,
+      } : {
+        name: prodName,
+        formula: prodFormula,
+        color: prodColor,
+      },
+      completedAt: new Date().toISOString(),
+    };
+
     try {
-      await fetch("/api/lab/submissions", {
+      const res = await fetch("/api/lab/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: currentTask.id,
-          studentName: currentUser?.name || studentName,
+          studentName: studentUser,
           isReactionAchieved: isTaskReactionDone,
           score,
           answers,
-          aiAnalysis: `Praktikum ${currentTask.title} berhasil diamati. Skor Kuis: ${score}/100.`,
+          aiAnalysis: diagnosticSummary,
+          experimentDetails,
         }),
       });
+
+      if (res.ok) {
+        fetchStudentSubmissions(studentUser);
+      }
     } catch (err) {
       console.error("Save submission error:", err);
     }
   };
+
+  // Sinkronisasi status pengerjaan saat studentSubmissions atau currentTask dimuat
+  useEffect(() => {
+    if (currentTask && studentSubmissions.length > 0) {
+      const existingSub = studentSubmissions.find((s) => s.taskId === currentTask.id);
+      if (existingSub) {
+        setIsTaskReactionDone(Boolean(existingSub.isReactionAchieved));
+        setLastQuizScore(existingSub.score);
+
+        // Pulihkan bejana produk hasil reaksi & data reaksi kimia lengkap agar tetap tersimpan & terlihat saat review!
+        const { reaction, vessel } = resolveReactionForTask(currentTask, existingSub.experimentDetails);
+        setVessels([vessel]);
+        setActiveReaction(reaction);
+      }
+    }
+  }, [studentSubmissions, currentTask]);
+
+  const currentSubmission = currentTask
+    ? studentSubmissions.find((s) => s.taskId === currentTask.id)
+    : null;
+
+  const kkmScore = currentTask?.kkmScore ?? 75;
+  const allowRetakeBelowKkm = currentTask?.allowRetakeBelowKkm !== false;
+  const isBelowKkm = currentSubmission ? currentSubmission.score < kkmScore : false;
+  const canRetake = !currentSubmission || (allowRetakeBelowKkm && isBelowKkm);
 
   const activeChemNames = vessels.map((v) => `${v.name} (${v.formula})`);
 
@@ -461,33 +829,64 @@ export default function SmartScienceLabViewer() {
           </Link>
         </div>
 
-        {/* Room PIN Card */}
-        <div className="p-3">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 shadow-sm">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 font-medium text-[11px]">Room Praktikum:</span>
+        {/* Room PIN Card - HANYA tampil untuk Siswa/Guru yang login. Mode Tamu menampilkan Kartu Tamu */}
+        {isGuest ? (
+          <div className="p-3">
+            <div className="bg-sky-50/80 border border-sky-200 rounded-xl p-3 space-y-1.5 shadow-2xs">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-sky-900 font-bold text-[11px] flex items-center gap-1.5">
+                  <FlaskConical className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Laboratorium Tamu</span>
+                </span>
+                <span className="text-[9px] bg-sky-600 text-white px-1.5 py-0.5 rounded font-black tracking-wide">
+                  GUEST
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-600 leading-relaxed">
+                Mode eksplorasi bebas aktif. Silakan masuk akun kelas untuk mengerjakan tugas dan kuis praktikum.
+              </p>
               <button
                 type="button"
-                onClick={() => {
-                  const newPin = prompt("Masukkan PIN Room Baru:", roomCode);
-                  if (newPin) setRoomCode(newPin.toUpperCase().trim());
-                }}
-                className="text-[10px] bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded transition-colors font-semibold shadow-xs"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="w-full mt-0.5 py-1.5 px-2 bg-white hover:bg-sky-100 text-sky-800 border border-sky-300 rounded-lg text-[11px] font-bold text-center transition-colors shadow-2xs cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Ganti PIN
+                <span>Masuk Akun Kelas</span>
+                <span className="text-[10px]">→</span>
               </button>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="font-mono font-bold text-sky-700 text-sm tracking-wider">
-                {roomCode}
-              </span>
-              <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                SD • SMP • SMA
-              </span>
+          </div>
+        ) : (
+          <div className="p-3">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 shadow-sm">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium text-[11px]">Room Praktikum:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newPin = prompt("Masukkan PIN Room Baru:", roomCode);
+                    if (newPin) {
+                      const cleanPin = newPin.toUpperCase().trim();
+                      setRoomCode(cleanPin);
+                      fetchTasks(cleanPin);
+                    }
+                  }}
+                  className="text-[10px] bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded transition-colors font-semibold shadow-xs"
+                >
+                  Ganti PIN
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-sky-700 text-sm tracking-wider">
+                  {roomCode}
+                </span>
+                <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  SD • SMP • SMA
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Navigation Menu */}
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4 text-xs font-semibold">
@@ -537,86 +936,7 @@ export default function SmartScienceLabViewer() {
                 </button>
               </div>
 
-              {/* Section 1: Dashboard & Manajemen Guru */}
-              <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Manajemen & Tugas Guru
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTeacherBuilderSection("create");
-                    setActiveTab("teacher_builder");
-                    setIsMobileDrawerOpen(false);
-                  }}
-                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                    activeTab === "teacher_builder" && teacherBuilderSection === "create"
-                      ? "bg-sky-600 text-white shadow-sm"
-                      : "text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <PlusCircle className="w-4 h-4 text-sky-600" />
-                    <span>Rancang Tugas Baru</span>
-                  </div>
-                  <span className="text-[9px] bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded font-bold border border-sky-200">
-                    AI Kuis
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTeacherBuilderSection("list");
-                    setActiveTab("teacher_builder");
-                    setIsMobileDrawerOpen(false);
-                  }}
-                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                    activeTab === "teacher_builder" && teacherBuilderSection === "list"
-                      ? "bg-sky-600 text-white shadow-sm"
-                      : "text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <ClipboardList className="w-4 h-4 text-amber-600" />
-                    <span>Tugas Diterbitkan</span>
-                  </div>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                      activeTab === "teacher_builder" && teacherBuilderSection === "list"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {tasks.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTeacherBuilderSection("submissions");
-                    setActiveTab("teacher_builder");
-                    setIsMobileDrawerOpen(false);
-                  }}
-                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                    activeTab === "teacher_builder" && teacherBuilderSection === "submissions"
-                      ? "bg-sky-600 text-white shadow-sm"
-                      : "text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Users className="w-4 h-4 text-emerald-600" />
-                    <span>Rekap Nilai Siswa</span>
-                  </div>
-                  <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold border border-emerald-200">
-                    Hasil
-                  </span>
-                </button>
-              </div>
-
-              {/* Section 2: Asisten AI Guru */}
+              {/* Section: Asisten AI Guru */}
               <div className="space-y-1">
                 <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Asisten AI Guru
@@ -671,7 +991,9 @@ export default function SmartScienceLabViewer() {
                             style={{ backgroundColor: v.color }}
                           />
                           <div className="truncate">
-                            <span className="font-mono font-bold text-slate-900 mr-1">{v.formula}</span>
+                            <span className="font-mono font-bold text-slate-900 mr-1">
+                              <ChemicalFormula formula={v.formula} />
+                            </span>
                             <span className="text-slate-500 truncate text-[10px]">{v.name}</span>
                           </div>
                         </div>
@@ -712,13 +1034,13 @@ export default function SmartScienceLabViewer() {
             </>
           ) : (
             /* ==========================================================
-               STUDENT SIDEBAR NAVIGATION (SISWA PRAKTIKAN / TAMU)
+               STUDENT / GUEST SIDEBAR NAVIGATION
                ========================================================== */
             <>
-              {/* Section 1: Menu Utama Siswa */}
+              {/* Section 1: Menu Navigasi Meja Lab */}
               <div className="space-y-1">
                 <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Navigasi Meja Lab
+                  {isGuest ? "Laboratorium Virtual" : "Navigasi Meja Lab"}
                 </span>
 
                 <button
@@ -746,76 +1068,81 @@ export default function SmartScienceLabViewer() {
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("tasks");
-                    setIsMobileDrawerOpen(false);
-                  }}
-                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                    activeTab === "tasks"
-                      ? "bg-sky-600 text-white shadow-sm"
-                      : "text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <ClipboardList className="w-4 h-4" />
-                    <span>Daftar Tugas Kelas</span>
-                  </div>
-                  {tasks.length > 0 && (
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                        activeTab === "tasks" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
-                      }`}
-                    >
-                      {tasks.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Section 2: Fitur AI & Evaluasi Siswa */}
-              <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {labMode === "task" ? "Asisten AI & Evaluasi" : "Asisten AI Praktikum"}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => setIsAiAssistantOpen(true)}
-                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Tanya Asisten Lab-AI</span>
-                  </div>
-                  <span className="text-[9px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold">
-                    AI
-                  </span>
-                </button>
-
-                {/* Kuis Evaluasi Sains HANYA tampil di Mode Tugas */}
-                {labMode === "task" && (
+                {/* Daftar Tugas Kelas - HANYA tampil untuk Siswa yang login (Bukan Guest) */}
+                {!isGuest && (
                   <button
                     type="button"
                     onClick={() => {
-                      if (currentTask) setIsQuizModalOpen(true);
-                      else alert("Pilih tugas praktikum terlebih dahulu untuk mengerjakan kuis!");
+                      setActiveTab("tasks");
+                      setIsMobileDrawerOpen(false);
                     }}
-                    className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
+                    className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
+                      activeTab === "tasks"
+                        ? "bg-sky-600 text-white shadow-sm"
+                        : "text-slate-700 hover:bg-slate-100"
+                    }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <Award className="w-4 h-4 text-emerald-600" />
-                      <span>Kuis Evaluasi Sains</span>
+                      <ClipboardList className="w-4 h-4" />
+                      <span>Daftar Tugas Kelas</span>
                     </div>
-                    {lastQuizScore !== null && (
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
-                        {lastQuizScore}/100
+                    {tasks.length > 0 && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
+                          activeTab === "tasks" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
+                        }`}
+                      >
+                        {tasks.length}
                       </span>
                     )}
                   </button>
                 )}
               </div>
+
+              {/* Section 2: Fitur AI & Evaluasi Siswa - HANYA untuk user yang login (Bukan Guest) */}
+              {!isGuest && (
+                <div className="space-y-1">
+                  <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {labMode === "task" ? "Asisten AI & Evaluasi" : "Asisten AI Praktikum"}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAiAssistantOpen(true)}
+                    className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>Tanya Asisten Lab-AI</span>
+                    </div>
+                    <span className="text-[9px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold">
+                      AI
+                    </span>
+                  </button>
+
+                  {/* Kuis Evaluasi Sains HANYA tampil di Mode Tugas */}
+                  {labMode === "task" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentTask) setIsQuizModalOpen(true);
+                        else alert("Pilih tugas praktikum terlebih dahulu untuk mengerjakan kuis!");
+                      }}
+                      className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Award className="w-4 h-4 text-emerald-600" />
+                        <span>Kuis Evaluasi Sains</span>
+                      </div>
+                      {lastQuizScore !== null && (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
+                          {lastQuizScore}/100
+                        </span>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Section 3: Reagen Aktif di Meja */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
@@ -853,7 +1180,9 @@ export default function SmartScienceLabViewer() {
                             style={{ backgroundColor: v.color }}
                           />
                           <div className="truncate">
-                            <span className="font-mono font-bold text-slate-900 mr-1">{v.formula}</span>
+                            <span className="font-mono font-bold text-slate-900 mr-1">
+                              <ChemicalFormula formula={v.formula} />
+                            </span>
                             <span className="text-slate-500 truncate text-[10px]">{v.name}</span>
                           </div>
                         </div>
@@ -911,10 +1240,12 @@ export default function SmartScienceLabViewer() {
                 className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-xs ${
                   currentUser?.role === "teacher"
                     ? "bg-amber-100 text-amber-800 border border-amber-200"
-                    : "bg-sky-100 text-sky-800 border border-sky-200"
+                    : currentUser?.role === "student"
+                    ? "bg-sky-100 text-sky-800 border border-sky-200"
+                    : "bg-slate-200 text-slate-700 border border-slate-300"
                 }`}
               >
-                {currentUser ? currentUser.name.charAt(0) : studentName.charAt(0)}
+                {currentUser ? currentUser.name.charAt(0).toUpperCase() : "G"}
               </div>
               <span
                 className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
@@ -924,7 +1255,7 @@ export default function SmartScienceLabViewer() {
             </div>
             <div className="truncate">
               <div className="text-xs font-semibold text-slate-900 truncate group-hover:text-sky-600 transition-colors">
-                {currentUser ? currentUser.name : studentName}
+                {currentUser ? currentUser.name : "Pengguna Tamu"}
               </div>
               <div className="text-[10px] text-slate-500 truncate flex items-center gap-1">
                 {currentUser?.role === "teacher" ? (
@@ -941,7 +1272,11 @@ export default function SmartScienceLabViewer() {
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
-            className="text-[11px] text-slate-500 hover:text-slate-900 px-2 py-1 rounded hover:bg-slate-200/60 transition-colors font-medium shrink-0 cursor-pointer"
+            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors shrink-0 cursor-pointer shadow-2xs ${
+              currentUser
+                ? "text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200"
+                : "text-white bg-sky-600 hover:bg-sky-700 font-bold"
+            }`}
           >
             {currentUser ? "Ganti" : "Masuk"}
           </button>
@@ -1005,7 +1340,7 @@ export default function SmartScienceLabViewer() {
                   className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded shadow-xs ${
                     currentUser.role === "teacher"
                       ? "bg-amber-100 text-amber-800 border border-amber-200"
-                      : "bg-sky-100 text-sky-800 border border-sky-200"
+                      : "bg-sky-100 text-sky-800 border border-sky-200" 
                   }`}
                 >
                   {currentUser.role === "teacher" ? "GURU" : "SISWA"}
@@ -1036,28 +1371,34 @@ export default function SmartScienceLabViewer() {
             {activeTab === "lab" && (
               <button
                 type="button"
-                onClick={() => setIsCameraActive((prev) => !prev)}
+                onClick={() => {
+                  if (isExperimentLocked) return;
+                  setIsCameraActive((prev) => !prev);
+                }}
+                disabled={isExperimentLocked}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm ${
-                  isCameraActive
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                    : "bg-rose-600 text-white hover:bg-rose-700"
+                  isExperimentLocked
+                    ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-80"
+                    : isCameraEffective
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
+                    : "bg-rose-600 text-white hover:bg-rose-700 cursor-pointer"
                 }`}
+                title={
+                  isExperimentLocked
+                    ? "Kamera dinonaktifkan dalam mode review praktikum selesai"
+                    : "Toggle sensor tangan"
+                }
               >
-                {isCameraActive ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+                {isCameraEffective ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline">
-                  {isCameraActive ? "🖐️ Sensor Tangan Aktif" : "🖐️ Sensor Nonaktif"}
+                  {isExperimentLocked
+                    ? "🖐️ Sensor Nonaktif (Selesai)"
+                    : isCameraActive
+                    ? "🖐️ Sensor Tangan Aktif"
+                    : "🖐️ Sensor Nonaktif"}
                 </span>
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={() => setIsAiAssistantOpen(true)}
-              className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">Tanya AI</span>
-            </button>
           </div>
         </header>
 
@@ -1068,6 +1409,173 @@ export default function SmartScienceLabViewer() {
               =================================================================== */}
           {activeTab === "lab" && (
             <div className="space-y-4 max-w-6xl mx-auto w-full">
+              {/* Note Banner: Ditampilkan saat siswa telah menyelesaikan tugas ini (Persistensi Database) */}
+              {!isTeacher && labMode === "task" && currentSubmission && (
+                <div
+                  className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in ${
+                    currentSubmission.score >= kkmScore
+                      ? "bg-emerald-50 border-emerald-300"
+                      : "bg-amber-50 border-amber-300"
+                  }`}
+                >
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-xl text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base ${
+                        currentSubmission.score >= kkmScore ? "bg-emerald-600" : "bg-amber-600"
+                      }`}
+                    >
+                      {currentSubmission.score >= kkmScore ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                            currentSubmission.score >= kkmScore
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                              : "bg-rose-100 text-rose-800 border-rose-300"
+                          }`}
+                        >
+                          {currentSubmission.score >= kkmScore
+                            ? `✓ TUNTAS (LULUS KKM ${kkmScore})`
+                            : `BELUM TUNTAS (< KKM ${kkmScore})`}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {currentSubmission.completedAt
+                            ? new Date(currentSubmission.completedAt).toLocaleString("id-ID", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "Tercatat di Database"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                        Laporan Praktikum &amp; Nilai Kuis Tersimpan di Guru Pengampu
+                      </h4>
+                      <div className="text-xs text-slate-600 mt-0.5 space-y-0.5">
+                        <p>
+                          Nilai Kuis AI:{" "}
+                          <strong
+                            className={`text-sm ${
+                              currentSubmission.score >= kkmScore ? "text-emerald-700" : "text-rose-700"
+                            }`}
+                          >
+                            {currentSubmission.score}/100
+                          </strong>{" "}
+                          • Batas KKM: <strong>{kkmScore}</strong> • Target Reaksi:{" "}
+                          <strong className="text-emerald-700">
+                            {currentSubmission.isReactionAchieved
+                              ? "✓ Reaksi Berhasil Teruji"
+                              : "Observasi Selesai"}
+                          </strong>
+                        </p>
+                        {currentSubmission.score >= kkmScore ? (
+                          <p className="text-emerald-700 font-semibold">
+                            ✓ Selamat! Nilai Anda telah mencapai KKM. Eksperimen praktikum telah selesai secara permanen.
+                          </p>
+                        ) : allowRetakeBelowKkm ? (
+                          <p className="text-amber-800 font-semibold">
+                            ⚠️ Nilai di bawah KKM ({kkmScore}). Guru mengizinkan Anda mengulangi praktikum &amp; kuis sampai tuntas.
+                          </p>
+                        ) : (
+                          <p className="text-rose-700 font-semibold">
+                            ✕ Nilai di bawah KKM ({kkmScore}). Guru tidak mengizinkan pengulangan untuk tugas ini (Sekali Selesai).
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setViewingSubmissionDetail(currentSubmission)}
+                      className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 text-xs font-semibold rounded-xl transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Laporan Lengkap &amp; Evaluasi AI</span>
+                    </button>
+
+                    {!activeReaction && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentTask && currentSubmission) {
+                            const { reaction, vessel } = resolveReactionForTask(currentTask, currentSubmission.experimentDetails);
+                            setVessels([vessel]);
+                            setActiveReaction(reaction);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-xl transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Buka Detail Reaksi Kimia</span>
+                      </button>
+                    )}
+
+                    {currentTask?.questions && currentTask.questions.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsQuizModalOpen(true)}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer"
+                      >
+                        Lihat Kuis &amp; Pembahasan
+                      </button>
+                    )}
+                    {canRetake && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm("Ulangi praktikum ini dari awal? Reagen di meja akan di-reset ke bahan awal.")) {
+                            setIsTaskReactionDone(false);
+                            setLastQuizScore(null);
+                            if (currentTask) {
+                              const rawIds = currentTask.chemicalIds || [];
+                              const ids: string[] = typeof rawIds === "string" ? JSON.parse(rawIds) : Array.isArray(rawIds) ? rawIds : [];
+                              const taskVessels: ChemicalVessel[] = ids.map((chemId, index) => {
+                                const chem = chemicalCatalog.find((c) => c.id === chemId) || CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
+                                  id: chemId,
+                                  name: "Bahan Kimia",
+                                  formula: "Reagen",
+                                  color: "#38bdf8",
+                                  level: currentTask.level || currentTask.gradeLevel || "SMP",
+                                };
+                                const posX = (index - ((ids.length - 1) / 2)) * 2.3;
+                                return {
+                                  id: `v_${chem.id}_${index}`,
+                                  name: chem.name,
+                                  formula: chem.formula,
+                                  type: index % 2 === 0 ? "beaker" : "flask",
+                                  color: chem.color,
+                                  initialColor: chem.color,
+                                  position: [posX, 0.55, 0.25],
+                                  level: currentTask.level || currentTask.gradeLevel || "SMP",
+                                  liquidLevel: 0.7,
+                                  temperatureC: 25,
+                                  components: [chem.formula],
+                                };
+                              });
+                              setVessels(taskVessels);
+                              setActiveReaction(null);
+                            }
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Ulangi Praktikum</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Mode Bar & Task Target Banner */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
                 <div className="space-y-1">
@@ -1222,15 +1730,17 @@ export default function SmartScienceLabViewer() {
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={handleResetWorkbench}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
-                        title="Ulangi Eksperimen"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Ulangi</span>
-                      </button>
+                      {canRetake && (
+                        <button
+                          type="button"
+                          onClick={handleResetWorkbench}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
+                          title="Ulangi Eksperimen"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Ulangi</span>
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -1252,13 +1762,74 @@ export default function SmartScienceLabViewer() {
                 </div>
               </div>
 
+              {/* Dedicated Science Instrument Rack (Termometer Celup, Kertas Lakmus, Indikator pH - Di Luar Layar Meja 3D) */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-2.5 sm:px-4 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+                <div className="flex items-center gap-2 overflow-x-auto py-0.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 shrink-0">
+                    <FlaskConical className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Instrumen Lab:</span>
+                  </span>
+                  {[
+                    { id: "hand", label: "✋ Tangan (Tuang)", title: "Pindahkan & Tuangkan Bejana Reaksi" },
+                    { id: "thermometer", label: "🌡️ Termometer Celup", title: "Celupkan ke Bejana untuk Mengukur Suhu Termokimia" },
+                    { id: "litmus_red", label: "🔴 Lakmus Merah", title: "Uji Sifat Basa (Merah → Biru)" },
+                    { id: "litmus_blue", label: "🔵 Lakmus Biru", title: "Uji Sifat Asam (Biru → Merah)" },
+                    { id: "ph_meter", label: "🧪 Indikator pH", title: "Cek Derajat Keasaman pH Universal (0-14)" },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => handleSelectTool(t.id as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0 ${
+                        activeTool === t.id
+                          ? "bg-sky-600 text-white shadow-xs"
+                          : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
+                      }`}
+                      title={t.title}
+                    >
+                      <span>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Target Beaker Selector when instrument is active */}
+                {activeTool !== "hand" && vessels.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs shrink-0">
+                    <span className="text-slate-500 font-medium text-[11px]">Celup ke:</span>
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                      {vessels.map((v) => {
+                        const isSelected = dippedVesselId === v.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => handleDipTool(v, activeTool)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border ${
+                              isSelected
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                : "bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
+                            }`}
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full border border-black/20"
+                              style={{ backgroundColor: v.color || "#0284c7" }}
+                            />
+                            <span>{v.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* 3D Workbench Stage Canvas Container - Clean Laboratory Environment */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-sm h-[490px] sm:h-[560px]">
                 {/* Layer 0: Camera Feed (Visually hidden - runs strictly for MediaPipe vision tracking without showing webcam video) */}
-                {isCameraActive && (
+                {isCameraEffective && (
                   <div className="absolute inset-0 opacity-0 pointer-events-none -z-10">
                     <CameraFeed
-                      isActive={isCameraActive}
+                      isActive={isCameraEffective}
                       onVideoReady={setVideoElement}
                       showControls={false}
                       className="w-full h-full rounded-none"
@@ -1269,22 +1840,25 @@ export default function SmartScienceLabViewer() {
                 {/* Layer 1: 3D WebGL Canvas */}
                 <div className="absolute inset-0 z-10 pointer-events-auto">
                   <ChemistryLabScene
-                    handTransform={isCameraActive ? handTransform : undefined}
+                    handTransform={isCameraEffective ? handTransform : undefined}
                     onReactionDetected={handleReactionDetected}
                     vessels={vessels}
                     setVessels={setVessels}
                     activeReaction={activeReaction}
                     reactions={reactionsList}
                     isLocked={isExperimentLocked}
+                    activeTool={activeTool}
+                    dippedVesselId={dippedVesselId}
+                    onDipTool={handleDipTool}
                   />
                 </div>
 
                 {/* Layer 2: Glowing Hand Skeleton Tracker Canvas */}
-                {isCameraActive && (
+                {isCameraEffective && (
                   <div className="absolute inset-0 z-20 pointer-events-none">
                     <HandGestureTracker
                       videoElement={videoElement}
-                      isActive={isCameraActive}
+                      isActive={isCameraEffective}
                       onGestureUpdate={handleGestureUpdate}
                     />
                   </div>
@@ -1292,10 +1866,24 @@ export default function SmartScienceLabViewer() {
 
                 {/* Layer 3: HUD Status Overlay */}
                 <div className="absolute top-3 left-3 z-30 flex flex-col gap-1.5 pointer-events-none">
-                  <span className="bg-white/95 backdrop-blur-md text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-sm">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Hand Skeleton Tracker Active
-                  </span>
+                  {isCameraEffective ? (
+                    <span className="bg-white/95 backdrop-blur-md text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-sm">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Hand Skeleton Tracker Active
+                    </span>
+                  ) : isExperimentLocked ? (
+                    <span className="bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-1.5 shadow-sm">
+                      <VideoOff className="w-3.5 h-3.5 text-slate-400" />
+                      Kamera Nonaktif (Mode Review Selesai)
+                    </span>
+                  ) : null}
+
+                  {isReactionAnimating && (
+                    <span className="bg-amber-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg border border-amber-600 flex items-center gap-2 shadow-md animate-bounce">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-spin" />
+                      <span>⚗️ Reaksi Berlangsung! Mengamati fenomena visual di meja 3D...</span>
+                    </span>
+                  )}
 
                   {isExperimentLocked && (
                     <span className="bg-rose-50 text-rose-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-rose-200 flex items-center gap-1.5 shadow-sm animate-pulse">
@@ -1323,8 +1911,8 @@ export default function SmartScienceLabViewer() {
                   </div>
                 </div>
 
-                {/* Sandbox Empty Table Banner */}
-                {labMode === "sandbox" && vessels.length === 0 && (
+                {/* Sandbox Empty Table Banner */}    
+                {(labMode === "sandbox" || isGuest) && vessels.length === 0 && (
                   <div className="absolute inset-x-0 bottom-16 flex justify-center pointer-events-none z-30">
                     <div className="bg-white/95 backdrop-blur-md border border-slate-200 text-slate-800 px-4 py-2 rounded-xl shadow-lg flex items-center gap-3 pointer-events-auto">
                       <FlaskConical className="w-4 h-4 text-emerald-600" />
@@ -1341,19 +1929,90 @@ export default function SmartScienceLabViewer() {
                   </div>
                 )}
 
+                {/* Task Mode Empty Table Banner (if task hasn't loaded reagents yet) */}
+                {!isGuest && labMode === "task" && vessels.length === 0 && (
+                  <div className="absolute inset-x-0 bottom-16 flex justify-center pointer-events-none z-30">
+                    <div className="bg-white/95 backdrop-blur-md border border-slate-200 text-slate-800 px-4 py-2 rounded-xl shadow-lg flex items-center gap-3 pointer-events-auto">
+                      <ClipboardList className="w-4 h-4 text-sky-600" />
+                      <span className="text-xs text-slate-600">
+                        {currentTask ? `Tugas "${currentTask.title}" siap dimulai.` : "Tugas kelas tersedia. Siapkan meja untuk memulai praktikum."}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentTask) applyTaskToWorkbench(currentTask);
+                          else if (tasks.length > 0) applyTaskToWorkbench(tasks[0]);
+                          else setActiveTab("tasks");
+                        }}
+                        className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        <span>Siapkan Meja Praktik</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Layer 4: Floating Quick Controls */}
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 shadow-md text-slate-700 pointer-events-auto">
                   <button
                     type="button"
-                    onClick={() => setIsCameraActive((prev) => !prev)}
+                    onClick={() => {
+                      if (isExperimentLocked) return;
+                      setIsCameraActive((prev) => !prev);
+                    }}
+                    disabled={isExperimentLocked}
                     className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      isCameraActive ? "bg-slate-100 text-slate-800 hover:bg-slate-200" : "bg-rose-600 text-white"
+                      isExperimentLocked
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-75"
+                        : isCameraActive
+                        ? "bg-slate-100 text-slate-800 hover:bg-slate-200 cursor-pointer"
+                        : "bg-rose-600 text-white cursor-pointer"
                     }`}
+                    title={
+                      isExperimentLocked
+                        ? "Kamera dinonaktifkan dalam mode review/terkunci"
+                        : "Toggle sensor kamera"
+                    }
                   >
-                    {isCameraActive ? "🖐️ Sensor: ON" : "🖐️ Sensor: OFF"}
+                    {isExperimentLocked
+                      ? "🖐️ Sensor: OFF (Terkunci)"
+                      : isCameraActive
+                      ? "🖐️ Sensor: ON"
+                      : "🖐️ Sensor: OFF"}
                   </button>
 
-                  {labMode === "sandbox" && (
+                  {/* Audio SFX Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newMuted = labSound.toggleMute();
+                      setIsSoundMuted(newMuted);
+                      if (!newMuted) {
+                        labSound.playGlassClink("soft");
+                      }
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                      !isSoundMuted
+                        ? "bg-slate-100 text-slate-800 hover:bg-slate-200"
+                        : "bg-amber-100 text-amber-800 border border-amber-200"
+                    }`}
+                    title={!isSoundMuted ? "Matikan Suara SFX Lab" : "Aktifkan Suara SFX Lab"}
+                  >
+                    {!isSoundMuted ? (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5 text-sky-600" />
+                        <span>🔊 SFX: ON</span>
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="w-3.5 h-3.5 text-amber-700" />
+                        <span>🔇 SFX: OFF</span>
+                      </>
+                    )}
+                  </button>
+
+                  {(labMode === "sandbox" || isGuest) && (
                     <button
                       type="button"
                       onClick={() => setIsAddChemicalModalOpen(true)}
@@ -1373,16 +2032,37 @@ export default function SmartScienceLabViewer() {
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsAiAssistantOpen(true)}
-                    className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>Tanya AI</span>
-                  </button>
+                  {!isGuest && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAiAssistantOpen(true)}
+                      className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Tanya AI</span>
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Dedicated Interactive Measurement Inspector Panel (Di Luar Layar Meja 3D) */}
+              {activeTool !== "hand" && activeMeasurement && (
+                <InteractiveMeasurementInspector
+                  measurement={activeMeasurement}
+                  onClose={() => {
+                    setActiveTool("hand");
+                    setActiveMeasurement(null);
+                    setDippedVesselId(null);
+                  }}
+                  activeTool={activeTool}
+                  onSelectTool={handleSelectTool}
+                  allVessels={vessels.map((v) => ({ id: v.id, name: v.name, formula: v.formula }))}
+                  onSelectVessel={(vId) => {
+                    const v = vessels.find((item) => item.id === vId);
+                    if (v) handleDipTool(v, activeTool);
+                  }}
+                />
+              )}
 
               {/* Task Completion Celebration Modal (Auto-Stop in Task Mode) */}
               {labMode === "task" && isTaskReactionDone && !isSuccessModalDismissed && (
@@ -1416,15 +2096,17 @@ export default function SmartScienceLabViewer() {
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={handleResetWorkbench}
-                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
-                        title="Ulangi praktikum dari awal"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Ulangi</span>
-                      </button>
+                      {canRetake && (
+                        <button
+                          type="button"
+                          onClick={handleResetWorkbench}
+                          className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
+                          title="Ulangi praktikum dari awal"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Ulangi</span>
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -1469,14 +2151,12 @@ export default function SmartScienceLabViewer() {
 
                   {/* Persamaan Kimia & Produk */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
-                    <div className="lg:col-span-8 p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-center gap-1.5 shadow-xs">
-                      <div className="flex items-center justify-between text-[11px] font-bold tracking-wider uppercase text-slate-500">
-                        <span>Persamaan Reaksi Kimia (Stoikiometri)</span>
-                        <span className="text-xs text-sky-700 font-mono font-bold">Status: Seimbang</span>
-                      </div>
-                      <div className="text-sm sm:text-base font-bold font-mono text-sky-900 overflow-x-auto py-1">
-                        <code>{activeReaction.equation}</code>
-                      </div>
+                    <div className="lg:col-span-8 flex flex-col justify-center">
+                      <ChemicalEquation
+                        equation={activeReaction.equation}
+                        showCopy={true}
+                        title="Persamaan Reaksi Kimia (Stoikiometri Seimbang)"
+                      />
                     </div>
                     <div className="lg:col-span-4 p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-center gap-1 shadow-xs">
                       <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Produk Reaksi</span>
@@ -1490,7 +2170,7 @@ export default function SmartScienceLabViewer() {
                         </span>
                       </div>
                       <div className="text-xs text-slate-500 font-mono">
-                        Formula: <strong className="text-slate-800">{activeReaction.resultFormula}</strong>
+                        Formula: <strong className="text-slate-900"><ChemicalFormula formula={activeReaction.resultFormula} /></strong>
                       </div>
                     </div>
                   </div>
@@ -1605,14 +2285,16 @@ export default function SmartScienceLabViewer() {
                           </button>
                         )
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setIsAiAssistantOpen(true)}
-                        className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-3 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Konsultasi Asisten Lab-AI</span>
-                      </button>
+                      {!isGuest && (
+                        <button
+                          type="button"
+                          onClick={() => setIsAiAssistantOpen(true)}
+                          className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-3 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Konsultasi Asisten Lab-AI</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1645,7 +2327,7 @@ export default function SmartScienceLabViewer() {
                   />
                   <button
                     type="button"
-                    onClick={fetchTasks}
+                    onClick={() => fetchTasks()}
                     className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 text-xs font-semibold rounded-xl transition-colors shadow-sm"
                   >
                     Cari
@@ -1691,38 +2373,84 @@ export default function SmartScienceLabViewer() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="bg-white hover:bg-slate-50/80 border border-slate-200 hover:border-sky-300 rounded-2xl p-5 space-y-3 transition-colors flex flex-col justify-between shadow-sm"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded uppercase">
-                            {task.gradeLevel}
-                          </span>
-                          <span className="text-xs text-slate-500">Guru: {task.teacherName}</span>
-                        </div>
-
-                        <h4 className="font-bold text-sm text-slate-900">{task.title}</h4>
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          {task.instructions}
-                        </p>
-
-                        <div className="text-xs text-emerald-700 font-semibold pt-1">
-                          🔬 {task.chemicalIds?.length || 0} Reagen Kimia Tersedia di Meja 3D
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => applyTaskToWorkbench(task)}
-                        className="bg-sky-600 hover:bg-sky-700 text-white w-full py-2.5 text-xs font-semibold rounded-xl transition-colors shadow-sm text-center mt-2"
+                  {tasks.map((task) => {
+                    const sub = studentSubmissions.find((s) => s.taskId === task.id);
+                    return (
+                      <div
+                        key={task.id}
+                        className={`bg-white hover:bg-slate-50/80 border rounded-2xl p-5 space-y-3 transition-colors flex flex-col justify-between shadow-sm ${
+                          sub ? "border-emerald-300 ring-1 ring-emerald-200" : "border-slate-200 hover:border-sky-300"
+                        }`}
                       >
-                        ▶ Buka Meja Lab & Mulai Praktikum
-                      </button>
-                    </div>
-                  ))}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded uppercase">
+                                {task.gradeLevel}
+                              </span>
+                              {sub ? (
+                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded uppercase flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Selesai ({sub.score}/100)</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded uppercase">
+                                  Belum Dikerjakan
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-500">Guru: {task.teacherName}</span>
+                          </div>
+
+                          <h4 className="font-bold text-sm text-slate-900">{task.title}</h4>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            {task.instructions}
+                          </p>
+
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                            <span className="text-emerald-700 font-semibold">
+                              🔬 {task.chemicalIds?.length || 0} Reagen Kimia Tersedia
+                            </span>
+                            {sub && (
+                              <span className="text-xs font-semibold text-slate-400">
+                                Selesai: {sub.completedAt ? new Date(sub.completedAt).toLocaleDateString("id-ID") : "-"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {sub ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => applyTaskToWorkbench(task)}
+                              className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <FlaskConical className="w-3.5 h-3.5" />
+                              <span>Review Meja 3D</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setViewingSubmissionDetail(sub)}
+                              className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl transition-colors shadow-2xs text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <BookOpen className="w-3.5 h-3.5 text-sky-600" />
+                              <span>Laporan &amp; Evaluasi AI</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => applyTaskToWorkbench(task)}
+                            className="w-full py-2.5 text-xs font-semibold rounded-xl transition-colors shadow-sm text-center mt-2 flex items-center justify-center gap-1.5 cursor-pointer bg-sky-600 hover:bg-sky-700 text-white"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                            <span>Buka Meja Lab &amp; Mulai Praktikum</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1759,7 +2487,7 @@ export default function SmartScienceLabViewer() {
           ========================================================================= */}
       {/* Modal 1: AI Lab Assistant Modal */}
       <AiLabAssistantModal
-        isOpen={isAiAssistantOpen}
+        isOpen={isAiAssistantOpen && !isGuest}
         onClose={() => setIsAiAssistantOpen(false)}
         activeChemicalNames={activeChemNames}
         vessels={vessels}
@@ -1767,6 +2495,9 @@ export default function SmartScienceLabViewer() {
         currentTask={currentTask}
         labMode={labMode}
         currentStep={currentTask?.title || "Eksplorasi Mandiri"}
+        studentName={currentUser?.name || studentName}
+        userId={currentUser?.id}
+        roomCode={roomCode}
       />
 
       {/* Modal 2: Post-Lab Quiz Modal */}
@@ -1777,6 +2508,10 @@ export default function SmartScienceLabViewer() {
           taskTitle={currentTask.title}
           questions={currentTask.questions || []}
           onSubmitQuiz={handleSubmitQuiz}
+          initialSubmission={currentSubmission}
+          kkmScore={kkmScore}
+          canRetake={canRetake}
+          showQuizReviewDetails={currentTask.showQuizReviewDetails !== false}
         />
       )}
 
@@ -1921,6 +2656,15 @@ export default function SmartScienceLabViewer() {
         onLoginSuccess={handleLoginSuccess}
         currentUser={currentUser}
       />
+
+      {/* Modal 5: Student Submission Detail & Pedagogical AI Evaluation Modal */}
+      {viewingSubmissionDetail && (
+        <StudentSubmissionDetailModal
+          submission={viewingSubmissionDetail}
+          task={currentTask || tasks.find((t) => t.id === viewingSubmissionDetail.taskId)}
+          onClose={() => setViewingSubmissionDetail(null)}
+        />
+      )}
     </div>
   );
 }

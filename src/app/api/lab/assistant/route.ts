@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { getAiClient, hasAiKey, generateContentWithFallback } from "@/lib/ai/client";
 import { validateStudentLabPrompt, sanitizeAiLabResponse } from "@/lib/ai/guardrails";
+import { query } from "@/lib/db";
 
 export async function POST(req: Request) {
   try {
-    const { question, activeChemicals, activeReaction, currentTask, labMode, currentStep } = await req.json();
+    const {
+      question,
+      activeChemicals,
+      activeReaction,
+      currentTask,
+      labMode,
+      currentStep,
+      studentName,
+      userId,
+      roomCode,
+    } = await req.json();
 
     if (!question || !question.trim()) {
       return NextResponse.json({ error: "Pertanyaan tidak boleh kosong" }, { status: 400 });
@@ -94,10 +105,36 @@ Tanggapi pertanyaan siswa di atas dengan mematuhi seluruh batasan keamanan dan k
 
     const res = await generateContentWithFallback(ai, { contents: prompt });
     const cleanAnswer = sanitizeAiLabResponse(res.text || "");
+    const finalAnswer = cleanAnswer || "Reaksi kimia terjadi saat partikel reagen saling bertumbukan dan membentuk zat baru.";
+
+    // Step 3: Log interaction into ai_interactions for Teacher Diagnostic Log
+    try {
+      const interactionId = `ai_log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      await query(
+        `INSERT INTO ai_interactions 
+         (id, user_id, student_name, room_code, task_id, task_title, feature_type, prompt, response, active_chemicals, active_reaction)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          interactionId,
+          userId || null,
+          studentName || (userId ? "Siswa" : "Tamu"),
+          roomCode ? String(roomCode).trim().toUpperCase() : null,
+          currentTask?.id || null,
+          currentTask?.title || (labMode === "sandbox" ? "Eksplorasi Meja 3D (Sandbox)" : "Praktikum Sains"),
+          "lab_assistant",
+          sanitizedQuestion,
+          finalAnswer,
+          JSON.stringify(activeChemicals || []),
+          activeReaction ? JSON.stringify(activeReaction) : null,
+        ]
+      );
+    } catch (logErr) {
+      console.warn("Failed saving ai interaction log:", logErr);
+    }
 
     return NextResponse.json({
       success: true,
-      answer: cleanAnswer || "Reaksi kimia terjadi saat partikel reagen saling bertumbukan dan membentuk zat baru.",
+      answer: finalAnswer,
     });
   } catch (err: any) {
     console.error("Lab assistant AI error:", err);

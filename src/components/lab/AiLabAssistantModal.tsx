@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { ChemicalVessel, ReactionDetail } from "./ChemistryLabScene";
 import { LabTask } from "@/lib/lab/types";
+import { ChemicalFormula, FormattedAiMessage } from "./ChemicalFormula";
 
 interface AiLabAssistantModalProps {
   isOpen: boolean;
@@ -27,6 +28,9 @@ interface AiLabAssistantModalProps {
   currentTask?: LabTask | null;
   labMode?: "task" | "sandbox";
   currentStep?: string;
+  studentName?: string;
+  userId?: string;
+  roomCode?: string;
 }
 
 function getSituationalGreeting(
@@ -103,6 +107,9 @@ export default function AiLabAssistantModal({
   currentTask = null,
   labMode = "sandbox",
   currentStep = "Sedang bereksperimen di Meja 3D",
+  studentName = "Siswa",
+  userId,
+  roomCode,
 }: AiLabAssistantModalProps) {
   const [messages, setMessages] = useState<{ sender: "user" | "ai"; text: string; time: string }[]>([]);
   const [inputQuestion, setInputQuestion] = useState("");
@@ -170,6 +177,9 @@ export default function AiLabAssistantModal({
             : null,
           labMode: labMode || "sandbox",
           currentStep,
+          studentName,
+          userId,
+          roomCode,
         }),
       });
 
@@ -271,10 +281,10 @@ export default function AiLabAssistantModal({
                     title={v.name}
                   >
                     <span
-                      className="w-2 h-2 rounded-full inline-block border border-black/10"
+                      className="w-2 h-2 rounded-full inline-block border border-black/10 shrink-0"
                       style={{ backgroundColor: v.color || "#38bdf8" }}
                     />
-                    {v.formula}
+                    <ChemicalFormula formula={v.formula} />
                   </span>
                 ))}
               </div>
@@ -335,7 +345,7 @@ export default function AiLabAssistantModal({
                       : "bg-white border-slate-200 text-slate-800"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{m.text}</p>
+                  <FormattedAiMessage text={m.text} isUser={m.sender === "user"} />
                 </div>
               </div>
             </div>

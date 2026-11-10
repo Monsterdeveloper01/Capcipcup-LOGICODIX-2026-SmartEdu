@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthLoginModal from "@/components/auth/AuthLoginModal";
 import TeacherTaskBuilder from "@/components/lab/TeacherTaskBuilder";
+import StudentSubmissionDetailModal from "@/components/lab/StudentSubmissionDetailModal";
 import { AuthUser } from "@/lib/auth/types";
 import { LabTask } from "@/lib/lab/types";
 import {
@@ -33,6 +34,8 @@ import {
   RotateCcw,
   SlidersHorizontal,
   ExternalLink,
+  Eye,
+  Pencil,
 } from "lucide-react";
 
 interface Classroom {
@@ -75,6 +78,11 @@ export default function MainEduDashboard() {
   // Submissions in Active Classroom
   const [classroomSubmissions, setClassroomSubmissions] = useState<any[]>([]);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
+  const [selectedClassroomTaskId, setSelectedClassroomTaskId] = useState<string | null>(null);
+
+  // Edit Task State in Classroom
+  const [taskToEdit, setTaskToEdit] = useState<LabTask | null>(null);
 
   // Create Classroom Modal State
   const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
@@ -500,7 +508,9 @@ export default function MainEduDashboard() {
                       roomCode={activeClassroom.classCode}
                       teacherName={currentUser?.name || "Budi Santoso, S.Pd"}
                       tasks={classroomTasks}
+                      taskToEdit={taskToEdit}
                       onTaskCreated={() => {
+                        setTaskToEdit(null);
                         // Refresh tasks
                         fetch(`/api/lab/tasks?roomCode=${activeClassroom.classCode}`)
                           .then((r) => r.json())
@@ -509,7 +519,10 @@ export default function MainEduDashboard() {
                           });
                         setClassroomTab("tasks");
                       }}
-                      onCancel={() => setClassroomTab("tasks")}
+                      onCancel={() => {
+                        setTaskToEdit(null);
+                        setClassroomTab("tasks");
+                      }}
                     />
                   </div>
                 ) : classroomTab === "tasks" ? (
@@ -521,8 +534,11 @@ export default function MainEduDashboard() {
 
                       <button
                         type="button"
-                        onClick={() => setClassroomTab("builder")}
-                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-transform hover:scale-[1.02]"
+                        onClick={() => {
+                          setTaskToEdit(null);
+                          setClassroomTab("builder");
+                        }}
+                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-transform hover:scale-[1.02] cursor-pointer"
                       >
                         <Plus className="w-4 h-4" />
                         <span>Rancang Tugas Baru di Kelas Ini</span>
@@ -545,8 +561,11 @@ export default function MainEduDashboard() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setClassroomTab("builder")}
-                          className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-sm"
+                          onClick={() => {
+                            setTaskToEdit(null);
+                            setClassroomTab("builder");
+                          }}
+                          className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
                         >
                           + Rancang Tugas Praktikum Sekarang
                         </button>
@@ -579,21 +598,49 @@ export default function MainEduDashboard() {
                                   📝 {task.questions?.length || 0} Butir Kuis
                                 </span>
                               </div>
+
+                              <div className="flex items-center justify-between text-[11px] pt-1">
+                                <span className="font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                                  KKM: {task.kkmScore ?? 75}
+                                </span>
+                                <span
+                                  className={`font-semibold px-2 py-0.5 rounded border text-[10px] ${
+                                    task.allowRetakeBelowKkm !== false
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                      : "bg-rose-50 text-rose-800 border-rose-200"
+                                  }`}
+                                >
+                                  {task.allowRetakeBelowKkm !== false ? "✓ Remedial Diizinkan" : "✕ Sekali Selesai"}
+                                </span>
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-2 pt-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTaskToEdit(task);
+                                  setClassroomTab("builder");
+                                }}
+                                className="px-3 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold rounded-xl transition-colors border border-sky-200 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                title="Edit Tugas Praktikum"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                              </button>
+
                               <Link
                                 href={`/lab?taskId=${task.id}&mode=sandbox`}
-                                className="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-colors border border-slate-200 flex items-center justify-center gap-1.5"
                               >
-                                <Play className="w-3.5 h-3.5" />
+                                <Play className="w-3.5 h-3.5 text-emerald-600" />
                                 <span>Uji Coba di Lab 3D (Sandbox)</span>
                               </Link>
 
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
-                                className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors border border-rose-200"
+                                className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors border border-rose-200 cursor-pointer"
                                 title="Hapus Tugas"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -670,7 +717,31 @@ export default function MainEduDashboard() {
                 ) : (
                   /* Sub-Tab 3: Submissions */
                   <div className="space-y-4">
-                    <h4 className="font-bold text-sm text-slate-900">Rekap Nilai Siswa Kelas {activeClassroom.name}</h4>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900">Rekap Nilai Siswa Kelas {activeClassroom.name}</h4>
+                        <p className="text-xs text-slate-500">Pilih tugas praktikum untuk memfilter nilai spesifik per tugas.</p>
+                      </div>
+
+                      {classroomTasks.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-500">Pilih Tugas:</span>
+                          <select
+                            value={selectedClassroomTaskId || "ALL"}
+                            onChange={(e) => setSelectedClassroomTaskId(e.target.value === "ALL" ? null : e.target.value)}
+                            className="text-xs font-bold bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-slate-800 outline-none focus:border-sky-500 shadow-2xs"
+                          >
+                            <option value="ALL">Semua Tugas Praktikum</option>
+                            {classroomTasks.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.title} (PIN {t.roomCode})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
                     {isLoadingSubmissions ? (
                       <div className="text-center py-12 text-slate-400 text-xs">Memuat nilai...</div>
                     ) : classroomSubmissions.length === 0 ? (
@@ -679,45 +750,92 @@ export default function MainEduDashboard() {
                         <p>Belum ada siswa yang mengumpulkan kuis praktikum.</p>
                       </div>
                     ) : (
-                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
-                            <tr>
-                              <th className="px-4 py-3">Nama Siswa</th>
-                              <th className="px-4 py-3">Reaksi 3D</th>
-                              <th className="px-4 py-3">Skor Kuis</th>
-                              <th className="px-4 py-3">Laporan Analisis</th>
-                              <th className="px-4 py-3">Waktu</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {classroomSubmissions.map((s) => (
-                              <tr key={s.id} className="hover:bg-slate-50/70">
-                                <td className="px-4 py-3 font-bold text-slate-900">{s.studentName}</td>
-                                <td className="px-4 py-3">
-                                  <span className="text-emerald-700 font-semibold">✓ Sukses</span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span
-                                    className={`font-black px-2 py-0.5 rounded text-[11px] ${
-                                      s.score >= 80
-                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                        : "bg-amber-50 text-amber-700 border border-amber-200"
-                                    }`}
-                                  >
-                                    {s.score}/100
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{s.aiAnalysis}</td>
-                                <td className="px-4 py-3 text-slate-500 text-[11px]">
-                                  {s.completedAt ? new Date(s.completedAt).toLocaleTimeString("id-ID") : "-"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      (() => {
+                        const filteredList = classroomSubmissions.filter((s) => {
+                          if (!selectedClassroomTaskId) return true;
+                          const matchedTask = classroomTasks.find((t) => String(t.id) === String(selectedClassroomTaskId));
+                          return (
+                            String(s.taskId) === String(selectedClassroomTaskId) ||
+                            (matchedTask?.roomCode && String(s.roomCode) === String(matchedTask.roomCode))
+                          );
+                        });
+
+                        return filteredList.length === 0 ? (
+                          <div className="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl bg-slate-50 p-4">
+                            Belum ada pengumpulan untuk tugas praktikum ini.
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
+                                <tr>
+                                  <th className="px-4 py-3">Nama Siswa</th>
+                                  <th className="px-4 py-3">Reaksi 3D</th>
+                                  <th className="px-4 py-3">Skor Kuis</th>
+                                  <th className="px-4 py-3">Laporan Analisis</th>
+                                  <th className="px-4 py-3">Waktu</th>
+                                  <th className="px-4 py-3 text-right">Detail</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {filteredList.map((s) => (
+                                  <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
+                                    <td className="px-4 py-3 font-bold text-slate-900">{s.studentName}</td>
+                                    <td className="px-4 py-3">
+                                      <span className="text-emerald-700 font-semibold">✓ Sukses</span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <span
+                                        className={`font-black px-2 py-0.5 rounded text-[11px] ${
+                                          s.score >= 80
+                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                                        }`}
+                                      >
+                                        {s.score}/100
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{s.aiAnalysis}</td>
+                                    <td className="px-4 py-3 text-slate-500 text-[11px]">
+                                      {s.completedAt ? new Date(s.completedAt).toLocaleTimeString("id-ID") : "-"}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedSubmission(s)}
+                                        className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors shadow-2xs"
+                                        title="Lihat rincian lengkap praktikum siswa"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Lihat Detail</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()
                     )}
+
+                    {/* Modal Detail Praktikum Siswa */}
+                    <StudentSubmissionDetailModal
+                      submission={selectedSubmission}
+                      task={
+                        classroomTasks.find((t) => String(t.id) === String(selectedSubmission?.taskId)) ||
+                        classroomTasks.find(
+                          (t) =>
+                            t.roomCode &&
+                            selectedSubmission?.roomCode &&
+                            String(t.roomCode) === String(selectedSubmission.roomCode)
+                        ) ||
+                        (selectedClassroomTaskId
+                          ? classroomTasks.find((t) => String(t.id) === String(selectedClassroomTaskId))
+                          : null)
+                      }
+                      onClose={() => setSelectedSubmission(null)}
+                    />
                   </div>
                 )}
               </div>

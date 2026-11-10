@@ -58,17 +58,50 @@ export interface LabTask {
   chemicalIds: string[]; // Chemicals placed on the 3D table
   expectedReactionId?: string;
   questions: LabTaskQuestion[];
+  kkmScore?: number; // Batas KKM (default 75)
+  allowRetakeBelowKkm?: boolean; // Izinkan ulangi praktikum & kuis jika < KKM
+  showQuizReviewDetails?: boolean; // Jika true: tampilkan kunci jawaban & pembahasan ilmiah. Jika false: hanya tampilkan benar/salah tanpa kunci & pembahasan
   createdAt?: string;
+}
+
+export interface LabSubmissionAnswer {
+  questionId: string;
+  question?: string;
+  options?: string[];
+  selectedIndex: number;
+  selectedAnswer?: string;
+  correctIndex?: number;
+  correctAnswer?: string;
+  isCorrect: boolean;
+  explanation?: string;
+}
+
+export interface ExperimentDetailLog {
+  reactionTitle?: string;
+  reactionEquation?: string;
+  temperatureChange?: number;
+  observablePhenomena?: string;
+  explanation?: string;
+  reasonWhy?: string;
+  mixedChemicals?: { name: string; formula: string; color?: string }[];
+  resultVessel?: {
+    name: string;
+    formula: string;
+    color: string;
+    temperatureC?: number;
+  };
+  completedAt?: string;
 }
 
 export interface LabSubmission {
   id: string;
   taskId: string;
-  studentId: string;
+  studentId?: string;
   studentName: string;
   isReactionAchieved: boolean;
   score: number;
-  answers: { questionId: string; selectedIndex: number; isCorrect: boolean }[];
+  answers: LabSubmissionAnswer[];
   aiAnalysis?: string;
+  experimentDetails?: ExperimentDetailLog | null;
   completedAt: string;
 }

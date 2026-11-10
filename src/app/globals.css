@@ -303,3 +303,11 @@ body {
   background-color: #0284c7;
   color: #ffffff;
 }
+
+/* Ensure Next.js dev indicator portal never obscures the bottom-left sidebar user profile */
+nextjs-portal {
+  bottom: 16px !important;
+  left: auto !important;
+  right: 16px !important;
+}
+

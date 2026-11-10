@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const selectedChemicals = CHEMICAL_CATALOG.filter((c) => chemicalIds.includes(c.id));
     const chemList = selectedChemicals.map((c) => `${c.name} (${c.formula})`).join(", ");
 
-    // If no AI key, return educational default template
+    // If no AI key, return educational default template (exactly 3 questions)
     if (!hasAiKey()) {
       return NextResponse.json({
         success: true,
@@ -51,23 +51,36 @@ export async function POST(req: Request) {
             correctIndex: 0,
             explanation: "Perubahan entalpi reaksi dapat diamati melalui pelepasan kalor (eksotermik) atau penyerapan kalor (endotermik).",
           },
+          {
+            id: `q_${Date.now()}_3`,
+            question: "Bagaimana prinsip kekekalan massa (Hukum Lavoisier) berlaku pada reaksi di meja praktikum ini?",
+            options: [
+              "Total massa reaktan sebelum reaksi sama dengan total massa produk yang terbentuk",
+              "Massa produk selalu dua kali lipat lebih berat dari reaktan",
+              "Massa zat akan musnah setelah timbul gelembung gas",
+              "Hukum kekekalan massa tidak berlaku pada reaksi kimia",
+            ],
+            correctIndex: 0,
+            explanation: "Menurut hukum Lavoisier, dalam sistem tertutup massa zat sebelum dan sesudah reaksi kimia adalah kekal (tetap).",
+          },
         ],
       });
     }
 
     const ai = getAiClient();
     const prompt = `Anda adalah Guru Sains & Kimia Ahli Kurikulum Merdeka untuk jenjang ${gradeLevel || "SMP/SMA"}.
-Tugas Anda adalah membuat 3 butir soal kuis pilihan ganda berbasis observasi praktikum lab untuk siswa, berdasarkan eksperimen berikut:
+Tugas Anda adalah membuat TEPAT 3 butir soal kuis pilihan ganda berbasis observasi praktikum lab untuk siswa, berdasarkan eksperimen berikut:
 - Judul Eksperimen: "${title || "Praktikum Laboratorium"}"
 - Jenjang: ${gradeLevel || "SMP/SMA"}
 - Bahan Kimia di Meja Praktik: ${chemList}
 - Instruksi Praktik Guru: "${instructions || "Campurkan zat dan amati reaksinya"}"
 
 KETENTUAN SOAL:
-1. Soal harus menguji pemahaman KONSEPTUAL dan OBSERVASI HASIL PRAKTIKUM (bukan hafalan teori kering).
-2. Pilihan jawaban berupa 4 opsi [A, B, C, D] yang masuk akal.
-3. Berikan indeks jawaban yang benar (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D).
-4. Berikan penjelasan ilmiah mengapa jawaban tersebut benar.
+1. Buat TEPAT 3 butir soal (tidak boleh kurang dari 3, tidak boleh lebih dari 3).
+2. Soal harus menguji pemahaman KONSEPTUAL dan OBSERVASI HASIL PRAKTIKUM (bukan hafalan teori kering).
+3. Pilihan jawaban berupa 4 opsi [A, B, C, D] yang masuk akal.
+4. Berikan indeks jawaban yang benar (0 untuk A, 1 untuk B, 2 untuk C, 3 untuk D).
+5. Berikan penjelasan ilmiah mengapa jawaban tersebut benar.
 
 Kembalikan HANYA format JSON valid tanpa markdown quotes, format:
 {
@@ -94,11 +107,11 @@ Kembalikan HANYA format JSON valid tanpa markdown quotes, format:
 
     return NextResponse.json({
       success: true,
-      questions: parsed.questions || [],
+      questions: (parsed.questions || []).slice(0, 3),
     });
   } catch (err: any) {
     console.error("AI Quiz Gen error:", err);
-    // Fallback template so teacher is never blocked
+    // Fallback template (exactly 3 questions) so teacher is never blocked
     return NextResponse.json({
       success: true,
       questions: [
@@ -113,6 +126,30 @@ Kembalikan HANYA format JSON valid tanpa markdown quotes, format:
           ],
           correctIndex: 0,
           explanation: "Indikator umum reaksi kimia meliputi perubahan warna, pembentukan gas/buih, terbentuknya endapan, atau pelepasan energi panas.",
+        },
+        {
+          id: `q_fb_${Date.now()}_2`,
+          question: "Apa kesimpulan utama yang dapat diambil dari pengamatan suhu pada bejana reaksi?",
+          options: [
+            "Reaksi melibatkan pertukaran energi kalor (eksotermik atau endotermik)",
+            "Suhu larutan tidak ada hubungannya dengan reaksi kimia",
+            "Semua reaksi kimia selalu mendinginkan wadah",
+            "Termometer tidak berfungsi dalam larutan kimia",
+          ],
+          correctIndex: 0,
+          explanation: "Setiap perubahan ikatan kimiawi disertai pelepasan (eksoterm) atau penyerapan (endoterm) energi termal kalor.",
+        },
+        {
+          id: `q_fb_${Date.now()}_3`,
+          question: "Mengapa penting mencampurkan reagen kimiawi dengan takaran stoikiometri yang tepat?",
+          options: [
+            "Agar seluruh pereaksi dapat bereaksi optimum menghasilkan produk yang diharapkan",
+            "Agar larutan langsung menguap ke udara tanpa residu",
+            "Hanya untuk menghemat persediaan bahan laboratorium",
+            "Takaran tidak mempengaruhi jalannya reaksi kimia",
+          ],
+          correctIndex: 0,
+          explanation: "Perbandingan mol stoikiometris memastikan reaktan bereaksi habis atau membentuk produk reaksi secara sempurna sesuai persamaan reaksi seimbang.",
         },
       ],
     });

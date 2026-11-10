@@ -6,6 +6,10 @@ import { OrbitControls, Text, Float } from "@react-three/drei";
 import * as THREE from "three";
 import { HandTransform } from "@/components/camera/HandGestureTracker";
 import { REACTION_CATALOG } from "@/lib/lab/chemicals-db";
+import labSound from "@/lib/audio/labSoundEngine";
+import { evaluateChemicalProperties } from "@/lib/lab/chemicalProperties";
+
+export type InteractiveToolType = "hand" | "thermometer" | "litmus_red" | "litmus_blue" | "ph_meter";
 
 export type VesselType = "beaker" | "flask" | "test_tube";
 
@@ -144,6 +148,9 @@ interface ChemistryLabSceneProps {
   activeReaction: ReactionDetail | null;
   reactions?: ReactionDetail[];
   isLocked?: boolean;
+  activeTool?: InteractiveToolType;
+  dippedVesselId?: string | null;
+  onDipTool?: (vessel: ChemicalVessel, tool: InteractiveToolType) => void;
 }
 
 export default function ChemistryLabScene({
@@ -154,6 +161,9 @@ export default function ChemistryLabScene({
   activeReaction,
   reactions,
   isLocked = false,
+  activeTool = "hand",
+  dippedVesselId = null,
+  onDipTool,
 }: ChemistryLabSceneProps) {
   const grabbedIdRef = useRef<string | null>(null);
 
@@ -211,6 +221,9 @@ export default function ChemistryLabScene({
           activeReaction={activeReaction}
           reactions={reactions}
           isLocked={isLocked}
+          activeTool={activeTool}
+          dippedVesselId={dippedVesselId}
+          onDipTool={onDipTool}
         />
       </Canvas>
     </div>
@@ -650,6 +663,9 @@ function VesselsSimulation({
   activeReaction,
   reactions: initialReactions,
   isLocked = false,
+  activeTool = "hand",
+  dippedVesselId = null,
+  onDipTool,
 }: {
   vessels: ChemicalVessel[];
   setVessels: React.Dispatch<React.SetStateAction<ChemicalVessel[]>>;
@@ -659,6 +675,9 @@ function VesselsSimulation({
   activeReaction: ReactionDetail | null;
   reactions?: ReactionDetail[];
   isLocked?: boolean;
+  activeTool?: InteractiveToolType;
+  dippedVesselId?: string | null;
+  onDipTool?: (vessel: ChemicalVessel, tool: InteractiveToolType) => void;
 }) {
   const handSphereRef = useRef<THREE.Mesh>(null);
   const vesselsRef = useRef<ChemicalVessel[]>(vessels);
@@ -758,17 +777,21 @@ function VesselsSimulation({
       if (isGrabbing) {
         if (!grabbedIdRef.current && closestTargetId) {
           grabbedIdRef.current = closestTargetId;
+          labSound.playGlassClink("medium");
         }
       } else {
         if (grabbedIdRef.current) {
           grabbedIdRef.current = null;
           setPouringTargetId(null);
+          labSound.playGlassClink("soft");
+          labSound.stopPouring();
         }
       }
     } else {
       if (!mouseDraggedId && grabbedIdRef.current) {
         grabbedIdRef.current = null;
         setPouringTargetId(null);
+        labSound.stopPouring();
       }
     }
 
@@ -813,6 +836,14 @@ function VesselsSimulation({
         }
         grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, targetTilt, 0.25);
 
+        // SFX: Trigger authentic liquid pouring stream sound when tilted near target vessel
+        const isActivelyPouring = Boolean(nearestOtherId && Math.abs(grabbedTiltRef.current) > 0.32);
+        if (isActivelyPouring) {
+          labSound.startPouring();
+        } else {
+          labSound.stopPouring();
+        }
+
         // HANYA memicu reaksi kimia jika pengguna BENAR-BENAR MEMUTAR / MEMIRINGKAN TANGANNYA!
         if (nearestOtherId && isPhysicallyTilting) {
           const targetVessel = vesselsRef.current.find((v) => v.id === nearestOtherId);
@@ -824,6 +855,7 @@ function VesselsSimulation({
     } else {
       setPouringTargetId(null);
       grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, 0, 0.2);
+      labSound.stopPouring();
     }
 
     // Move grabbed vessel with hand palm center
@@ -1028,6 +1060,28 @@ function VesselsSimulation({
         })
       );
 
+      // SFX: Play effervescence hiss for gas reactions (CO2, H2, foaming, bubbles) or chime for others
+      const isEffervescentGas =
+        matched.effectType === "bubbles" ||
+        matched.resultFormula.includes("^") ||
+        matched.resultFormula.includes("(g)") ||
+        matched.equation.includes("CO2") ||
+        matched.equation.includes("H2") ||
+        matched.equation.includes("O2") ||
+        matched.title.toLowerCase().includes("buih") ||
+        matched.title.toLowerCase().includes("gas") ||
+        matched.title.toLowerCase().includes("lava") ||
+        matched.title.toLowerCase().includes("cuka") ||
+        matched.observablePhenomena?.toLowerCase().includes("gelembung") ||
+        matched.observablePhenomena?.toLowerCase().includes("desis") ||
+        matched.observablePhenomena?.toLowerCase().includes("asap");
+
+      if (isEffervescentGas) {
+        labSound.playEffervescenceHiss(4.2, 0.85);
+      } else {
+        labSound.playReactionSuccessChime();
+      }
+
       onReactionDetected?.({ ...matched, reactionPosition: rxPos, targetVesselId: vesselB.id }, vesselA, vesselB);
       return;
     }
@@ -1151,18 +1205,43 @@ function VesselsSimulation({
       })
     );
 
+    // SFX: Play sound for physical mixture
+    const isPhysicalGasOrEffervescence =
+      physicalReaction.title.toLowerCase().includes("gas") ||
+      physicalReaction.resultFormula.includes("^") ||
+      physicalReaction.observablePhenomena?.toLowerCase().includes("gelembung");
+
+    if (isPhysicalGasOrEffervescence) {
+      labSound.playEffervescenceHiss(3.8, 0.75);
+    } else {
+      labSound.playReactionSuccessChime();
+    }
+
     onReactionDetected?.(physicalReaction, vesselA, vesselB);
   };
 
-  // Mouse Drag Handlers
+  // Mouse Drag & Tool Dipping Handlers
   const handlePointerDown = (id: string, e: ThreeEvent<PointerEvent>) => {
     if (isLocked) return;
     e.stopPropagation();
+
+    const clickedVessel = vesselsRef.current.find((v) => v.id === id);
+    if (activeTool && activeTool !== "hand" && clickedVessel) {
+      labSound.playGlassClink("soft");
+      onDipTool?.(clickedVessel, activeTool);
+      return;
+    }
+
     setMouseDraggedId(id);
     grabbedIdRef.current = id;
+    labSound.playGlassClink("medium");
   };
 
   const handlePointerUp = () => {
+    if (mouseDraggedId || grabbedIdRef.current) {
+      labSound.playGlassClink("soft");
+      labSound.stopPouring();
+    }
     setMouseDraggedId(null);
     grabbedIdRef.current = null;
     setPouringTargetId(null);
@@ -1191,6 +1270,9 @@ function VesselsSimulation({
 
   const targetVessel = pouringTargetId ? vessels.find((v) => v.id === pouringTargetId) : null;
   const activeGrabbedId = mouseDraggedId || grabbedIdRef.current;
+  const dippedVessel = dippedVesselId
+    ? vessels.find((v) => v.id === dippedVesselId)
+    : (activeTool !== "hand" && vessels.length > 0 ? vessels[0] : null);
 
   return (
     <group onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
@@ -1237,6 +1319,14 @@ function VesselsSimulation({
         );
       })}
 
+      {/* 3D Interactive Measurement Tool (Termometer Celup / Kertas Lakmus / pH Strip) */}
+      {activeTool !== "hand" && dippedVessel && (
+        <Interactive3DMeasurementTool
+          tool={activeTool}
+          vessel={dippedVessel}
+        />
+      )}
+
       {/* World-Space Smooth Gravitational Pouring Stream */}
       {activeGrabbedId && (
         <RealisticFluidPouringStream
@@ -1245,6 +1335,108 @@ function VesselsSimulation({
           vesselsRef={vesselsRef}
           grabbedTiltRef={grabbedTiltRef}
         />
+      )}
+    </group>
+  );
+}
+
+// 3D Visual Laboratory Immersion Thermometer & Litmus Paper Strips
+function Interactive3DMeasurementTool({
+  tool,
+  vessel,
+}: {
+  tool: InteractiveToolType;
+  vessel: ChemicalVessel;
+}) {
+  const measurement = useMemo(() => evaluateChemicalProperties(vessel), [vessel]);
+  const posX = vessel.position[0];
+  const posZ = vessel.position[2];
+
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (groupRef.current) {
+      groupRef.current.position.y = 0.54 + Math.sin(clock.getElapsedTime() * 2) * 0.012;
+    }
+  });
+
+  if (tool === "hand") return null;
+
+  return (
+    <group ref={groupRef} position={[posX, 0.54, posZ]}>
+      {tool === "thermometer" && (
+        <group rotation={[0, 0, 0.08]}>
+          {/* Glass Thermometer Outer Stem (Clear Borosilicate Glass) */}
+          <mesh position={[0, 0.45, 0]}>
+            <cylinderGeometry args={[0.035, 0.035, 0.95, 16]} />
+            <meshPhysicalMaterial
+              color="#ffffff"
+              transparent
+              transmission={0.92}
+              roughness={0.05}
+              ior={1.52}
+              thickness={0.25}
+              clearcoat={1}
+            />
+          </mesh>
+
+          {/* Bottom Red Alcohol Bulb (Reservoir) */}
+          <mesh position={[0, -0.02, 0]}>
+            <sphereGeometry args={[0.068, 20, 20]} />
+            <meshStandardMaterial color="#dc2626" emissive="#991b1b" emissiveIntensity={0.6} roughness={0.2} />
+          </mesh>
+
+          {/* Dynamic Red Liquid Column inside capillary */}
+          {(() => {
+            const temp = measurement.temperatureC;
+            const normalizedHeight = Math.max(0.1, Math.min(0.82, (temp / 100) * 0.82));
+            return (
+              <mesh position={[0, normalizedHeight / 2, 0]}>
+                <cylinderGeometry args={[0.012, 0.012, normalizedHeight, 12]} />
+                <meshStandardMaterial color="#ef4444" emissive="#b91c1c" emissiveIntensity={0.5} roughness={0.3} />
+              </mesh>
+            );
+          })()}
+        </group>
+      )}
+
+      {(tool === "litmus_red" || tool === "litmus_blue" || tool === "ph_meter") && (
+        <group rotation={[0, 0, 0.12]}>
+          {/* Tweezers / Forceps Clip at top */}
+          <mesh position={[0, 0.65, 0]}>
+            <boxGeometry args={[0.05, 0.18, 0.03]} />
+            <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.2} />
+          </mesh>
+
+          {/* Dry Upper Paper Strip */}
+          <mesh position={[0, 0.42, 0]}>
+            <boxGeometry args={[0.12, 0.34, 0.006]} />
+            <meshStandardMaterial
+              color={
+                tool === "litmus_red"
+                  ? "#fca5a5"
+                  : tool === "litmus_blue"
+                  ? "#93c5fd"
+                  : "#fef08a"
+              }
+              roughness={0.9}
+            />
+          </mesh>
+
+          {/* Submerged Reacted Wet Strip (Color changes based on chemical solution) */}
+          <mesh position={[0, 0.15, 0]}>
+            <boxGeometry args={[0.12, 0.30, 0.008]} />
+            <meshStandardMaterial
+              color={
+                tool === "litmus_red"
+                  ? measurement.litmusRed.finalColor
+                  : tool === "litmus_blue"
+                  ? measurement.litmusBlue.finalColor
+                  : measurement.universalColor
+              }
+              roughness={0.4}
+            />
+          </mesh>
+        </group>
       )}
     </group>
   );
