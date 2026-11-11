@@ -56,14 +56,14 @@ export default function CameraFeed({
         throw new Error("Browser atau perangkat tidak mendukung akses webcam (membutuhkan HTTPS atau localhost).");
       }
 
-      // Tier 1: Ideal facingMode with low-latency streaming
+      // Tier 1: Wide native FOV with smooth 30fps (avoids 60fps sensor-crop zoom on laptop webcams)
       try {
         return await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: facing },
-            width: { ideal: 960, max: 1280 },
-            height: { ideal: 540, max: 720 },
-            frameRate: { ideal: 60, min: 30 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 },
           },
           audio: false,
         });
@@ -80,9 +80,9 @@ export default function CameraFeed({
         return await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: oppositeFacing },
-            width: { ideal: 960, max: 1280 },
-            height: { ideal: 540, max: 720 },
-            frameRate: { ideal: 60, min: 30 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 },
           },
           audio: false,
         });
@@ -114,11 +114,25 @@ export default function CameraFeed({
           return;
         }
 
+        // Reset hardware digital zoom to widest field-of-view if driver supports zoom capability
+        try {
+          const videoTrack = mediaStream.getVideoTracks()[0];
+          const caps = videoTrack?.getCapabilities?.() as { zoom?: { min?: number } } | undefined;
+          if (videoTrack && caps?.zoom && typeof caps.zoom.min === "number") {
+            await videoTrack.applyConstraints({
+              advanced: [{ zoom: caps.zoom.min } as MediaTrackConstraintSet],
+            });
+          }
+        } catch {
+          // Hardware zoom capability not supported on this webcam
+        }
+
         streamRef.current = mediaStream;
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play?.().catch(() => {});
             onVideoReady?.(videoRef.current);
           };
         }

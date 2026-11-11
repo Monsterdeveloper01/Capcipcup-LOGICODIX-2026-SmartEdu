@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireTeacher } from "@/lib/auth/session";
+import { requireTeacher, getServerSessionUser } from "@/lib/auth/session";
 
-// GET: Ambil daftar ruang kelas
+// GET: Ambil daftar ruang kelas terisolasi per guru / siswa
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const code = searchParams.get("code");
+    const teacherId = searchParams.get("teacherId");
     const teacherName = searchParams.get("teacherName");
     const studentUsername = searchParams.get("studentUsername");
+    const studentId = searchParams.get("studentId");
+
+    const sessionUser = await getServerSessionUser();
 
     let sql = `
       SELECT 
@@ -18,12 +22,13 @@ export async function GET(req: Request) {
       FROM classrooms c
     `;
     const params: any[] = [];
+    const conditions: string[] = [];
 
     if (code) {
-      sql += " WHERE c.class_code = ? LIMIT 1";
+      conditions.push("c.class_code = ?");
       params.push(code.toUpperCase().trim());
-    } else if (studentUsername) {
-      // Kelas yang diikuti oleh siswa tertentu
+    } else if (studentUsername || studentId) {
+      // Siswa mencari kelas yang diikutinya berdasarkan username atau ID
       sql = `
         SELECT 
           c.*,
@@ -31,16 +36,53 @@ export async function GET(req: Request) {
           (SELECT COUNT(*) FROM lab_tasks lt WHERE lt.classroom_id = c.id OR lt.room_code = c.class_code) as task_count
         FROM classrooms c
         JOIN classroom_members cm ON cm.classroom_id = c.id
-        WHERE cm.student_username = ?
-        ORDER BY c.created_at DESC
       `;
-      params.push(studentUsername);
-    } else if (teacherName) {
-      sql += " WHERE c.teacher_name = ? ORDER BY c.created_at DESC";
-      params.push(teacherName);
-    } else {
-      sql += " ORDER BY c.created_at DESC";
+      if (studentUsername && studentId) {
+        conditions.push("(cm.student_username = ? OR cm.user_id = ?)");
+        params.push(studentUsername.trim(), studentId.trim());
+      } else if (studentUsername) {
+        conditions.push("cm.student_username = ?");
+        params.push(studentUsername.trim());
+      } else {
+        conditions.push("cm.user_id = ?");
+        params.push(studentId!.trim());
+      }
+    } else if (teacherId || teacherName) {
+      // Filter eksplisit guru pengampu
+      if (teacherId && teacherName) {
+        conditions.push("(c.teacher_id = ? OR c.teacher_name = ?)");
+        params.push(teacherId.trim(), teacherName.trim());
+      } else if (teacherId) {
+        conditions.push("c.teacher_id = ?");
+        params.push(teacherId.trim());
+      } else {
+        conditions.push("c.teacher_name = ?");
+        params.push(teacherName!.trim());
+      }
+    } else if (sessionUser) {
+      // Scoping otomatis berdasarkan sesi pengguna yang sedang login
+      if (sessionUser.role === "teacher") {
+        conditions.push("(c.teacher_id = ? OR c.teacher_name = ?)");
+        params.push(sessionUser.id, sessionUser.name);
+      } else if (sessionUser.role === "student") {
+        sql = `
+          SELECT 
+            c.*,
+            (SELECT COUNT(*) FROM classroom_members cm WHERE cm.classroom_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM lab_tasks lt WHERE lt.classroom_id = c.id OR lt.room_code = c.class_code) as task_count
+          FROM classrooms c
+          JOIN classroom_members cm ON cm.classroom_id = c.id
+        `;
+        conditions.push("(cm.student_username = ? OR cm.user_id = ?)");
+        params.push(sessionUser.username, sessionUser.id);
+      }
+      // role admin & superadmin tetap diizinkan melihat semua tanpa filter
     }
+
+    if (conditions.length > 0) {
+      sql += " WHERE " + conditions.join(" AND ");
+    }
+    sql += " ORDER BY c.created_at DESC";
 
     const rows = await query<any[]>(sql, params);
 
@@ -151,11 +193,27 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "ID kelas wajib disertakan." }, { status: 400 });
     }
 
-    // Delete members and classroom
+    // Pastikan guru hanya dapat menghapus kelas miliknya sendiri (kecuali role admin/superadmin)
+    if (auth.user.role === "teacher") {
+      const cls = await query<any[]>(
+        "SELECT id FROM classrooms WHERE id = ? AND (teacher_id = ? OR teacher_name = ?) LIMIT 1",
+        [id, auth.user.id, auth.user.name]
+      );
+      if (!cls || cls.length === 0) {
+        return NextResponse.json(
+          { error: "Anda tidak memiliki hak akses untuk menghapus ruang kelas ini." },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Cascade delete relasi turunan: submissions -> tasks -> members -> classroom
+    await query("DELETE FROM lab_submissions WHERE task_id IN (SELECT id FROM lab_tasks WHERE classroom_id = ?)", [id]);
+    await query("DELETE FROM lab_tasks WHERE classroom_id = ?", [id]);
     await query("DELETE FROM classroom_members WHERE classroom_id = ?", [id]);
     await query("DELETE FROM classrooms WHERE id = ?", [id]);
 
-    return NextResponse.json({ success: true, message: "Kelas berhasil dihapus." });
+    return NextResponse.json({ success: true, message: "Kelas beserta seluruh data tugas dan anggotanya berhasil dihapus." });
   } catch (err: any) {
     console.error("DELETE classroom error:", err);
     return NextResponse.json({ error: err.message || "Gagal menghapus kelas." }, { status: 500 });

@@ -1,37 +1,87 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireTeacher } from "@/lib/auth/session";
+import { requireTeacher, getServerSessionUser } from "@/lib/auth/session";
 
-// GET: Ambil daftar tugas di suatu room kelas
+// GET: Ambil daftar tugas di suatu room kelas (terisolasi per kelas & guru)
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const taskId = searchParams.get("taskId");
     const rawRoomCode = searchParams.get("roomCode") || searchParams.get("classCode");
     const classroomId = searchParams.get("classroomId");
+    const teacherId = searchParams.get("teacherId");
+    const teacherName = searchParams.get("teacherName");
+    const studentUsername = searchParams.get("studentUsername");
+    const studentId = searchParams.get("studentId");
 
-    let sql = "SELECT * FROM lab_tasks ORDER BY created_at DESC";
+    const sessionUser = await getServerSessionUser();
+
+    let sql = "SELECT * FROM lab_tasks";
+    const conditions: string[] = [];
     const params: any[] = [];
 
     if (taskId) {
-      sql = "SELECT * FROM lab_tasks WHERE id = ? LIMIT 1";
+      conditions.push("id = ?");
       params.push(taskId);
     } else if (classroomId && rawRoomCode) {
       const code = rawRoomCode.trim().toUpperCase();
-      sql = "SELECT * FROM lab_tasks WHERE classroom_id = ? OR UPPER(TRIM(room_code)) = ? ORDER BY created_at DESC";
+      conditions.push("(classroom_id = ? OR UPPER(TRIM(room_code)) = ?)");
       params.push(classroomId, code);
     } else if (classroomId) {
-      sql = "SELECT * FROM lab_tasks WHERE classroom_id = ? ORDER BY created_at DESC";
+      conditions.push("classroom_id = ?");
       params.push(classroomId);
     } else if (rawRoomCode) {
       const code = rawRoomCode.trim().toUpperCase();
-      sql = `SELECT * FROM lab_tasks 
-             WHERE UPPER(TRIM(room_code)) = ? 
-                OR classroom_id = ? 
-                OR classroom_id IN (SELECT id FROM classrooms WHERE UPPER(TRIM(class_code)) = ?)
-             ORDER BY created_at DESC`;
-      params.push(code, code, code);
+      conditions.push(`(
+        UPPER(TRIM(room_code)) = ? 
+        OR classroom_id IN (SELECT id FROM classrooms WHERE UPPER(TRIM(class_code)) = ?)
+      )`);
+      params.push(code, code);
+    } else if (studentUsername || studentId) {
+      if (studentUsername && studentId) {
+        conditions.push(`classroom_id IN (
+          SELECT classroom_id FROM classroom_members WHERE student_username = ? OR user_id = ?
+        )`);
+        params.push(studentUsername.trim(), studentId.trim());
+      } else if (studentUsername) {
+        conditions.push(`classroom_id IN (
+          SELECT classroom_id FROM classroom_members WHERE student_username = ?
+        )`);
+        params.push(studentUsername.trim());
+      } else {
+        conditions.push(`classroom_id IN (
+          SELECT classroom_id FROM classroom_members WHERE user_id = ?
+        )`);
+        params.push(studentId!.trim());
+      }
+    } else if (teacherId || teacherName) {
+      conditions.push(`(
+        teacher_name = ? 
+        OR classroom_id IN (SELECT id FROM classrooms WHERE teacher_id = ? OR teacher_name = ?)
+      )`);
+      params.push(teacherName || "", teacherId || "", teacherName || "");
+    } else if (sessionUser) {
+      if (sessionUser.role === "teacher") {
+        conditions.push(`(
+          teacher_name = ? 
+          OR classroom_id IN (SELECT id FROM classrooms WHERE teacher_id = ? OR teacher_name = ?)
+        )`);
+        params.push(sessionUser.name, sessionUser.id, sessionUser.name);
+      } else if (sessionUser.role === "student") {
+        conditions.push(`classroom_id IN (
+          SELECT classroom_id FROM classroom_members WHERE student_username = ? OR user_id = ?
+        )`);
+        params.push(sessionUser.username, sessionUser.id);
+      }
     }
+
+    if (conditions.length > 0) {
+      sql += " WHERE " + conditions.join(" AND ");
+    } else if (!sessionUser || (sessionUser.role !== "admin" && sessionUser.role !== "superadmin")) {
+      return NextResponse.json({ success: true, tasks: [] });
+    }
+
+    sql += " ORDER BY created_at DESC";
 
     const tasks = await query<any[]>(sql, params);
 
@@ -152,7 +202,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error("POST lab_tasks error:", err);
     return NextResponse.json({ error: err.message || "Gagal menyimpan tugas praktikum" }, { status: 500 });
-  }
+  }   
 }
 
 // PUT: Guru memperbarui / mengedit tugas praktikum yang sudah ada
@@ -240,11 +290,30 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "ID tugas wajib disertakan." }, { status: 400 });
     }
 
+    // Pastikan guru hanya dapat menghapus tugas miliknya / kelasnya sendiri
+    if (auth.user.role === "teacher") {
+      const existing = await query<any[]>(
+        `SELECT lt.id FROM lab_tasks lt
+         LEFT JOIN classrooms c ON c.id = lt.classroom_id
+         WHERE lt.id = ? AND (lt.teacher_name = ? OR c.teacher_id = ? OR c.teacher_name = ?)
+         LIMIT 1`,
+        [taskId, auth.user.name, auth.user.id, auth.user.name]
+      );
+      if (!existing || existing.length === 0) {
+        return NextResponse.json(
+          { error: "Anda tidak memiliki hak akses untuk menghapus tugas praktikum ini." },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Cascade delete submissions untuk tugas ini
+    await query("DELETE FROM lab_submissions WHERE task_id = ?", [taskId]);
     await query("DELETE FROM lab_tasks WHERE id = ?", [taskId]);
 
     return NextResponse.json({
       success: true,
-      message: "Tugas praktikum berhasil dihapus.",
+      message: "Tugas praktikum beserta seluruh rekap pengumpulannya berhasil dihapus.",
     });
   } catch (err: any) {
     console.error("DELETE lab_tasks error:", err);

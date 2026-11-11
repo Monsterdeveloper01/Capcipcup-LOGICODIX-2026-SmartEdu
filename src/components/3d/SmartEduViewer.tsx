@@ -199,12 +199,12 @@ export default function SmartEduViewer() {
               handTransform.isGrabbing ? (
                 <>
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                  <span className="text-amber-300 font-bold">✊ Tangan Menutup: Memegang Balok (Buka tangan untuk menumpuk)</span>
+                  <span className="text-amber-300 font-bold">Tangan Menutup: Memegang Balok (Buka tangan untuk menumpuk)</span>
                 </>
               ) : (
                 <>
                   <Hand className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>✋ Tangan Terbuka: Arahkan ke balok lalu <strong>tutup tangan (kepal)</strong> untuk mengambil</span>
+                  <span>Tangan Terbuka: Arahkan ke balok lalu <strong>tutup tangan (kepal)</strong> untuk mengambil</span>
                 </>
               )
             ) : (

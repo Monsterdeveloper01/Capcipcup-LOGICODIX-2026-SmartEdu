@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 
 interface TeacherTaskBuilderProps {
+  classroomId?: string;
   roomCode?: string;
   teacherName?: string;
   tasks?: LabTask[];
@@ -50,28 +51,29 @@ interface TeacherTaskBuilderProps {
 
 const RPP_INSPIRATIONS = [
   {
-    label: "🧪 Asam Basa & Netralisasi (SMP)",
+    label: "Asam Basa & Netralisasi (SMP)",
     grade: "SMP" as const,
     text: "RPP Kurikulum Merdeka SMP Kelas 8 - Bab Asam, Basa, dan Garam.\nTujuan Pembelajaran: Siswa mampu mengamati reaksi netralisasi antara asam klorida dan natrium hidroksida, mengukur pelepasan kalor eksotermik saat pembentukan larutan garam NaCl, serta menyimpulkan karakteristik larutan netral.",
   },
   {
-    label: "💥 Redoks Piroteknik KMnO4 (SMA)",
+    label: "Redoks Piroteknik KMnO4 (SMA)",
     grade: "SMA" as const,
     text: "RPP Kimia SMA Kelas 11 - Materi Reaksi Redoks Spontan dan Termokimia.\nTujuan Pembelajaran: Siswa dapat menganalisis reaksi oksidasi kuat serbuk Kalium Permanganat (KMnO4 padat) dengan gliserin anhidrat, membuktikan pelepasan kalor eksotermik hebat dan kepulan asap, serta memahami perbedaan fasa padat vs larutan cair.",
   },
   {
-    label: "🌟 Presipitasi Hujan Emas (SMA)",
+    label: "Presipitasi Hujan Emas (SMA)",
     grade: "SMA" as const,
     text: "RPP Kimia SMA Kelas 11 - Materi Kesetimbangan Kelarutan dan Reaksi Pengendapan (Ksp).\nTujuan Pembelajaran: Siswa mampu mereaksikan larutan timbal(II) nitrat jernih dengan kalium iodida untuk membuktikan terbentuknya endapan kristal kuning keemasan PbI2 (Golden Rain).",
   },
   {
-    label: "🫧 Gas CO2 & Busa (SD)",
+    label: "Gas CO2 & Busa (SD)",
     grade: "SD" as const,
     text: "RPP Sains IPA SD Kelas 5 - Wujud Benda dan Perubahan Wujud Kimia.\nTujuan Pembelajaran: Siswa mampu mencampurkan asam cuka dapur dengan baking soda untuk mengamati pembentukan gas karbon dioksida (CO2) berupa busa meluap, serta merasakan penurunan suhu bejana (reaksi endoterm).",
   },
 ];
 
 export default function TeacherTaskBuilder({
+  classroomId,
   roomCode = "LAB889",
   teacherName = "Budi Santoso, S.Pd",
   tasks = [],
@@ -239,7 +241,12 @@ export default function TeacherTaskBuilder({
   useEffect(() => {
     if (activeSection === "submissions") {
       setIsLoadingSubmissions(true);
-      fetch("/api/lab/submissions")
+      const params = new URLSearchParams();
+      if (classroomId) params.set("classroomId", classroomId);
+      if (roomCode) params.set("roomCode", roomCode);
+      const qs = params.toString() ? `?${params.toString()}` : "";
+
+      fetch(`/api/lab/submissions${qs}`)
         .then((res) => res.json())
         .then((data) => {
           if (data && data.submissions) {
@@ -251,7 +258,7 @@ export default function TeacherTaskBuilder({
     } else if (activeSection === "ai_logs") {
       fetchAiLogs();
     }
-  }, [activeSection, roomCode]);
+  }, [activeSection, roomCode, classroomId]);
 
   const toggleChemical = (id: string) => {
     setSelectedChemicalIds((prev) =>
@@ -397,6 +404,7 @@ export default function TeacherTaskBuilder({
         payload.id = editingTaskId;
       } else {
         payload.roomCode = roomCode;
+        if (classroomId) payload.classroomId = classroomId;
         payload.teacherName = teacherName;
       }
 
@@ -1399,7 +1407,7 @@ export default function TeacherTaskBuilder({
                               </span>
                             ) : (
                               <span className="text-amber-700 font-semibold block">
-                                🔒 Mode Ringkas: Siswa hanya diberitahu benar/salah tanpa membocorkan kunci dan pembahasan.
+                                [Terkunci] Mode Ringkas: Siswa hanya diberitahu benar/salah tanpa membocorkan kunci dan pembahasan.
                               </span>
                             )}
                           </p>
@@ -1577,10 +1585,10 @@ export default function TeacherTaskBuilder({
 
                     <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200">
                       <span className="text-emerald-700 font-semibold">
-                        🔬 {task.chemicalIds?.length || 0} Reagen 3D
+                        {task.chemicalIds?.length || 0} Reagen 3D
                       </span>
                       <span className="text-amber-700 font-semibold">
-                        📝 {task.questions?.length || 0} Butir Kuis
+                        {task.questions?.length || 0} Butir Kuis
                       </span>
                     </div>
 
@@ -1595,7 +1603,7 @@ export default function TeacherTaskBuilder({
                             : "bg-rose-50 text-rose-800 border-rose-200"
                         }`}
                       >
-                        {task.allowRetakeBelowKkm !== false ? "✓ Remedial Diizinkan" : "✕ Sekali Selesai"}
+                        {task.allowRetakeBelowKkm !== false ? "Remedial Diizinkan" : "Sekali Selesai"}
                       </span>
                       <span
                         className={`font-semibold px-2 py-0.5 rounded border text-[10px] ${
@@ -1609,7 +1617,7 @@ export default function TeacherTaskBuilder({
                             : "Kunci jawaban & pembahasan disembunyikan dari siswa"
                         }
                       >
-                        {task.showQuizReviewDetails !== false ? "👁️ Review: Detail" : "🔒 Review: Ringkas"}
+                        {task.showQuizReviewDetails !== false ? "Review: Detail" : "Review: Ringkas"}
                       </span>
                     </div>
                   </div>
@@ -1697,7 +1705,11 @@ export default function TeacherTaskBuilder({
                   type="button"
                   onClick={() => {
                     setIsLoadingSubmissions(true);
-                    fetch("/api/lab/submissions")
+                    const params = new URLSearchParams();
+                    if (classroomId) params.set("classroomId", classroomId);
+                    if (roomCode) params.set("roomCode", roomCode);
+                    const qs = params.toString() ? `?${params.toString()}` : "";
+                    fetch(`/api/lab/submissions${qs}`)
                       .then((res) => res.json())
                       .then((data) => {
                         if (data && data.submissions) setSubmissions(data.submissions);
@@ -1932,7 +1944,11 @@ export default function TeacherTaskBuilder({
                           type="button"
                           onClick={() => {
                             setIsLoadingSubmissions(true);
-                            fetch("/api/lab/submissions")
+                            const params = new URLSearchParams();
+                            if (classroomId) params.set("classroomId", classroomId);
+                            if (roomCode) params.set("roomCode", roomCode);
+                            const qs = params.toString() ? `?${params.toString()}` : "";
+                            fetch(`/api/lab/submissions${qs}`)
                               .then((res) => res.json())
                               .then((data) => {
                                 if (data && data.submissions) setSubmissions(data.submissions);
@@ -2121,7 +2137,7 @@ export default function TeacherTaskBuilder({
                             : "bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200"
                         }`}
                       >
-                        ⚗️ Reaksi Sukses ({reactionAchievedSubs.length})
+                        Reaksi Sukses ({reactionAchievedSubs.length})
                       </button>
                     </div>
                   </div>
@@ -2488,7 +2504,7 @@ export default function TeacherTaskBuilder({
                     {/* Pertanyaan Siswa */}
                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
                       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        <span>👤 Pertanyaan Murid:</span>
+                        <span>Pertanyaan Murid:</span>
                       </div>
                       <p className="text-xs font-bold text-slate-900 leading-relaxed">
                         &quot;{log.question}&quot;

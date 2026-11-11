@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useMemo } from "react";
 import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Text, Float } from "@react-three/drei";
 import * as THREE from "three";
-import { HandTransform } from "@/components/camera/HandGestureTracker";
+import { HandTransform, TrackedHandSlot } from "@/components/camera/HandGestureTracker";
 import { REACTION_CATALOG } from "@/lib/lab/chemicals-db";
 import labSound from "@/lib/audio/labSoundEngine";
 import { evaluateChemicalProperties } from "@/lib/lab/chemicalProperties";
@@ -679,7 +679,8 @@ function VesselsSimulation({
   dippedVesselId?: string | null;
   onDipTool?: (vessel: ChemicalVessel, tool: InteractiveToolType) => void;
 }) {
-  const handSphereRef = useRef<THREE.Mesh>(null);
+  const handOrbLeftRef = useRef<THREE.Mesh>(null);
+  const handOrbRightRef = useRef<THREE.Mesh>(null);
   const vesselsRef = useRef<ChemicalVessel[]>(vessels);
   vesselsRef.current = vessels;
 
@@ -704,171 +705,287 @@ function VesselsSimulation({
       });
   }, []);
 
-  const [targetedId, setTargetedId] = useState<string | null>(null);
+  const [targetedIds, setTargetedIds] = useState<string[]>([]);
   const [pouringTargetId, setPouringTargetId] = useState<string | null>(null);
+  const [pouringTargetsByHand, setPouringTargetsByHand] = useState<{
+    Left: string | null;
+    Right: string | null;
+  }>({ Left: null, Right: null });
 
   // Mouse Drag Fallback State
   const [mouseDraggedId, setMouseDraggedId] = useState<string | null>(null);
+
+  // Pelacakan per tangan (Kiri & Kanan dapat memegang objek berbeda secara bersamaan)
+  const grabbedByHandRef = useRef<{ Left: string | null; Right: string | null }>({
+    Left: null,
+    Right: null,
+  });
+  const grabbedTiltLeftRef = useRef<number>(0);
+  const grabbedTiltRightRef = useRef<number>(0);
 
   // Cooldown to avoid multi-triggering the same reaction
   const reactionCooldownRef = useRef<{ [pairKey: string]: number }>({});
   const isSimulatingAiRef = useRef<boolean>(false);
   const grabbedTiltRef = useRef<number>(0);
 
-  // 60 FPS Animation & Proximity Loop
-  useFrame((state, delta) => {
+  // 60 FPS Animation & Dual-Hand Proximity Loop
+  useFrame((state) => {
     if (isLocked) {
       if (grabbedIdRef.current) grabbedIdRef.current = null;
+      grabbedByHandRef.current.Left = null;
+      grabbedByHandRef.current.Right = null;
       if (mouseDraggedId) setMouseDraggedId(null);
       if (pouringTargetId) setPouringTargetId(null);
-      setTargetedId(null);
+      setPouringTargetsByHand({ Left: null, Right: null });
+      setTargetedIds([]);
       grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, 0, 0.2);
-      if (handSphereRef.current) handSphereRef.current.visible = false;
+      grabbedTiltLeftRef.current = THREE.MathUtils.lerp(grabbedTiltLeftRef.current, 0, 0.2);
+      grabbedTiltRightRef.current = THREE.MathUtils.lerp(grabbedTiltRightRef.current, 0, 0.2);
+      if (handOrbLeftRef.current) handOrbLeftRef.current.visible = false;
+      if (handOrbRightRef.current) handOrbRightRef.current.visible = false;
       return;
     }
 
     const isHandActive = Boolean(handTransform && handTransform.handDetected);
-    const handPos = handTransform?.handPosition3D;
-    const isGrabbing = Boolean(handTransform?.isGrabbing);
-    const wristAngle = handTransform?.wristAngle || 0;
+    const activeHands: TrackedHandSlot[] = [];
 
-    // 1. Calculate Exact Effective 3D Hand Position from Screen Center (Raycasting onto workbench plane)
-    let effectiveHandPos: THREE.Vector3 | null = null;
-    if (isHandActive && handTransform?.handScreenPos) {
-      const ndcX = handTransform.handScreenPos.x * 2 - 1;
-      const ndcY = 1 - handTransform.handScreenPos.y * 2;
+    if (isHandActive && handTransform?.hands && handTransform.hands.length > 0) {
+      activeHands.push(...handTransform.hands);
+    } else if (isHandActive && handTransform?.handScreenPos) {
+      activeHands.push({
+        id: "Right",
+        handScreenPos: handTransform.handScreenPos,
+        handPosition3D: handTransform.handPosition3D || { x: 0, y: 0.75, z: 0 },
+        isGrabbing: Boolean(handTransform.isGrabbing),
+        isPinching: Boolean(handTransform.isPinching),
+        wristAngle: handTransform.wristAngle || 0,
+        depthPush: 0,
+      });
+    }
+
+    const nextTargetedIds: string[] = [];
+    const effectivePosBySlot: Partial<Record<"Left" | "Right", THREE.Vector3>> = {};
+
+    (["Left", "Right"] as const).forEach((slotId) => {
+      const slotHand = activeHands.find((h) => h.id === slotId);
+      const orbRef = slotId === "Left" ? handOrbLeftRef.current : handOrbRightRef.current;
+
+      if (!slotHand) {
+        if (orbRef) orbRef.visible = false;
+        if (grabbedByHandRef.current[slotId]) {
+          grabbedByHandRef.current[slotId] = null;
+          labSound.playGlassClink("soft");
+        }
+        return;
+      }
+
+      // 1. Raycast 3D position on workbench plane
+      const ndcX = slotHand.handScreenPos.x * 2 - 1;
+      const ndcY = 1 - slotHand.handScreenPos.y * 2;
       const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), state.camera);
       const targetPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.75);
       const intersect = new THREE.Vector3();
+
+      let effectivePos: THREE.Vector3 | null = null;
       if (raycaster.ray.intersectPlane(targetPlane, intersect)) {
         intersect.x = THREE.MathUtils.clamp(intersect.x, -4.5, 4.5);
         intersect.z = THREE.MathUtils.clamp(intersect.z, -3.0, 3.0);
-        effectiveHandPos = intersect;
+        effectivePos = intersect;
+      } else if (slotHand.handPosition3D) {
+        effectivePos = new THREE.Vector3(
+          slotHand.handPosition3D.x,
+          slotHand.handPosition3D.y,
+          slotHand.handPosition3D.z
+        );
       }
-    } else if (isHandActive && handPos) {
-      effectiveHandPos = new THREE.Vector3(handPos.x, handPos.y, handPos.z);
-    }
 
-    // 2. Update 3D Hand Cursor (Locked directly to palm center)
-    if (handSphereRef.current) {
-      if (isHandActive && effectiveHandPos) {
-        handSphereRef.current.visible = true;
-        handSphereRef.current.position.lerp(effectiveHandPos, 0.75);
-        const targetScale = isGrabbing ? 0.22 : 0.16;
-        handSphereRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.45);
-      } else {
-        handSphereRef.current.visible = false;
+      if (effectivePos) {
+        effectivePosBySlot[slotId] = effectivePos;
       }
-    }
 
-    // 3. Hand Targeting & Grab Detection
-    let closestTargetId: string | null = null;
-    if (isHandActive && effectiveHandPos) {
-      let minDist = 1.65;
-      vesselsRef.current.forEach((v) => {
-        const d = Math.hypot(v.position[0] - effectiveHandPos.x, v.position[2] - effectiveHandPos.z);
-        if (d < minDist) {
-          minDist = d;
-          closestTargetId = v.id;
-        }
-      });
-
-      if (isGrabbing) {
-        if (!grabbedIdRef.current && closestTargetId) {
-          grabbedIdRef.current = closestTargetId;
-          labSound.playGlassClink("medium");
-        }
-      } else {
-        if (grabbedIdRef.current) {
-          grabbedIdRef.current = null;
-          setPouringTargetId(null);
-          labSound.playGlassClink("soft");
-          labSound.stopPouring();
+      // 2. Update 3D Hand Cursor Orb
+      if (orbRef) {
+        if (effectivePos) {
+          orbRef.visible = true;
+          orbRef.position.lerp(effectivePos, 0.75);
+          const targetScale = slotHand.isGrabbing ? 0.18 : 0.13;
+          orbRef.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.45);
+        } else {
+          orbRef.visible = false;
         }
       }
-    } else {
-      if (!mouseDraggedId && grabbedIdRef.current) {
-        grabbedIdRef.current = null;
-        setPouringTargetId(null);
-        labSound.stopPouring();
-      }
-    }
 
-    setTargetedId(!isGrabbing ? closestTargetId : null);
+      // 3. Hand Targeting & Grab Detection (Skip vessel already held by the opposite hand)
+      const otherSlotId = slotId === "Left" ? "Right" : "Left";
+      const otherGrabbedId = grabbedByHandRef.current[otherSlotId];
+      let closestTargetId: string | null = null;
 
-    // 4. Position Update & Physical Pouring Proximity
-    const activeGrabbedId = mouseDraggedId || grabbedIdRef.current;
-    const isPhysicallyTilting = isHandActive
-      ? Math.abs(wristAngle) > 0.35 // Rotasi pergelangan tangan melebihi ~20 derajat
-      : Boolean(mouseDraggedId);
-
-    if (activeGrabbedId) {
-      const activeVessel = vesselsRef.current.find((v) => v.id === activeGrabbedId);
-      if (activeVessel) {
-        let nearestOtherId: string | null = null;
-        let minProximity = 2.8; // Jarak jangkauan nyaman untuk menuangkan
-
-        vesselsRef.current.forEach((other) => {
-          if (other.id === activeGrabbedId) return;
-          const dist = Math.hypot(
-            activeVessel.position[0] - other.position[0],
-            activeVessel.position[2] - other.position[2]
-          );
-          if (dist < minProximity) {
-            minProximity = dist;
-            nearestOtherId = other.id;
+      if (effectivePos) {
+        let minDist = 1.65;
+        vesselsRef.current.forEach((v) => {
+          if (v.id === otherGrabbedId || v.id === mouseDraggedId) return;
+          const d = Math.hypot(v.position[0] - effectivePos.x, v.position[2] - effectivePos.z);
+          if (d < minDist) {
+            minDist = d;
+            closestTargetId = v.id;
           }
         });
 
-        setPouringTargetId(nearestOtherId);
-
-        // Update physical tilt angle of grabbed vessel
-        let targetTilt = 0;
-        if (isHandActive) {
-          targetTilt = THREE.MathUtils.clamp(-wristAngle * 1.15, -1.35, 1.35);
-        } else if (nearestOtherId) {
-          const targetV = vesselsRef.current.find((v) => v.id === nearestOtherId);
-          if (targetV) {
-            const dx = targetV.position[0] - activeVessel.position[0];
-            targetTilt = dx > 0 ? -0.85 : 0.85;
+        if (slotHand.isGrabbing) {
+          if (!grabbedByHandRef.current[slotId] && closestTargetId) {
+            grabbedByHandRef.current[slotId] = closestTargetId;
+            labSound.playGlassClink("medium");
           }
-        }
-        grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, targetTilt, 0.25);
-
-        // SFX: Trigger authentic liquid pouring stream sound when tilted near target vessel
-        const isActivelyPouring = Boolean(nearestOtherId && Math.abs(grabbedTiltRef.current) > 0.32);
-        if (isActivelyPouring) {
-          labSound.startPouring();
         } else {
-          labSound.stopPouring();
-        }
-
-        // HANYA memicu reaksi kimia jika pengguna BENAR-BENAR MEMUTAR / MEMIRINGKAN TANGANNYA!
-        if (nearestOtherId && isPhysicallyTilting) {
-          const targetVessel = vesselsRef.current.find((v) => v.id === nearestOtherId);
-          if (targetVessel) {
-            checkAndTriggerReaction(activeVessel, targetVessel);
+          if (grabbedByHandRef.current[slotId]) {
+            grabbedByHandRef.current[slotId] = null;
+            labSound.playGlassClink("soft");
           }
+        }
+      } else if (grabbedByHandRef.current[slotId]) {
+        grabbedByHandRef.current[slotId] = null;
+      }
+
+      if (!slotHand.isGrabbing && closestTargetId) {
+        nextTargetedIds.push(closestTargetId);
+      }
+    });
+
+    setTargetedIds(nextTargetedIds);
+
+    // Sync shared grabbedIdRef for OrbitControls lock
+    const leftId = grabbedByHandRef.current.Left;
+    const rightId = grabbedByHandRef.current.Right;
+    grabbedIdRef.current = mouseDraggedId || rightId || leftId || null;
+
+    // 4. Tilt & Physical Pouring Proximity for Each Held Vessel (Left Hand, Right Hand, or Mouse Drag)
+    let nextPourLeftTarget: string | null = null;
+    let nextPourRightTarget: string | null = null;
+    let nextPourMouseTarget: string | null = null;
+    let anyPouringSound = false;
+
+    const processPouringForHolder = (
+      sourceId: string | null,
+      wristAngle: number,
+      isUsingCamera: boolean,
+      tiltRef: React.MutableRefObject<number>
+    ): string | null => {
+      if (!sourceId) {
+        tiltRef.current = THREE.MathUtils.lerp(tiltRef.current, 0, 0.2);
+        return null;
+      }
+      const activeVessel = vesselsRef.current.find((v) => v.id === sourceId);
+      if (!activeVessel) {
+        tiltRef.current = THREE.MathUtils.lerp(tiltRef.current, 0, 0.2);
+        return null;
+      }
+
+      let nearestOtherId: string | null = null;
+      let minProximity = 2.8;
+
+      vesselsRef.current.forEach((other) => {
+        if (other.id === sourceId) return;
+        const dist = Math.hypot(
+          activeVessel.position[0] - other.position[0],
+          activeVessel.position[2] - other.position[2]
+        );
+        if (dist < minProximity) {
+          minProximity = dist;
+          nearestOtherId = other.id;
+        }
+      });
+
+      let targetTilt = 0;
+      if (isUsingCamera) {
+        targetTilt = THREE.MathUtils.clamp(-wristAngle * 1.15, -1.35, 1.35);
+      } else if (nearestOtherId) {
+        const targetV = vesselsRef.current.find((v) => v.id === nearestOtherId);
+        if (targetV) {
+          const dx = targetV.position[0] - activeVessel.position[0];
+          targetTilt = dx > 0 ? -0.85 : 0.85;
         }
       }
+      tiltRef.current = THREE.MathUtils.lerp(tiltRef.current, targetTilt, 0.25);
+
+      const isPhysicallyTilting = isUsingCamera
+        ? Math.abs(wristAngle) > 0.35
+        : Boolean(mouseDraggedId);
+
+      if (nearestOtherId && Math.abs(tiltRef.current) > 0.32) {
+        anyPouringSound = true;
+      }
+
+      if (nearestOtherId && isPhysicallyTilting) {
+        const targetVessel = vesselsRef.current.find((v) => v.id === nearestOtherId);
+        if (targetVessel) {
+          checkAndTriggerReaction(activeVessel, targetVessel);
+        }
+      }
+
+      return nearestOtherId;
+    };
+
+    const leftSlotData = activeHands.find((h) => h.id === "Left");
+    const rightSlotData = activeHands.find((h) => h.id === "Right");
+
+    nextPourLeftTarget = processPouringForHolder(
+      leftId,
+      leftSlotData?.wristAngle || 0,
+      Boolean(leftSlotData),
+      grabbedTiltLeftRef
+    );
+    nextPourRightTarget = processPouringForHolder(
+      rightId,
+      rightSlotData?.wristAngle || 0,
+      Boolean(rightSlotData),
+      grabbedTiltRightRef
+    );
+    if (mouseDraggedId && mouseDraggedId !== leftId && mouseDraggedId !== rightId) {
+      nextPourMouseTarget = processPouringForHolder(mouseDraggedId, 0, false, grabbedTiltRef);
     } else {
-      setPouringTargetId(null);
-      grabbedTiltRef.current = THREE.MathUtils.lerp(grabbedTiltRef.current, 0, 0.2);
+      grabbedTiltRef.current = rightId
+        ? grabbedTiltRightRef.current
+        : leftId
+        ? grabbedTiltLeftRef.current
+        : THREE.MathUtils.lerp(grabbedTiltRef.current, 0, 0.2);
+    }
+
+    if (anyPouringSound) {
+      labSound.startPouring();
+    } else {
       labSound.stopPouring();
     }
 
-    // Move grabbed vessel with hand palm center
-    if (grabbedIdRef.current && effectiveHandPos) {
+    setPouringTargetsByHand({ Left: nextPourLeftTarget, Right: nextPourRightTarget });
+    setPouringTargetId(nextPourMouseTarget || nextPourRightTarget || nextPourLeftTarget);
+
+    // 5. Move Any Grabbed Vessels (Both Left & Right simultaneously in a single state update)
+    const moveLeft = Boolean(leftId && effectivePosBySlot.Left);
+    const moveRight = Boolean(rightId && effectivePosBySlot.Right);
+
+    if (moveLeft || moveRight) {
       setVessels((prev) =>
         prev.map((v) => {
-          if (v.id === grabbedIdRef.current) {
+          if (moveLeft && v.id === leftId && effectivePosBySlot.Left) {
+            const p = effectivePosBySlot.Left;
             return {
               ...v,
               position: [
-                THREE.MathUtils.lerp(v.position[0], effectiveHandPos.x, 0.70),
-                THREE.MathUtils.lerp(v.position[1], Math.max(0.7, effectiveHandPos.y + 0.35), 0.70),
-                THREE.MathUtils.lerp(v.position[2], effectiveHandPos.z, 0.70),
+                THREE.MathUtils.lerp(v.position[0], p.x, 0.7),
+                THREE.MathUtils.lerp(v.position[1], Math.max(0.7, p.y + 0.35), 0.7),
+                THREE.MathUtils.lerp(v.position[2], p.z, 0.7),
+              ],
+            };
+          }
+          if (moveRight && v.id === rightId && effectivePosBySlot.Right) {
+            const p = effectivePosBySlot.Right;
+            return {
+              ...v,
+              position: [
+                THREE.MathUtils.lerp(v.position[0], p.x, 0.7),
+                THREE.MathUtils.lerp(v.position[1], Math.max(0.7, p.y + 0.35), 0.7),
+                THREE.MathUtils.lerp(v.position[2], p.z, 0.7),
               ],
             };
           }
@@ -1268,7 +1385,19 @@ function VesselsSimulation({
     }
   };
 
+  const leftGrabId = grabbedByHandRef.current.Left;
+  const rightGrabId = grabbedByHandRef.current.Right;
+  const leftSlotHand = handTransform?.hands?.find((h) => h.id === "Left");
+  const rightSlotHand = handTransform?.hands?.find((h) => h.id === "Right");
+
   const targetVessel = pouringTargetId ? vessels.find((v) => v.id === pouringTargetId) : null;
+  const leftPourTargetVessel = pouringTargetsByHand.Left
+    ? vessels.find((v) => v.id === pouringTargetsByHand.Left)
+    : null;
+  const rightPourTargetVessel = pouringTargetsByHand.Right
+    ? vessels.find((v) => v.id === pouringTargetsByHand.Right)
+    : null;
+
   const activeGrabbedId = mouseDraggedId || grabbedIdRef.current;
   const dippedVessel = dippedVesselId
     ? vessels.find((v) => v.id === dippedVesselId)
@@ -1276,32 +1405,74 @@ function VesselsSimulation({
 
   return (
     <group onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
-      {/* 3D Hand Tracking Cursor */}
-      <mesh ref={handSphereRef} visible={false}>
-        <sphereGeometry args={[1, 32, 32]} />
+      {/* 3D Hand Tracking Cursor — Tangan Kiri */}
+      <mesh ref={handOrbLeftRef} visible={false}>
+        <sphereGeometry args={[1, 24, 24]} />
         <meshStandardMaterial
-          color={handTransform?.isGrabbing ? "#f59e0b" : "#00f5ff"}
-          emissive={handTransform?.isGrabbing ? "#d97706" : "#00f5ff"}
-          emissiveIntensity={1.5}
+          color={leftSlotHand?.isGrabbing ? "#f59e0b" : "#38bdf8"}
+          emissive={leftSlotHand?.isGrabbing ? "#d97706" : "#0ea5e9"}
+          emissiveIntensity={1.2}
           roughness={0.2}
           transparent
-          opacity={0.8}
+          opacity={0.75}
         />
         <pointLight
-          color={handTransform?.isGrabbing ? "#f59e0b" : "#00f5ff"}
-          intensity={2}
-          distance={3}
+          color={leftSlotHand?.isGrabbing ? "#f59e0b" : "#38bdf8"}
+          intensity={1.5}
+          distance={2.6}
+        />
+      </mesh>
+
+      {/* 3D Hand Tracking Cursor — Tangan Kanan */}
+      <mesh ref={handOrbRightRef} visible={false}>
+        <sphereGeometry args={[1, 24, 24]} />
+        <meshStandardMaterial
+          color={
+            (rightSlotHand?.isGrabbing ?? handTransform?.isGrabbing) ? "#f59e0b" : "#38bdf8"
+          }
+          emissive={
+            (rightSlotHand?.isGrabbing ?? handTransform?.isGrabbing) ? "#d97706" : "#0ea5e9"
+          }
+          emissiveIntensity={1.2}
+          roughness={0.2}
+          transparent
+          opacity={0.75}
+        />
+        <pointLight
+          color={
+            (rightSlotHand?.isGrabbing ?? handTransform?.isGrabbing) ? "#f59e0b" : "#38bdf8"
+          }
+          intensity={1.5}
+          distance={2.6}
         />
       </mesh>
 
       {/* Render All Chemical Vessels */}
       {vessels.map((vessel) => {
-        const isGrabbed = vessel.id === (mouseDraggedId || grabbedIdRef.current);
-        const isTargeted = vessel.id === targetedId;
-        const isBeingPouredInto = vessel.id === pouringTargetId;
+        const heldByLeft = vessel.id === leftGrabId;
+        const heldByRight = vessel.id === rightGrabId;
+        const heldByMouse = vessel.id === mouseDraggedId;
+        const isGrabbed = heldByLeft || heldByRight || heldByMouse;
+        const isTargeted = targetedIds.includes(vessel.id);
+        const isBeingPouredInto =
+          vessel.id === pouringTargetId ||
+          vessel.id === pouringTargetsByHand.Left ||
+          vessel.id === pouringTargetsByHand.Right;
         const isReacting =
           activeReaction?.targetVesselId === vessel.id ||
           (Boolean(activeReaction && !activeReaction.targetVesselId) && Boolean(vessel.isReacted));
+
+        const vesselWristAngle = heldByLeft
+          ? leftSlotHand?.wristAngle || 0
+          : heldByRight
+          ? rightSlotHand?.wristAngle ?? handTransform?.wristAngle ?? 0
+          : 0;
+
+        const vesselTargetPos = heldByLeft
+          ? leftPourTargetVessel?.position
+          : heldByRight
+          ? rightPourTargetVessel?.position
+          : targetVessel?.position;
 
         return (
           <ChemicalVesselItem
@@ -1310,9 +1481,9 @@ function VesselsSimulation({
             isGrabbed={isGrabbed}
             isTargeted={isTargeted}
             isBeingPouredInto={isBeingPouredInto}
-            wristAngle={isGrabbed ? handTransform?.wristAngle || 0 : 0}
-            isHandActive={Boolean(handTransform && handTransform.handDetected)}
-            targetPosition={targetVessel?.position}
+            wristAngle={isGrabbed ? vesselWristAngle : 0}
+            isHandActive={Boolean(handTransform && handTransform.handDetected) && !heldByMouse}
+            targetPosition={vesselTargetPos}
             activeReactionEffect={isReacting ? activeReaction : null}
             onPointerDown={(e) => handlePointerDown(vessel.id, e)}
           />
@@ -1327,10 +1498,26 @@ function VesselsSimulation({
         />
       )}
 
-      {/* World-Space Smooth Gravitational Pouring Stream */}
-      {activeGrabbedId && (
+      {/* World-Space Smooth Gravitational Pouring Streams (Left, Right, or Mouse) */}
+      {leftGrabId && (
         <RealisticFluidPouringStream
-          sourceId={activeGrabbedId}
+          sourceId={leftGrabId}
+          targetId={pouringTargetsByHand.Left}
+          vesselsRef={vesselsRef}
+          grabbedTiltRef={grabbedTiltLeftRef}
+        />
+      )}
+      {rightGrabId && (
+        <RealisticFluidPouringStream
+          sourceId={rightGrabId}
+          targetId={pouringTargetsByHand.Right}
+          vesselsRef={vesselsRef}
+          grabbedTiltRef={grabbedTiltRightRef}
+        />
+      )}
+      {mouseDraggedId && mouseDraggedId !== leftGrabId && mouseDraggedId !== rightGrabId && activeGrabbedId && (
+        <RealisticFluidPouringStream
+          sourceId={mouseDraggedId}
           targetId={pouringTargetId}
           vesselsRef={vesselsRef}
           grabbedTiltRef={grabbedTiltRef}

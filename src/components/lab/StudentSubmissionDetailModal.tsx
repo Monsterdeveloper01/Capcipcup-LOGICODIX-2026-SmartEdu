@@ -376,7 +376,7 @@ export default function StudentSubmissionDetailModal({
                       <span>{temperatureChange}°C (Endotermik / Menyerap Kalor dari Lingkungan)</span>
                     </>
                   ) : (
-                    <span>⚖️ Suhu Stabil (Suhu Ruang ~25°C)</span>
+                    <span>Suhu Stabil (Suhu Ruang ~25°C)</span>
                   )}
                 </div>
               </div>
@@ -580,7 +580,7 @@ export default function StudentSubmissionDetailModal({
                         </div>
                         {ans.explanation && (
                           <p className="text-[10px] text-slate-600 bg-white p-1.5 rounded border border-rose-100 leading-relaxed">
-                            💡 <strong>Koreksi AI:</strong> {ans.explanation}
+                            <strong>Koreksi AI:</strong> {ans.explanation}
                           </p>
                         )}
                       </div>
@@ -588,7 +588,6 @@ export default function StudentSubmissionDetailModal({
                   </div>
                 ) : (
                   <div className="py-4 text-center space-y-1">
-                    <span className="text-lg">🎉</span>
                     <p className="text-[11px] font-bold text-emerald-800">
                       Sempurna! Tidak ditemukan miskonsepsi.
                     </p>
@@ -655,7 +654,7 @@ export default function StudentSubmissionDetailModal({
 
                     {/* Pertanyaan Siswa */}
                     <div className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-xs font-bold text-slate-700 shrink-0">👤 Siswa:</span>
+                      <span className="text-xs font-bold text-slate-700 shrink-0">Siswa:</span>
                       <p className="font-medium text-slate-900 leading-relaxed">{log.question}</p>
                     </div>
 
@@ -755,13 +754,13 @@ export default function StudentSubmissionDetailModal({
 
                       {!ans.isCorrect && !isTeacherView && task?.showQuizReviewDetails === false && (
                         <div className="text-[10px] text-amber-700 italic">
-                          🔒 Kunci jawaban &amp; pembahasan disembunyikan oleh guru untuk evaluasi tugas ini.
+                          Kunci jawaban &amp; pembahasan disembunyikan oleh guru untuk evaluasi tugas ini.
                         </div>
                       )}
 
                       {ans.explanation && (isTeacherView || task?.showQuizReviewDetails !== false) && (
                         <div className="mt-1.5 p-2 bg-white rounded-lg border border-slate-200 text-slate-600 text-[11px] leading-relaxed">
-                          <span className="font-bold text-slate-700 mr-1">💡 Pembahasan:</span>
+                          <span className="font-bold text-slate-700 mr-1">Pembahasan:</span>
                           {ans.explanation}
                         </div>
                       )}

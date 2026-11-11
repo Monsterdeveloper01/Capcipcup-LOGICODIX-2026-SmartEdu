@@ -11,7 +11,6 @@ import {
   EyeOff,
   AlertCircle,
   X,
-  Sparkles,
   FlaskConical,
   CheckCircle2,
   ShieldCheck,
@@ -70,7 +69,7 @@ export default function AuthLoginModal({
       setTimeout(() => {
         onLoginSuccess(data.user);
         onClose();
-      }, 700);
+      }, 650);
     } catch (err: any) {
       setErrorMsg(err.message || "Terjadi kesalahan saat menghubungi server autentikasi.");
     } finally {
@@ -79,42 +78,40 @@ export default function AuthLoginModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-200">
-        {/* Close Button */}
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="pop-card rounded-3xl max-w-lg w-full p-6 bg-[#FFFDF7] overflow-hidden relative animate-in zoom-in-95 duration-200">
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-white border-2 border-slate-900 flex items-center justify-center text-slate-900 hover:bg-rose-100 cursor-pointer"
           title="Tutup Modal"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         {/* Modal Header */}
         <div className="text-center space-y-1.5 mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sky-600 text-white shadow-md mb-1">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#FACC15] border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] text-slate-900 mb-1">
             <FlaskConical className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-            Masuk ke Laboratorium CupLabs
+          <h2 className="text-xl font-display font-bold text-slate-900 tracking-tight">
+            Masuk ke CupLabs Studio
           </h2>
-          <p className="text-xs text-slate-500">
-            Pilih mode akun Guru atau Siswa untuk mengelola tugas atau praktikum sains 3D
+          <p className="text-xs text-slate-600 font-medium">
+            Pilih akun cepat atau masuk manual sebagai Guru maupun Siswa
           </p>
         </div>
 
-        {/* Notification Alerts */}
         {errorMsg && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700 rounded-xl flex items-center gap-2 animate-in fade-in">
+          <div className="mb-4 p-3 bg-[#FFE4E6] border-2 border-slate-900 text-xs font-bold text-slate-900 rounded-xl flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 rounded-xl flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="mb-4 p-3 bg-[#A7F3D0] border-2 border-slate-900 text-xs font-bold text-slate-900 rounded-xl flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
@@ -122,65 +119,59 @@ export default function AuthLoginModal({
         {/* Section 1: 1-Click Demo Login Shortcuts */}
         <div className="space-y-3 mb-6">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Pintasan Akun Cepat (1-Klik Masuk)
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+              Pintasan Akun Cepat (1-Klik)
             </span>
-            <div className="h-px bg-slate-200 flex-1" />
+            <div className="h-0.5 bg-slate-900/15 flex-1" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* Guru Card */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
               disabled={isLoading}
               onClick={() => handleLogin("guru", "guru123")}
-              className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-amber-400 rounded-xl text-left transition-all group flex flex-col justify-between space-y-2 focus:ring-2 focus:ring-amber-400/50"
+              className="pop-card pop-card-interactive p-3.5 bg-[#FEF9C3] rounded-2xl text-left flex flex-col justify-between space-y-2 cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                  <div className="w-7 h-7 rounded-lg bg-[#FACC15] border border-slate-900 text-slate-900 flex items-center justify-center">
                     <GraduationCap className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                  <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-white text-slate-900 border border-slate-900">
                     GURU
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-400 font-mono">guru</span>
+                <span className="text-[10px] text-slate-600 font-mono font-bold">guru</span>
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
-                  Budi Santoso, S.Pd
-                </div>
-                <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
-                  Portal Guru, rancang tugas lab & terbitkan kuis AI
+                <div className="text-xs font-extrabold text-slate-900">Budi Santoso, S.Pd</div>
+                <div className="text-[10px] text-slate-700 leading-tight mt-0.5">
+                  Kelola kelas, buat tugas &amp; rekap nilai siswa
                 </div>
               </div>
             </button>
 
-            {/* Siswa Card */}
             <button
               type="button"
               disabled={isLoading}
               onClick={() => handleLogin("siswa", "siswa123")}
-              className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-sky-400 rounded-xl text-left transition-all group flex flex-col justify-between space-y-2 focus:ring-2 focus:ring-sky-400/50"
+              className="pop-card pop-card-interactive p-3.5 bg-[#BAE6FD] rounded-2xl text-left flex flex-col justify-between space-y-2 cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
+                  <div className="w-7 h-7 rounded-lg bg-[#38BDF8] border border-slate-900 text-slate-900 flex items-center justify-center">
                     <UserCheck className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200">
+                  <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-white text-slate-900 border border-slate-900">
                     SISWA
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-400 font-mono">siswa</span>
+                <span className="text-[10px] text-slate-600 font-mono font-bold">siswa</span>
               </div>
               <div>
-                <div className="text-xs font-bold text-slate-900 group-hover:text-sky-700 transition-colors">
-                  Ahmad Faiz
-                </div>
-                <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
-                  Praktikum 3D meja lab, kuis observasi & sandbox
+                <div className="text-xs font-extrabold text-slate-900">Ahmad Faiz</div>
+                <div className="text-[10px] text-slate-700 leading-tight mt-0.5">
+                  Buka kelas, praktikum 3D &amp; kerjakan kuis
                 </div>
               </div>
             </button>
@@ -196,39 +187,35 @@ export default function AuthLoginModal({
           className="space-y-4"
         >
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Atau Masuk dengan Akun Manual
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+              Masuk dengan Akun Manual
             </span>
-            <div className="h-px bg-slate-200 flex-1" />
+            <div className="h-0.5 bg-slate-900/15 flex-1" />
           </div>
 
           <div className="space-y-3">
-            {/* Username / Email */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-700 uppercase">
+              <label className="text-[11px] font-black text-slate-800 uppercase">
                 Username atau Email
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                   <User className="w-4 h-4" />
                 </div>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Masukkan username (misal: guru atau siswa)..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-sky-600 transition-colors"
+                  placeholder="Masukkan username..."
+                  className="w-full pl-9 pr-3 py-2 bg-white border-2 border-slate-900 rounded-xl text-xs font-semibold text-slate-900 placeholder-slate-400 outline-none"
                 />
               </div>
             </div>
 
-            {/* Password */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-700 uppercase">
-                Password
-              </label>
+              <label className="text-[11px] font-black text-slate-800 uppercase">Password</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -236,12 +223,12 @@ export default function AuthLoginModal({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Masukkan password..."
-                  className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-sky-600 transition-colors"
+                  className="w-full pl-9 pr-10 py-2 bg-white border-2 border-slate-900 rounded-xl text-xs font-semibold text-slate-900 placeholder-slate-400 outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-900 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -252,12 +239,12 @@ export default function AuthLoginModal({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            className="pop-btn w-full py-2.5 bg-[#34D399] hover:bg-[#10B981] text-slate-900 text-xs rounded-xl gap-2"
           >
             {isLoading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Memverifikasi Akun...</span>
+                <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                <span>Memverifikasi...</span>
               </>
             ) : (
               <>
@@ -268,14 +255,14 @@ export default function AuthLoginModal({
           </button>
         </form>
 
-        {/* Current logged in status if any */}
         {currentUser && (
-          <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-            <span>Sedang aktif sebagai: <strong className="text-slate-800">{currentUser.name}</strong> ({currentUser.role})</span>
+          <div className="mt-4 pt-3 border-t-2 border-slate-900/15 flex items-center justify-between text-xs text-slate-600">
+            <span>
+              Aktif sebagai: <strong className="text-slate-900">{currentUser.name}</strong> ({currentUser.role})
+            </span>
           </div>
         )}
       </div>
     </div>
   );
 }
-

@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import CameraFeed from "@/components/camera/CameraFeed";
-import HandGestureTracker, { HandTransform } from "@/components/camera/HandGestureTracker";
-import TeacherTaskBuilder from "./TeacherTaskBuilder";
+import HandGestureTracker, {
+  HandTransform,
+  HandDistancePreset,
+  HandProximityHint,
+} from "@/components/camera/HandGestureTracker";
 import AiLabAssistantModal from "./AiLabAssistantModal";
-import PostLabQuizModal from "./PostLabQuizModal";
 import StudentSubmissionDetailModal from "./StudentSubmissionDetailModal";
 import InteractiveMeasurementInspector from "./InteractiveMeasurementInspector";
 import { ChemicalFormula, ChemicalEquation } from "./ChemicalFormula";
@@ -17,11 +18,11 @@ import { AuthUser } from "@/lib/auth/types";
 import {
   ChemicalVessel,
   ReactionDetail,
-  INITIAL_VESSELS,
   InteractiveToolType,
 } from "./ChemistryLabScene";
 import { evaluateChemicalProperties, ChemicalMeasurement } from "@/lib/lab/chemicalProperties";
 import { CHEMICAL_CATALOG, REACTION_CATALOG } from "@/lib/lab/chemicals-db";
+import { resolveReactionForTask } from "@/lib/lab/reactionResolver";
 import { LabTask, LabSubmission, ExperimentDetailLog } from "@/lib/lab/types";
 import {
   FlaskConical,
@@ -31,32 +32,34 @@ import {
   CheckCircle2,
   AlertCircle,
   Award,
-  GraduationCap,
   ClipboardList,
   Video,
   VideoOff,
   X,
-  Menu,
-  ChevronRight,
   BookOpen,
-  HelpCircle,
-  Beaker,
   Search,
   Lock,
-  Unlock,
   Trash2,
-  SlidersHorizontal,
   Flame,
   LogIn,
   LogOut,
-  ShieldCheck,
-  UserCheck,
-  Users,
-  PlusCircle,
   ArrowLeft,
+  ArrowDown,
   Play,
   Volume2,
   VolumeX,
+  Hand,
+  Thermometer,
+  TestTube2,
+  Droplet,
+  ExternalLink,
+  Lightbulb,
+  Eye,
+  Snowflake,
+  Scale,
+  Info,
+  Beaker,
+  SlidersHorizontal,
 } from "lucide-react";
 import labSound from "@/lib/audio/labSoundEngine";
 
@@ -64,10 +67,10 @@ import labSound from "@/lib/audio/labSoundEngine";
 const ChemistryLabScene = dynamic(() => import("./ChemistryLabScene"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center text-sky-600 bg-white font-sans">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-4 border-slate-200 border-t-sky-600 rounded-full animate-spin" />
-        <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+    <div className="w-full h-full flex items-center justify-center bg-[#FFFDF7] pop-dots font-sans">
+      <div className="flex flex-col items-center gap-3 pop-card px-6 py-5 rounded-2xl">
+        <div className="w-10 h-10 border-4 border-slate-900/20 border-t-slate-900 rounded-full animate-spin" />
+        <span className="text-xs font-black tracking-wider text-slate-900 uppercase">
           Memuat 3D Science Engine...
         </span>
       </div>
@@ -75,123 +78,409 @@ const ChemistryLabScene = dynamic(() => import("./ChemistryLabScene"), {
   ),
 });
 
-// Helper untuk memulihkan secara presisi reaksi kimia & bejana produk 3D yang tersimpan
-function resolveReactionForTask(
-  task: LabTask,
-  exp?: ExperimentDetailLog | null
-): { reaction: ReactionDetail; vessel: ChemicalVessel } {
-  const matched = REACTION_CATALOG.find((r) => {
-    if (task.expectedReactionId && r.id === task.expectedReactionId) return true;
-    if (exp?.reactionTitle && exp.reactionTitle !== "Reaksi Kimia Teramati di Meja Lab" && (r.title.toLowerCase() === exp.reactionTitle.toLowerCase() || r.equation === exp?.reactionEquation)) return true;
-    if (task.title) {
-      const tLower = task.title.toLowerCase();
-      const rLower = r.title.toLowerCase();
-      if (tLower.includes("redoks") && (rLower.includes("redoks") || r.id.includes("kmno4"))) return true;
-      if (tLower.includes("hujan emas") && r.id.includes("pbno32")) return true;
-      if (tLower.includes("asam basa") && r.id.includes("hcl_naoh")) return true;
-      if (tLower.includes("lava") && r.id.includes("lava")) return true;
-      if (tLower.includes("saponifikasi") && r.id.includes("sapon")) return true;
-      if (tLower.includes("amilum") && r.id.includes("iodine")) return true;
-      if (tLower.includes("cuka") && r.id.includes("cuka")) return true;
-    }
-    if (task.chemicalIds && r.reactantAId && task.chemicalIds.includes(r.reactantAId) && task.chemicalIds.includes(r.reactantBId)) return true;
-    return false;
-  });
-
-  const prodName = exp?.resultVessel?.name || matched?.productName || "Produk Hasil Reaksi";
-  const prodFormula = exp?.resultVessel?.formula || matched?.productFormula || "Senyawa Produk";
-  const prodColor = exp?.resultVessel?.color || matched?.productColor || "#10b981";
-  const prodTemp = (exp?.resultVessel?.temperatureC && exp.resultVessel.temperatureC !== 25)
-    ? exp.resultVessel.temperatureC
-    : (25 + (exp?.temperatureChange ?? matched?.temperatureChangeC ?? 0));
-
-  const completedVesselId = `v_product_${task.id}`;
-  const vessel: ChemicalVessel = {
-    id: completedVesselId,
-    name: prodName,
-    formula: prodFormula,
-    type: "flask",
-    color: prodColor,
-    initialColor: prodColor,
-    position: [0, 0.55, 0.25],
-    level: task.level || task.gradeLevel || "SMP",
-    liquidLevel: 0.85,
-    isReacted: true,
-    temperatureC: prodTemp,
-    components: [prodFormula],
-  };
-
-  const reaction: ReactionDetail = {
-    id: matched?.id || task.expectedReactionId || `rx_${task.id}`,
-    title: exp?.reactionTitle && exp.reactionTitle !== "Reaksi Kimia Teramati di Meja Lab" ? exp.reactionTitle : (matched?.title || task.title),
-    equation: exp?.reactionEquation || matched?.equation || "Persamaan Reaksi Kimiawi Seimbang",
-    substanceA: matched?.reactantAFormula || "Reaktan A",
-    substanceB: matched?.reactantBFormula || "Reaktan B",
-    substanceC: matched?.reactantCFormula,
-    substances: matched?.reactants,
-    resultName: prodName,
-    resultFormula: prodFormula,
-    resultColor: prodColor,
-    effectType: matched?.visualEffect || "bubbles",
-    temperatureChange: exp?.temperatureChange ?? matched?.temperatureChangeC ?? 0,
-    reasonWhy: exp?.reasonWhy || matched?.reasonWhy || "Reaksi terjadi akibat afinitas ikatan antar partikel dan pelepasan kalor eksotermik spontan molekuler menuju kondisi kestabilan energi yang lebih rendah.",
-    observablePhenomena: exp?.observablePhenomena || matched?.observablePhenomena || "Teramati pembentukan fase baru, perubahan warna larutan, dan perubahan temperatur wadah.",
-    explanation: exp?.explanation || matched?.explanation || task.instructions,
-    level: task.level || task.gradeLevel || matched?.level || "SMP",
-    targetVesselId: completedVesselId,
-  };
-
-  return { reaction, vessel };
-}
-
 export default function SmartScienceLabViewer() {
-  // Navigation: "lab" | "tasks" | "teacher_builder"
-  const [activeTab, setActiveTab] = useState<"lab" | "tasks" | "teacher_builder">("lab");
-
   // User Authentication State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [viewingSubmissionDetail, setViewingSubmissionDetail] = useState<LabSubmission | null>(null);
 
-  // Role helper: check if logged in as teacher / student / guest
   const isTeacher = currentUser?.role === "teacher" || currentUser?.role === "superadmin";
-  const isStudent = currentUser?.role === "student";
   const isGuest = !currentUser;
 
-  // Dual Student Lab Mode: "sandbox" (Mode Eksplorasi Bebas - Default) vs "task" (Saat membuka tugas dari Daftar Tugas)
+  // Lab Mode: "sandbox" vs "task"
   const [labMode, setLabMode] = useState<"task" | "sandbox">("sandbox");
 
-  // Teacher Dashboard sub-section ("create" | "list" | "submissions" | "ai_logs") - Default ke "list" agar saat masuk guru langsung melihat daftar tugas
-  const [teacherBuilderSection, setTeacherBuilderSection] = useState<"create" | "list" | "submissions" | "ai_logs">("list");
+  // Popover toggles for clean Full-Screen HUD
+  const [isInstructionOpen, setIsInstructionOpen] = useState<boolean>(false);
+  const [isVesselListOpen, setIsVesselListOpen] = useState<boolean>(false);
 
-  // Strict role guard: redirect non-teachers away from teacher builder view and guests away from tasks
-  useEffect(() => {
-    if (!isAuthLoading) {
-      if (activeTab === "teacher_builder" && !isTeacher) {
-        setActiveTab("lab");
-      }
-      if (isGuest && activeTab === "tasks") {
-        setActiveTab("lab");
-      }
-      if (isGuest && labMode !== "sandbox") {
-        setLabMode("sandbox");
-        setCurrentTask(null);
-      }
-    }
-  }, [activeTab, isTeacher, isGuest, isAuthLoading, labMode]);
-
-  // Mobile drawer state
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
-
-  // SFX Audio Mute State (Procedural Lab Sound Effects)
+  // SFX Audio Mute State
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => labSound.getIsMuted());
 
-  // Interactive Measurement Tools State (Termometer Celup & Kertas Lakmus / pH Meter)
+  // Interactive Measurement Tools State
   const [activeTool, setActiveTool] = useState<InteractiveToolType>("hand");
   const [dippedVesselId, setDippedVesselId] = useState<string | null>(null);
   const [activeMeasurement, setActiveMeasurement] = useState<ChemicalMeasurement | null>(null);
 
+  // 3D Lab State
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [vessels, setVessels] = useState<ChemicalVessel[]>([]);
+  const [activeReaction, setActiveReaction] = useState<ReactionDetail | null>(null);
+  const [chemicalCatalog, setChemicalCatalog] = useState(CHEMICAL_CATALOG);
+  const [reactionsList, setReactionsList] = useState<ReactionDetail[]>([]);
+
+  // Catalog picker modal state
+  const [isAddChemicalModalOpen, setIsAddChemicalModalOpen] = useState<boolean>(false);
+  const [searchChemicalQuery, setSearchChemicalQuery] = useState<string>("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
+
+  // Modals & Task State
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
+  const [isTaskReactionDone, setIsTaskReactionDone] = useState<boolean>(false);
+  const [lastQuizScore, setLastQuizScore] = useState<number | null>(null);
+  const [isReactionAnimating, setIsReactionAnimating] = useState<boolean>(false);
+  const reactionLockTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // URL Search Params
+  const searchParams = useSearchParams();
+  const urlTaskId = searchParams.get("taskId");
+  const urlMode = searchParams.get("mode");
+  const urlClassCode = searchParams.get("classCode");
+
+  // Room & Tasks State
+  const [roomCode, setRoomCode] = useState<string>(urlClassCode ? urlClassCode.toUpperCase() : "LAB889");
+  const [tasks, setTasks] = useState<LabTask[]>([]);
+  const [currentTask, setCurrentTask] = useState<LabTask | null>(null);
+  const [studentName, setStudentName] = useState<string>("Guest");
+  const [studentSubmissions, setStudentSubmissions] = useState<LabSubmission[]>([]);
+
+  // Cleanup timer
+  useEffect(() => {
+    return () => {
+      if (reactionLockTimerRef.current) clearTimeout(reactionLockTimerRef.current);
+    };
+  }, []);
+
+  // Guest mode guard
+  useEffect(() => {
+    if (!isAuthLoading && isGuest && labMode !== "sandbox") {
+      setLabMode("sandbox");
+      setCurrentTask(null);
+    }
+  }, [isGuest, isAuthLoading, labMode]);
+
+  // Hand tracking state
+  const [handTransform, setHandTransform] = useState<HandTransform>({
+    rotationX: 0,
+    rotationY: 0,
+    scale: 1,
+    isPinching: false,
+    isGrabbing: false,
+    handDetected: false,
+    activeMode: "rotate",
+    wristAngle: 0,
+  });
+  const [handRangePreset, setHandRangePreset] = useState<HandDistancePreset>("close");
+  const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState<boolean>(false);
+  const [showCameraPreview, setShowCameraPreview] = useState<boolean>(false);
+  const [handProximityHint, setHandProximityHint] = useState<HandProximityHint>("none");
+  const [isNavigatingBack, setIsNavigatingBack] = useState<boolean>(false);
+
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname === "/lab") {
+      setIsNavigatingBack(false);
+    }
+    return () => {
+      setIsNavigatingBack(false);
+    };
+  }, [pathname, urlTaskId, urlClassCode, urlMode]);
+
+  const handleReturnToDashboard = () => {
+    if (isNavigatingBack) return;
+    setIsNavigatingBack(true);
+    setIsCameraActive(false);
+    labSound.stopPouring();
+    // Gunakan navigasi penuh agar WebGL/MediaPipe dibersihkan sempurna dan tidak ada state tersimpan di router cache
+    setTimeout(() => {
+      window.location.assign("/");
+    }, 60);
+  };
+
+  const handleGestureUpdate = useCallback((transform: HandTransform) => {
+    setHandTransform(transform);
+  }, []);
+
+  // Fetch student submissions
+  const fetchStudentSubmissions = useCallback(
+    async (name?: string) => {
+      const clean = (name || currentUser?.name || studentName || "").trim();
+      if (!clean || clean === "Guest") {
+        setStudentSubmissions([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/lab/submissions?studentName=${encodeURIComponent(clean)}`);
+        const data = await res.json();
+        if (res.ok && data.submissions) {
+          setStudentSubmissions(data.submissions);
+        }
+      } catch (e) {
+        console.warn("Failed fetching student submissions:", e);
+      }
+    },
+    [currentUser?.name, studentName]
+  );
+
+  // Sync submission updates from the separate /quiz browser tab
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "cuplabs_submission_updated") {
+        fetchStudentSubmissions();
+      }
+    };
+    const handleFocus = () => {
+      if (!isGuest) {
+        fetchStudentSubmissions();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [fetchStudentSubmissions, isGuest]);
+
+  // Fetch chemical catalog & reaction catalog
+  useEffect(() => {
+    fetch("/api/lab/chemicals")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.chemicals) && data.chemicals.length > 0) {
+          setChemicalCatalog(data.chemicals);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/lab/reactions")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.reactions) && data.reactions.length > 0) {
+          setReactionsList(data.reactions);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Check session
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+          if (data.user.role === "teacher" || data.user.role === "superadmin") {
+            setLabMode("sandbox");
+          } else if (data.user.role === "student") {
+            setStudentName(data.user.name);
+            fetchStudentSubmissions(data.user.name);
+          }
+        } else {
+          setCurrentUser(null);
+          setStudentName("Guest");
+          setLabMode("sandbox");
+          setCurrentTask(null);
+          setStudentSubmissions([]);
+        }
+      })
+      .catch(() => {
+        setCurrentUser(null);
+        setStudentName("Guest");
+        setLabMode("sandbox");
+        setCurrentTask(null);
+        setStudentSubmissions([]);
+      })
+      .finally(() => setIsAuthLoading(false));
+  }, [fetchStudentSubmissions]);
+
+  // Apply Task to 3D Workbench
+  const applyTaskToWorkbench = useCallback(
+    (task: LabTask) => {
+      if (reactionLockTimerRef.current) {
+        clearTimeout(reactionLockTimerRef.current);
+        reactionLockTimerRef.current = null;
+      }
+      setIsReactionAnimating(false);
+      setCurrentTask(task);
+
+      const existingSub = studentSubmissions.find((s) => s.taskId === task.id);
+      if (existingSub) {
+        setIsTaskReactionDone(Boolean(existingSub.isReactionAchieved));
+        setLastQuizScore(existingSub.score);
+        setIsCameraActive(false);
+      } else {
+        setIsTaskReactionDone(false);
+        setLastQuizScore(null);
+        setIsCameraActive(true);
+      }
+
+      const rawIds = task.chemicalIds || [];
+      const ids: string[] =
+        typeof rawIds === "string" ? JSON.parse(rawIds) : Array.isArray(rawIds) ? rawIds : [];
+
+      const taskVessels: ChemicalVessel[] = ids.map((chemId, index) => {
+        const chem =
+          chemicalCatalog.find((c) => c.id === chemId) ||
+          CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
+            id: chemId,
+            name: "Bahan Kimia",
+            formula: "Reagen",
+            color: "#38bdf8",
+            level: task.level || task.gradeLevel || "SMP",
+          };
+
+        const posX = (index - (ids.length - 1) / 2) * 2.3;
+        return {
+          id: `v_${chem.id}_${index}`,
+          name: chem.name,
+          formula: chem.formula,
+          type: index % 2 === 0 ? "beaker" : "flask",
+          color: chem.color,
+          initialColor: chem.color,
+          position: [posX, 0.55, 0.25],
+          level: task.level || task.gradeLevel || "SMP",
+          liquidLevel: 0.7,
+          temperatureC: 25,
+          components: [chem.formula],
+        };
+      });
+
+      if (existingSub) {
+        const { reaction, vessel } = resolveReactionForTask(task, existingSub.experimentDetails);
+        setVessels([vessel]);
+        setActiveReaction(reaction);
+      } else {
+        setVessels(taskVessels.length > 0 ? taskVessels : []);
+        setActiveReaction(null);
+      }
+
+      setLabMode(isTeacher ? "sandbox" : "task");
+    },
+    [chemicalCatalog, isTeacher, studentSubmissions]
+  );
+
+  // Load room tasks from URL params
+  useEffect(() => {
+    if (isGuest) {
+      setTasks([]);
+      return;
+    }
+
+    const code = (urlClassCode || roomCode || "").trim().toUpperCase();
+    if (code) {
+      setRoomCode(code);
+      const taskQueryUrl = urlTaskId
+        ? `/api/lab/tasks?taskId=${encodeURIComponent(urlTaskId)}`
+        : `/api/lab/tasks?roomCode=${encodeURIComponent(code)}`;
+
+      fetch(taskQueryUrl)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.tasks && data.tasks.length > 0) {
+            setTasks(data.tasks);
+            if (urlTaskId) {
+              const matched = data.tasks.find((t: LabTask) => t.id === urlTaskId) || data.tasks[0];
+              if (matched) {
+                applyTaskToWorkbench(matched);
+                return;
+              }
+            }
+            if (urlMode === "task" && !isGuest) {
+              applyTaskToWorkbench(data.tasks[0]);
+            }
+          } else {
+            setTasks([]);
+          }
+        })
+        .catch(() => {});
+    }
+
+    if (urlMode === "sandbox" || isGuest) {
+      setLabMode("sandbox");
+      setCurrentTask(null);
+      if (urlMode === "sandbox") setVessels([]);
+    }
+  }, [urlTaskId, urlMode, urlClassCode, isGuest]);
+
+  // Sync student submission status when loaded after task mount
+  useEffect(() => {
+    if (currentTask && studentSubmissions.length > 0) {
+      const existingSub = studentSubmissions.find((s) => s.taskId === currentTask.id);
+      if (existingSub) {
+        setIsTaskReactionDone(Boolean(existingSub.isReactionAchieved));
+        setLastQuizScore(existingSub.score);
+        const { reaction, vessel } = resolveReactionForTask(currentTask, existingSub.experimentDetails);
+        setVessels([vessel]);
+        setActiveReaction(reaction);
+      }
+    }
+  }, [studentSubmissions, currentTask]);
+
+  // Persist pending 3D reaction details for the separate /quiz browser tab
+  const persistPendingExperimentForQuiz = useCallback(
+    (achieved: boolean, reactionObj?: ReactionDetail | null) => {
+      if (!currentTask) return;
+      const rx = reactionObj || activeReaction;
+      const matchedRx = REACTION_CATALOG.find(
+        (r) =>
+          (currentTask.expectedReactionId && r.id === currentTask.expectedReactionId) ||
+          (currentTask.title && currentTask.title.toLowerCase().includes(r.title.toLowerCase()))
+      );
+
+      const expDetails: ExperimentDetailLog = {
+        reactionTitle: rx?.title || matchedRx?.title || currentTask.title,
+        reactionEquation: rx?.equation || matchedRx?.equation || "",
+        temperatureChange:
+          rx?.temperatureChange ??
+          (matchedRx && "temperatureChangeC" in matchedRx ? (matchedRx as any).temperatureChangeC : 0),
+        observablePhenomena:
+          rx?.observablePhenomena ||
+          matchedRx?.observablePhenomena ||
+          "Reaksi kimia selesai teramati di meja 3D.",
+        explanation: rx?.explanation || matchedRx?.explanation || currentTask.instructions || "",
+        reasonWhy: rx?.reasonWhy || matchedRx?.reasonWhy || "",
+        mixedChemicals:
+          vessels.length > 0
+            ? vessels.map((v) => ({ name: v.name, formula: v.formula, color: v.color }))
+            : (currentTask.chemicalIds || []).map((cid: string) => {
+                const found = CHEMICAL_CATALOG.find((c) => c.id === cid);
+                return {
+                  name: found?.name || cid,
+                  formula: found?.formula || cid,
+                  color: found?.color || "#38bdf8",
+                };
+              }),
+        resultVessel:
+          vessels.length > 0
+            ? {
+                name: vessels[0].name,
+                formula: vessels[0].formula,
+                color: vessels[0].color,
+                temperatureC: vessels[0].temperatureC,
+              }
+            : {
+                name: rx?.resultName || matchedRx?.productName || "Produk Kimiawi",
+                formula: rx?.resultFormula || matchedRx?.productFormula || "Senyawa Produk",
+                color: rx?.resultColor || matchedRx?.productColor || "#38bdf8",
+              },
+        completedAt: new Date().toISOString(),
+      };
+
+      try {
+        localStorage.setItem(
+          `cuplabs_pending_exp_${currentTask.id}`,
+          JSON.stringify({ isReactionAchieved: achieved, experimentDetails: expDetails })
+        );
+      } catch {}
+    },
+    [activeReaction, currentTask, vessels]
+  );
+
+  // Open quiz in a new browser tab
+  const handleOpenQuizInNewTab = () => {
+    if (!currentTask) return;
+    persistPendingExperimentForQuiz(isTaskReactionDone, activeReaction);
+    const quizUrl = `/quiz?taskId=${encodeURIComponent(currentTask.id)}&classCode=${encodeURIComponent(
+      roomCode || currentTask.roomCode
+    )}`;
+    window.open(quizUrl, "_blank", "noopener,noreferrer");
+  };
+
+  // Tool handlers
   const handleSelectTool = (tool: InteractiveToolType) => {
     setActiveTool(tool);
     if (tool === "hand") {
@@ -207,330 +496,18 @@ export default function SmartScienceLabViewer() {
     }
   };
 
-  const handleDipTool = (vessel: ChemicalVessel, tool: InteractiveToolType) => {
+  const handleDipTool = (vessel: ChemicalVessel, _tool: InteractiveToolType) => {
     setDippedVesselId(vessel.id);
     setActiveMeasurement(evaluateChemicalProperties(vessel));
     labSound.playGlassClink("soft");
   };
 
-  // URL Search Params for Route /lab?taskId=...&mode=...&classCode=...
-  const searchParams = useSearchParams();
-  const urlTaskId = searchParams.get("taskId");
-  const urlMode = searchParams.get("mode");
-  const urlClassCode = searchParams.get("classCode");
-
-  // Room & Tasks State
-  const [roomCode, setRoomCode] = useState<string>(urlClassCode ? urlClassCode.toUpperCase() : "LAB889");
-  const [tasks, setTasks] = useState<LabTask[]>([]);
-  const [currentTask, setCurrentTask] = useState<LabTask | null>(null);
-  const [studentName, setStudentName] = useState<string>("Guest");
-  const [studentSubmissions, setStudentSubmissions] = useState<LabSubmission[]>([]);
-
-  // Ambil rekap pengerjaan tugas oleh siswa dari database
-  const fetchStudentSubmissions = useCallback(async (name?: string) => {
-    const clean = (name || currentUser?.name || studentName || "").trim();
-    if (!clean || clean === "Guest") {
-      setStudentSubmissions([]);
-      return;
-    }
-    try {
-      const res = await fetch(`/api/lab/submissions?studentName=${encodeURIComponent(clean)}`);
-      const data = await res.json();
-      if (res.ok && data.submissions) {
-        setStudentSubmissions(data.submissions);
-      }
-    } catch (e) {
-      console.warn("Failed fetching student submissions:", e);
-    }
-  }, [currentUser?.name, studentName]);
-
-  // Read URL params on mount or when params change, and automatically load tasks
-  useEffect(() => {
-    if (isGuest) {
-      setTasks([]);
-      return;
-    }
-
-    const code = (urlClassCode || roomCode || "").trim().toUpperCase();
-    if (code) {
-      setRoomCode(code);
-      fetch(`/api/lab/tasks?roomCode=${code}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data && data.tasks && data.tasks.length > 0) {
-            setTasks(data.tasks);
-
-            if (urlTaskId) {
-              const matched = data.tasks.find((t: LabTask) => t.id === urlTaskId);
-              if (matched) {
-                applyTaskToWorkbench(matched);
-                return;
-              }
-            }
-
-            // If entering task mode without a specific taskId, auto-apply the classroom's task to the workbench!
-            if (urlMode === "task" && !isGuest) {
-              applyTaskToWorkbench(data.tasks[0]);
-            }
-          } else {
-            setTasks([]);
-          }
-        })
-        .catch((e) => console.warn("Failed fetching room tasks:", e));
-    }
-
-    if (urlMode === "sandbox" || isGuest) {
-      setLabMode("sandbox");
-      setCurrentTask(null);
-      if (urlMode === "sandbox") {
-        setVessels([]);
-      }
-      setActiveTab("lab");
-    }
-  }, [urlTaskId, urlMode, urlClassCode, isGuest]);
-
-  // Check existing session from /api/auth/me on mount
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.authenticated && data.user) {
-          setCurrentUser(data.user);
-          if (data.user.role === "teacher") {
-            setLabMode("sandbox");
-            setActiveTab("lab");
-          } else if (data.user.role === "student") {
-            setStudentName(data.user.name);
-            fetchStudentSubmissions(data.user.name);
-          }
-        } else {
-          setCurrentUser(null);
-          setStudentName("Guest");
-          setLabMode("sandbox");
-          setCurrentTask(null);
-          setStudentSubmissions([]);
-        }
-      })
-      .catch((e) => {
-        console.warn("Failed fetching session user:", e);
-        setCurrentUser(null);
-        setStudentName("Guest");
-        setLabMode("sandbox");
-        setCurrentTask(null);
-        setStudentSubmissions([]);
-      })
-      .finally(() => {
-        setIsAuthLoading(false);
-      });
-  }, [fetchStudentSubmissions]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      setCurrentUser(null);
-      setStudentName("Guest");
-      setStudentSubmissions([]);
-      setLabMode("sandbox");
-      setCurrentTask(null);
-      setVessels([]);
-      setActiveTab("lab");
-    } catch (e) {
-      console.warn("Logout error:", e);
-    }
-  };
-
-  const handleLoginSuccess = (user: AuthUser) => {
-    setCurrentUser(user);
-    if (user.role === "teacher") {
-      // Guru langsung diarahkan ke Dashboard Utama (bukan masuk ke lab)
-      window.location.href = "/";
-      return;
-    } else {
-      setStudentName(user.name);
-      setActiveTab("tasks");
-      fetchStudentSubmissions(user.name);
-    }
-  };
-
-  const handleDeleteTask = async (taskId: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus tugas praktikum ini?")) return;
-    try {
-      const res = await fetch(`/api/lab/tasks?id=${taskId}`, { method: "DELETE" });
-      if (res.ok) {
-        fetchTasks();
-      }
-    } catch (e) {
-      console.error("Delete task error:", e);
-    }
-  };
-
-  // 3D Lab State
-  const [isCameraActive, setIsCameraActive] = useState<boolean>(true);
-  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
-  const [vessels, setVessels] = useState<ChemicalVessel[]>([]);
-  const [activeReaction, setActiveReaction] = useState<ReactionDetail | null>(null);
-  const [chemicalCatalog, setChemicalCatalog] = useState(CHEMICAL_CATALOG);
-  const [reactionsList, setReactionsList] = useState<ReactionDetail[]>([]);
-
-  // Fetch live chemical catalog & reaction rules from MySQL database
-  useEffect(() => {
-    fetch("/api/lab/chemicals")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && Array.isArray(data.chemicals) && data.chemicals.length > 0) {
-          setChemicalCatalog(data.chemicals);
-        }
-      })
-      .catch((e) => console.warn("Failed fetching dynamic chemicals:", e));
-
-    fetch("/api/lab/reactions")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && Array.isArray(data.reactions) && data.reactions.length > 0) {
-          setReactionsList(data.reactions);
-        }
-      })
-      .catch((e) => console.warn("Failed fetching dynamic reactions:", e));
-  }, []);
-
-  const [isAddChemicalModalOpen, setIsAddChemicalModalOpen] = useState<boolean>(false);
-  const [searchChemicalQuery, setSearchChemicalQuery] = useState<string>("");
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
-  const [isSuccessModalDismissed, setIsSuccessModalDismissed] = useState<boolean>(false);
-
-  // Modals & Quiz State
-  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
-  const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
-  const [isTaskReactionDone, setIsTaskReactionDone] = useState<boolean>(false);
-  const [lastQuizScore, setLastQuizScore] = useState<number | null>(null);
-
-  // Animasi reaksi & timer penguncian di mode tugas
-  const [isReactionAnimating, setIsReactionAnimating] = useState<boolean>(false);
-  const reactionLockTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Bersihkan timer penguncian saat komponen unmount
-  useEffect(() => {
-    return () => {
-      if (reactionLockTimerRef.current) {
-        clearTimeout(reactionLockTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Hand tracking state from MediaPipe
-  const [handTransform, setHandTransform] = useState<HandTransform>({
-    rotationX: 0,
-    rotationY: 0,
-    scale: 1,
-    isPinching: false,
-    isGrabbing: false,
-    handDetected: false,
-    activeMode: "rotate",
-    wristAngle: 0,
-  });
-
-  const handleGestureUpdate = useCallback((transform: HandTransform) => {
-    setHandTransform(transform);
-  }, []);
-
-  // Fetch tasks for the current room (hanya jika user login, tamu tidak memuat tugas)
-  useEffect(() => {
-    if (!currentUser) {
-      setTasks([]);
-      return;
-    }
-    fetchTasks();
-  }, [currentUser, roomCode]);
-
-  const fetchTasks = async (overrideCode?: string) => {
-    if (!currentUser) {
-      setTasks([]);
-      return;
-    }
-    const code = (overrideCode || roomCode || "").trim().toUpperCase();
-    if (!code) return;
-    try {
-      const res = await fetch(`/api/lab/tasks?roomCode=${code}`);
-      const data = await res.json();
-      if (res.ok && data.tasks) {
-        setTasks(data.tasks);
-      }
-    } catch (err) {
-      console.warn("Fetch lab tasks error:", err);
-    }
-  };
-
-  // Setup the 3D Workbench strictly based on the Teacher's Task
-  const applyTaskToWorkbench = (task: LabTask) => {
-    if (reactionLockTimerRef.current) {
-      clearTimeout(reactionLockTimerRef.current);
-      reactionLockTimerRef.current = null;
-    }
-    setIsReactionAnimating(false);
-    setCurrentTask(task);
-
-    // Cek apakah siswa ini sudah pernah mengumpulkan tugas ini sebelumnya
-    const existingSub = studentSubmissions.find((s) => s.taskId === task.id);
-    if (existingSub) {
-      setIsTaskReactionDone(Boolean(existingSub.isReactionAchieved));
-      setLastQuizScore(existingSub.score);
-      // Mode Review (Terkunci): Kamera otomatis dinonaktifkan agar hand tracking mati
-      setIsCameraActive(false);
-    } else {
-      setIsTaskReactionDone(false);
-      setLastQuizScore(null);
-      // Praktikum baru aktif: aktifkan kamera untuk hand tracking
-      setIsCameraActive(true);
-    }
-
-    const rawIds = task.chemicalIds || [];
-    const ids: string[] = typeof rawIds === "string" ? JSON.parse(rawIds) : Array.isArray(rawIds) ? rawIds : [];
-
-    // Build vessels only from chemicals assigned by the teacher
-    const taskVessels: ChemicalVessel[] = ids.map((chemId, index) => {
-      const chem = chemicalCatalog.find((c) => c.id === chemId) || CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
-        id: chemId,
-        name: "Bahan Kimia",
-        formula: "Reagen",
-        color: "#38bdf8",
-        level: task.level || task.gradeLevel || "SMP",
-      };
-
-      // Spacing 2.3m antar bejana agar leluasa di atas meja praktik tanpa bertabrakan
-      const posX = (index - ((ids.length - 1) / 2)) * 2.3;
-      return {
-        id: `v_${chem.id}_${index}`,
-        name: chem.name,
-        formula: chem.formula,
-        type: index % 2 === 0 ? "beaker" : "flask",
-        color: chem.color,
-        initialColor: chem.color,
-        position: [posX, 0.55, 0.25],
-        level: task.level || task.gradeLevel || "SMP",
-        liquidLevel: 0.7,
-        temperatureC: 25,
-        components: [chem.formula],
-      };
-    });
-
-    // Jika siswa telah menyelesaikan tugas, pulihkan bejana hasil reaksi dan panel observasi reaksi lengkap!
-    if (existingSub) {
-      const { reaction, vessel } = resolveReactionForTask(task, existingSub.experimentDetails);
-      setVessels([vessel]);
-      setActiveReaction(reaction);
-    } else {
-      setVessels(taskVessels.length > 0 ? taskVessels : []);
-      setActiveReaction(null);
-    }
-
-    // Guru selalu menggunakan Mode Sandbox untuk uji coba bebas tanpa terkunci
-    setLabMode(isTeacher ? "sandbox" : "task");
-    setIsSuccessModalDismissed(false);
-    setActiveTab("lab");
-  };
-
-  // Reaction Detection Handler (Dual Mode Rules)
-  const handleReactionDetected = (reaction: ReactionDetail, vesselA?: ChemicalVessel, vesselB?: ChemicalVessel) => {
+  // Reaction detection handler
+  const handleReactionDetected = (
+    reaction: ReactionDetail,
+    _vesselA?: ChemicalVessel,
+    vesselB?: ChemicalVessel
+  ) => {
     setActiveReaction(reaction);
 
     if (vesselB && dippedVesselId === vesselB.id) {
@@ -538,34 +515,32 @@ export default function SmartScienceLabViewer() {
     }
 
     if (!isTeacher && labMode === "task") {
-      // In Task Mode: check if target reaction is fulfilled
       const isTargetFulfilled = currentTask?.expectedReactionId
         ? reaction.id === currentTask.expectedReactionId ||
           reaction.title.toLowerCase().includes(currentTask.title.toLowerCase())
-        : true; // Default to true on first successful reaction if teacher didn't specify reaction id
+        : true;
 
       if (isTargetFulfilled && !isTaskReactionDone && !isReactionAnimating) {
-        // Jangan langsung kunci meja 3D! Beri jeda 4.5 detik agar animasi penuangan, uap/buih/partikel dapat dinikmati siswa
         setIsReactionAnimating(true);
+        persistPendingExperimentForQuiz(true, reaction);
+
         if (reactionLockTimerRef.current) clearTimeout(reactionLockTimerRef.current);
         reactionLockTimerRef.current = setTimeout(() => {
           setIsReactionAnimating(false);
           setIsTaskReactionDone(true);
-          setIsSuccessModalDismissed(false);
-          // Saat eksperimen terkunci, otomatis matikan kamera agar hand tracking berhenti
           setIsCameraActive(false);
         }, 4500);
       }
     }
   };
 
-  // Sandbox Mode: Add Any Chemical Reagent to Workbench
+  // Add chemical in sandbox
   const handleAddChemicalToWorkbench = (chem: any) => {
     const nextIdx = vessels.length;
-    // Smart workbench spacing:
-    // 1st item: -1.4, 2nd item: 1.4, 3rd item: -2.8, 4th item: 2.8, 5th item: 0
     const slotPositions = [-1.4, 1.4, -2.8, 2.8, 0, -3.8, 3.8];
-    const posX = slotPositions[nextIdx] ?? ((nextIdx % 2 === 0 ? 1 : -1) * (1.2 + Math.floor(nextIdx / 2) * 1.3));
+    const posX =
+      slotPositions[nextIdx] ??
+      (nextIdx % 2 === 0 ? 1 : -1) * (1.2 + Math.floor(nextIdx / 2) * 1.3);
 
     const newVessel: ChemicalVessel = {
       id: `v_${chem.id}_${Date.now()}`,
@@ -586,13 +561,15 @@ export default function SmartScienceLabViewer() {
     setIsAddChemicalModalOpen(false);
   };
 
-  // Remove individual vessel from workbench
   const handleRemoveVessel = (vesselId: string) => {
     setVessels((prev) => prev.filter((v) => v.id !== vesselId));
+    if (dippedVesselId === vesselId) {
+      setDippedVesselId(null);
+      setActiveMeasurement(null);
+    }
     labSound.playGlassClink("soft");
   };
 
-  // Reset Workbench positions and reactions
   const handleResetWorkbench = () => {
     labSound.playGlassClink("soft");
     if (reactionLockTimerRef.current) {
@@ -600,1892 +577,1033 @@ export default function SmartScienceLabViewer() {
       reactionLockTimerRef.current = null;
     }
     setIsReactionAnimating(false);
+    setDippedVesselId(null);
+    setActiveMeasurement(null);
+
     if (!isTeacher && labMode === "task" && currentTask) {
-      applyTaskToWorkbench(currentTask);
+      // Reset back to task starting reagents
+      const rawIds = currentTask.chemicalIds || [];
+      const ids: string[] =
+        typeof rawIds === "string" ? JSON.parse(rawIds) : Array.isArray(rawIds) ? rawIds : [];
+      const taskVessels: ChemicalVessel[] = ids.map((chemId, index) => {
+        const chem =
+          chemicalCatalog.find((c) => c.id === chemId) ||
+          CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
+            id: chemId,
+            name: "Bahan Kimia",
+            formula: "Reagen",
+            color: "#38bdf8",
+            level: currentTask.level || currentTask.gradeLevel || "SMP",
+          };
+        const posX = (index - (ids.length - 1) / 2) * 2.3;
+        return {
+          id: `v_${chem.id}_${index}`,
+          name: chem.name,
+          formula: chem.formula,
+          type: index % 2 === 0 ? "beaker" : "flask",
+          color: chem.color,
+          initialColor: chem.color,
+          position: [posX, 0.55, 0.25],
+          level: currentTask.level || currentTask.gradeLevel || "SMP",
+          liquidLevel: 0.7,
+          temperatureC: 25,
+          components: [chem.formula],
+        };
+      });
+      setVessels(taskVessels);
+      setActiveReaction(null);
     } else {
-      setVessels([]); // Di Mode Sandbox, reset mengosongkan seluruh meja
+      setVessels([]);
       setActiveReaction(null);
     }
+
     setIsTaskReactionDone(false);
-    setIsSuccessModalDismissed(false);
-    // Saat direset ulang, aktifkan kembali kamera agar hand tracking berfungsi
     setIsCameraActive(true);
   };
 
-  // Switch student lab mode
-  const handleSwitchMode = (mode: "task" | "sandbox") => {
-    if (isTeacher && mode !== "sandbox") return; // Guru terkunci di mode Sandbox
-    if (reactionLockTimerRef.current) {
-      clearTimeout(reactionLockTimerRef.current);
-      reactionLockTimerRef.current = null;
-    }
-    setIsReactionAnimating(false);
-    setLabMode(mode);
-    setIsTaskReactionDone(false);
-    setIsSuccessModalDismissed(false);
-    setActiveReaction(null);
-    if (mode === "sandbox") {
-      setIsCameraActive(true);
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setCurrentUser(null);
+      setStudentName("Guest");
+      setStudentSubmissions([]);
+      setLabMode("sandbox");
       setCurrentTask(null);
-      setVessels([]); // Mode Sandbox: Meja lab dikosongkan total agar murid bebas memilih dari katalog!
-      setActiveTab("lab");
-    } else if (mode === "task") {
-      setIsCameraActive(true);
-      if (currentTask) {
-        applyTaskToWorkbench(currentTask);
-      } else if (tasks.length > 0) {
-        applyTaskToWorkbench(tasks[0]);
-      } else {
-        setVessels([]);
-      }
-    }
+      setVessels([]);
+    } catch {}
   };
 
-  // Is experiment interaction locked (Target reached in task mode)
   const isExperimentLocked = !isTeacher && labMode === "task" && isTaskReactionDone;
-
-  // Kamera efektif: otomatis nonaktif saat meja praktikum dalam mode review / terkunci
   const isCameraEffective = isCameraActive && !isExperimentLocked;
 
-  // Otomatis pastikan kamera nonaktif saat praktikum terkunci (mode review)
   useEffect(() => {
-    if (isExperimentLocked) {
-      setIsCameraActive(false);
-    }
+    if (isExperimentLocked) setIsCameraActive(false);
   }, [isExperimentLocked]);
-
-  const handleSubmitQuiz = async (score: number, answers: any[]) => {
-    setLastQuizScore(score);
-    if (!currentTask) return;
-
-    const studentUser = (currentUser?.name || studentName || "Guest").trim();
-    const mixedChems = vessels.map((v) => ({
-      name: v.name,
-      formula: v.formula,
-      color: v.color,
-    }));
-
-    const matchedRx = activeReaction || REACTION_CATALOG.find((r) =>
-      (currentTask.expectedReactionId && r.id === currentTask.expectedReactionId) ||
-      (currentTask.title && (r.title.toLowerCase().includes("redoks") || currentTask.title.toLowerCase().includes(r.title.toLowerCase())))
-    );
-
-    const kkm = currentTask.kkmScore ?? 75;
-    const isPassed = score >= kkm;
-    const wrongAnswers = answers.filter((a) => !a.isCorrect);
-    const correctAnswers = answers.filter((a) => a.isCorrect);
-
-    let diagnosticSummary = `Praktikum "${currentTask.title}" telah diselesaikan oleh ${studentUser}. Skor Kuis AI: ${score}/100 (Batas KKM: ${kkm}) — Status: ${isPassed ? "Tuntas Lulus KKM" : "Belum Tuntas (Di Bawah KKM)"}. Target Reaksi 3D: ${isTaskReactionDone ? "Berhasil Diamati Sempurna" : "Selesai Dieksplorasi"}. `;
-
-    if (wrongAnswers.length === 0) {
-      diagnosticSummary += `Siswa menunjukkan penguasaan konseptual sempurna (100% akurasi) terhadap seluruh butir soal mekanisme reaksi, stoikiometri seimbang, dan perubahan energi termal.`;
-    } else {
-      diagnosticSummary += `Siswa menguasai ${correctAnswers.length} dari ${answers.length} konsep kuis. Perlu penguatan pada area miskonsepsi berikut: ${wrongAnswers.map((w, i) => `[Soal ${i + 1}: ${w.question || "Konsep Reaksi"}]`).join(", ")}.`;
-    }
-
-    const tempChange = activeReaction
-      ? activeReaction.temperatureChange
-      : (matchedRx && 'temperatureChangeC' in matchedRx ? (matchedRx as any).temperatureChangeC : 0);
-
-    const prodName = activeReaction
-      ? activeReaction.resultName
-      : (matchedRx && 'productName' in matchedRx ? (matchedRx as any).productName : "Produk Kimiawi");
-
-    const prodFormula = activeReaction
-      ? activeReaction.resultFormula
-      : (matchedRx && 'productFormula' in matchedRx ? (matchedRx as any).productFormula : "Senyawa Produk");
-
-    const prodColor = activeReaction
-      ? activeReaction.resultColor
-      : (matchedRx && 'productColor' in matchedRx ? (matchedRx as any).productColor : "#38bdf8");
-
-    const experimentDetails: ExperimentDetailLog = {
-      reactionTitle: activeReaction?.title || matchedRx?.title || currentTask.title,
-      reactionEquation: activeReaction?.equation || matchedRx?.equation || "",
-      temperatureChange: tempChange,
-      observablePhenomena: activeReaction?.observablePhenomena || matchedRx?.observablePhenomena || "Reaksi kimia selesai teramati di meja 3D.",
-      explanation: activeReaction?.explanation || matchedRx?.explanation || currentTask.instructions || "",
-      reasonWhy: activeReaction?.reasonWhy || matchedRx?.reasonWhy || "",
-      mixedChemicals: mixedChems.length > 0 ? mixedChems : (currentTask.chemicalIds || []).map((cid: string) => {
-        const found = CHEMICAL_CATALOG.find((c) => c.id === cid);
-        return { name: found?.name || cid, formula: found?.formula || cid, color: found?.color || "#38bdf8" };
-      }),
-      resultVessel: vessels.length > 0 ? {
-        name: vessels[0].name,
-        formula: vessels[0].formula,
-        color: vessels[0].color,
-        temperatureC: vessels[0].temperatureC,
-      } : {
-        name: prodName,
-        formula: prodFormula,
-        color: prodColor,
-      },
-      completedAt: new Date().toISOString(),
-    };
-
-    try {
-      const res = await fetch("/api/lab/submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          taskId: currentTask.id,
-          studentName: studentUser,
-          isReactionAchieved: isTaskReactionDone,
-          score,
-          answers,
-          aiAnalysis: diagnosticSummary,
-          experimentDetails,
-        }),
-      });
-
-      if (res.ok) {
-        fetchStudentSubmissions(studentUser);
-      }
-    } catch (err) {
-      console.error("Save submission error:", err);
-    }
-  };
-
-  // Sinkronisasi status pengerjaan saat studentSubmissions atau currentTask dimuat
-  useEffect(() => {
-    if (currentTask && studentSubmissions.length > 0) {
-      const existingSub = studentSubmissions.find((s) => s.taskId === currentTask.id);
-      if (existingSub) {
-        setIsTaskReactionDone(Boolean(existingSub.isReactionAchieved));
-        setLastQuizScore(existingSub.score);
-
-        // Pulihkan bejana produk hasil reaksi & data reaksi kimia lengkap agar tetap tersimpan & terlihat saat review!
-        const { reaction, vessel } = resolveReactionForTask(currentTask, existingSub.experimentDetails);
-        setVessels([vessel]);
-        setActiveReaction(reaction);
-      }
-    }
-  }, [studentSubmissions, currentTask]);
 
   const currentSubmission = currentTask
     ? studentSubmissions.find((s) => s.taskId === currentTask.id)
     : null;
-
   const kkmScore = currentTask?.kkmScore ?? 75;
   const allowRetakeBelowKkm = currentTask?.allowRetakeBelowKkm !== false;
   const isBelowKkm = currentSubmission ? currentSubmission.score < kkmScore : false;
   const canRetake = !currentSubmission || (allowRetakeBelowKkm && isBelowKkm);
-
   const activeChemNames = vessels.map((v) => `${v.name} (${v.formula})`);
 
+  const scrollToObservations = () => {
+    document.getElementById("lab-observation-section")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const hasObservationSection = Boolean(
+    activeReaction ||
+      activeMeasurement ||
+      (labMode === "task" && (isTaskReactionDone || currentSubmission))
+  );
+
   return (
-    <div className="h-full w-full flex bg-slate-50 overflow-hidden text-slate-800 font-sans select-none">
+    <div className="w-full min-h-screen flex flex-col bg-[#FFFDF7] text-slate-900 font-sans select-none">
       {/* =========================================================================
-          CUPLABS SLEEK CLINICAL WHITE SIDEBAR NAVIGATION (250px)
+          FULL-SCREEN 3D LAB WORKBENCH (NO SIDEBAR, NO NAVBAR)
           ========================================================================= */}
-      <aside
-        className={`w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 z-30 transition-transform duration-200 ${
-          isMobileDrawerOpen
-            ? "fixed inset-y-0 left-0 shadow-2xl flex"
-            : "hidden md:flex"
-        }`}
-      >
-        {/* App Branding Header */}
-        <div className="h-14 border-b border-slate-200 px-4 flex items-center justify-between bg-white shadow-sm">
-          <Link href="/" className="flex items-center gap-2.5 hover:opacity-85 transition-opacity" title="Kembali ke Dashboard Utama">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-700 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
-              <FlaskConical className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                CupLabs
-                <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold">
-                  LAB 3D
-                </span>
-              </h1>
-              <span className="text-[10px] text-slate-500 font-medium">
-                Virtual Science Laboratory
-              </span>
-            </div>
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => setIsMobileDrawerOpen(false)}
-            className="md:hidden text-slate-400 hover:text-slate-700 p-1"
+      <section className="relative w-full h-screen shrink-0 overflow-hidden bg-slate-100">
+        {/* Layer 0: Camera Feed for MediaPipe (Hidden off-flow or shown as compact PiP guide) */}
+        {isCameraEffective && (
+          <div
+            className={
+              showCameraPreview
+                ? `absolute right-3 sm:right-5 w-44 sm:w-52 aspect-video z-30 rounded-2xl border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] overflow-hidden bg-slate-950 pointer-events-auto transition-all ${
+                    isCameraSettingsOpen ? "top-28 sm:top-[108px]" : "top-16"
+                  }`
+                : "fixed top-16 right-4 w-56 aspect-video opacity-0 pointer-events-none -z-10 overflow-hidden"
+            }
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Quick Back to Dashboard Button */}
-        <div className="px-3 pt-3">
-          <Link
-            href="/"
-            className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-sky-300 text-slate-700 text-xs font-bold rounded-xl flex items-center justify-between transition-colors shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4 text-sky-600" />
-              <span>Dashboard Kelas</span>
-            </div>
-            <span className="text-[9px] bg-sky-600 text-white px-1.5 py-0.5 rounded font-black">
-              HOME
-            </span>
-          </Link>
-        </div>
-
-        {/* Room PIN Card - HANYA tampil untuk Siswa/Guru yang login. Mode Tamu menampilkan Kartu Tamu */}
-        {isGuest ? (
-          <div className="p-3">
-            <div className="bg-sky-50/80 border border-sky-200 rounded-xl p-3 space-y-1.5 shadow-2xs">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-sky-900 font-bold text-[11px] flex items-center gap-1.5">
-                  <FlaskConical className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Laboratorium Tamu</span>
-                </span>
-                <span className="text-[9px] bg-sky-600 text-white px-1.5 py-0.5 rounded font-black tracking-wide">
-                  GUEST
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-600 leading-relaxed">
-                Mode eksplorasi bebas aktif. Silakan masuk akun kelas untuk mengerjakan tugas dan kuis praktikum.
-              </p>
-              <button
-                type="button"
-                onClick={() => setIsAuthModalOpen(true)}
-                className="w-full mt-0.5 py-1.5 px-2 bg-white hover:bg-sky-100 text-sky-800 border border-sky-300 rounded-lg text-[11px] font-bold text-center transition-colors shadow-2xs cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>Masuk Akun Kelas</span>
-                <span className="text-[10px]">→</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="p-3">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 shadow-sm">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-medium text-[11px]">Room Praktikum:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newPin = prompt("Masukkan PIN Room Baru:", roomCode);
-                    if (newPin) {
-                      const cleanPin = newPin.toUpperCase().trim();
-                      setRoomCode(cleanPin);
-                      fetchTasks(cleanPin);
-                    }
+            <CameraFeed
+              isActive={isCameraEffective}
+              onVideoReady={setVideoElement}
+              showControls={false}
+              className="w-full h-full rounded-none"
+            />
+            {showCameraPreview && (
+              <>
+                {/* Comfort Zone Visual Guide Frame matching handRangePreset */}
+                <div
+                  className={`absolute pointer-events-none border-2 border-dashed rounded-lg transition-all ${
+                    handProximityHint === "too_close"
+                      ? "border-amber-400"
+                      : handTransform.handDetected
+                      ? "border-emerald-400"
+                      : "border-sky-300/80"
+                  }`}
+                  style={{
+                    inset:
+                      handRangePreset === "close"
+                        ? "22% 23%"
+                        : handRangePreset === "normal"
+                        ? "16% 14%"
+                        : "8% 5%",
                   }}
-                  className="text-[10px] bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded transition-colors font-semibold shadow-xs"
-                >
-                  Ganti PIN
-                </button>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-sky-700 text-sm tracking-wider">
-                  {roomCode}
-                </span>
-                <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  SD • SMP • SMA
-                </span>
-              </div>
-            </div>
+                />
+                <div className="absolute top-1.5 inset-x-1.5 flex items-center justify-between pointer-events-auto">
+                  <span className="px-1.5 py-0.5 rounded bg-slate-900/85 text-[9px] font-black uppercase text-white border border-white/20">
+                    Zona Tangan
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCameraPreview(false)}
+                    className="w-5 h-5 rounded bg-white text-slate-900 border border-slate-900 flex items-center justify-center cursor-pointer"
+                    title="Tutup pratinjau kamera"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {/* Navigation Menu */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4 text-xs font-semibold">
-          {isTeacher ? (
-            /* ==========================================================
-               TEACHER SIDEBAR NAVIGATION (GURU PENGAMPU)
-               ========================================================== */
-            <>
-              {/* Teacher Sandbox Status Banner */}
-              <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <FlaskConical className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Mode Lab Guru</span>
-                  </span>
-                  <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-black tracking-wide">
-                    SANDBOX
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 leading-relaxed">
-                  Guru berpraktikum dalam <strong>Mode Sandbox</strong> untuk menguji reaksi & racikan secara bebas sebelum ditugaskan ke siswa.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLabMode("sandbox");
-                    setActiveTab("lab");
-                    setIsMobileDrawerOpen(false);
-                  }}
-                  className={`w-full py-1.5 px-2.5 rounded-lg text-left text-xs font-bold flex items-center justify-between transition-all ${
-                    activeTab === "lab"
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <FlaskConical className="w-3.5 h-3.5" />
-                    <span>Uji Coba Meja Lab 3D</span>
-                  </div>
-                  <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    }`}
-                  >
-                    WEB-AR
-                  </span>
-                </button>
-              </div>
+        {/* Layer 1: Full-Viewport 3D WebGL Scene */}
+        <div className="absolute inset-0 z-10 pointer-events-auto">
+          <ChemistryLabScene
+            handTransform={isCameraEffective ? handTransform : undefined}
+            onReactionDetected={handleReactionDetected}
+            vessels={vessels}
+            setVessels={setVessels}
+            activeReaction={activeReaction}
+            reactions={reactionsList}
+            isLocked={isExperimentLocked}
+            activeTool={activeTool}
+            dippedVesselId={dippedVesselId}
+            onDipTool={handleDipTool}
+          />
+        </div>
 
-              {/* Section: Asisten AI Guru */}
-              <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Asisten AI Guru
-                </span>
+        {/* Layer 2: Hand Skeleton Overlay */}
+        {isCameraEffective && (
+          <div className="absolute inset-0 z-20 pointer-events-none">
+            <HandGestureTracker
+              videoElement={videoElement}
+              isActive={isCameraEffective}
+              onGestureUpdate={handleGestureUpdate}
+              mode="lab"
+              showBuiltInHud={false}
+              distancePreset={handRangePreset}
+              onProximityHintChange={setHandProximityHint}
+            />
+          </div>
+        )}
 
-                <button
-                  type="button"
-                  onClick={() => setIsAiAssistantOpen(true)}
-                  className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Konsultasi Lab-AI</span>
-                  </div>
-                  <span className="text-[9px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold">
-                    AI
-                  </span>
-                </button>
-              </div>
+        {/* =======================================================================
+            FLOATING SPATIAL HUD — TOP BAR (LEFT: NAVIGATION & TASK BRIEF, RIGHT: SENSORS & AI)
+            ======================================================================= */}
+        <div className="absolute top-3 inset-x-3 sm:top-4 sm:inset-x-5 z-30 flex flex-wrap items-start justify-between gap-2.5 pointer-events-none">
+          {/* Top-Left Cluster */}
+          <div className="flex flex-col items-start gap-2 pointer-events-auto max-w-full sm:max-w-lg">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleReturnToDashboard}
+                disabled={isNavigatingBack}
+                className="pop-btn bg-white hover:bg-slate-100 text-slate-900 px-3.5 py-2 rounded-xl text-xs gap-1.5"
+                title="Kembali ke Dashboard Kelas"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#2563EB]" />
+                <span>Dashboard</span>
+              </button>
 
-              {/* Section 3: Bahan Kimia di Meja Guru (Mode Sandbox Bebas) */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="px-1 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Bahan di Meja 3D ({vessels.length})
+              {/* Mode / Task Pill */}
+              {labMode === "task" && currentTask ? (
+                <div className="flex items-center gap-1.5 bg-[#38BDF8] border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-xl px-3 py-1.5">
+                  <ClipboardList className="w-4 h-4 text-slate-900 shrink-0" />
+                  <span className="text-xs font-extrabold text-slate-900 max-w-[160px] sm:max-w-[230px] truncate">
+                    {currentTask.title}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setIsAddChemicalModalOpen(true)}
-                    className="text-[10px] text-emerald-700 hover:underline flex items-center gap-0.5 font-bold"
+                    onClick={() => setIsInstructionOpen((v) => !v)}
+                    className="ml-1 px-2 py-0.5 bg-[#FACC15] hover:bg-[#fde047] border border-slate-900 rounded-lg text-[10px] font-black uppercase text-slate-900 cursor-pointer flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" />
-                    Tambah
+                    <Info className="w-3 h-3" />
+                    <span>{isInstructionOpen ? "Tutup" : "Instruksi"}</span>
                   </button>
                 </div>
-
-                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                  {vessels.length === 0 ? (
-                    <div className="py-3 px-2 bg-slate-50 border border-dashed border-slate-200 rounded-md text-center space-y-1">
-                      <p className="text-[11px] text-slate-500">Meja praktik kosong</p>
-                      <p className="text-[10px] text-slate-400">Klik &quot;Tambah&quot; untuk memilih zat</p>
-                    </div>
-                  ) : (
-                    vessels.map((v, i) => (
-                      <div
-                        key={v.id || i}
-                        className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between text-[11px] group hover:border-sky-300 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 truncate pr-1">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full border border-black/20 shrink-0"
-                            style={{ backgroundColor: v.color }}
-                          />
-                          <div className="truncate">
-                            <span className="font-mono font-bold text-slate-900 mr-1">
-                              <ChemicalFormula formula={v.formula} />
-                            </span>
-                            <span className="text-slate-500 truncate text-[10px]">{v.name}</span>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveVessel(v.id)}
-                          className="opacity-60 hover:opacity-100 text-rose-600 p-0.5 rounded hover:bg-rose-50 transition-all shrink-0"
-                          title="Hapus bejana dari meja"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="pt-1 flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddChemicalModalOpen(true)}
-                    className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Tambah Zat</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleResetWorkbench}
-                    className="py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors border border-slate-200"
-                    title="Kosongkan Meja"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            /* ==========================================================
-               STUDENT / GUEST SIDEBAR NAVIGATION
-               ========================================================== */
-            <>
-              {/* Section 1: Menu Navigasi Meja Lab */}
-              <div className="space-y-1">
-                <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {isGuest ? "Laboratorium Virtual" : "Navigasi Meja Lab"}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("lab");
-                    setIsMobileDrawerOpen(false);
-                  }}
-                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                    activeTab === "lab"
-                      ? "bg-sky-600 text-white shadow-sm"
-                      : "text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <FlaskConical className="w-4 h-4" />
-                    <span>Meja Praktikum 3D</span>
-                  </div>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                      activeTab === "lab" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    }`}
-                  >
-                    WEB-AR
+              ) : (
+                <div className="flex items-center gap-1.5 bg-[#34D399] border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-xl px-3.5 py-1.5">
+                  <FlaskConical className="w-4 h-4 text-slate-900" />
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-900">
+                    {isTeacher ? "Sandbox Guru" : "Mode Bebas (Sandbox)"}
                   </span>
-                </button>
-
-                {/* Daftar Tugas Kelas - HANYA tampil untuk Siswa yang login (Bukan Guest) */}
-                {!isGuest && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("tasks");
-                      setIsMobileDrawerOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left transition-colors ${
-                      activeTab === "tasks"
-                        ? "bg-sky-600 text-white shadow-sm"
-                        : "text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <ClipboardList className="w-4 h-4" />
-                      <span>Daftar Tugas Kelas</span>
-                    </div>
-                    {tasks.length > 0 && (
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${
-                          activeTab === "tasks" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
-                        }`}
-                      >
-                        {tasks.length}
-                      </span>
-                    )}
-                  </button>
-                )}
-              </div>
-
-              {/* Section 2: Fitur AI & Evaluasi Siswa - HANYA untuk user yang login (Bukan Guest) */}
-              {!isGuest && (
-                <div className="space-y-1">
-                  <span className="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    {labMode === "task" ? "Asisten AI & Evaluasi" : "Asisten AI Praktikum"}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsAiAssistantOpen(true)}
-                    className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      <span>Tanya Asisten Lab-AI</span>
-                    </div>
-                    <span className="text-[9px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold">
-                      AI
-                    </span>
-                  </button>
-
-                  {/* Kuis Evaluasi Sains HANYA tampil di Mode Tugas */}
-                  {labMode === "task" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (currentTask) setIsQuizModalOpen(true);
-                        else alert("Pilih tugas praktikum terlebih dahulu untuk mengerjakan kuis!");
-                      }}
-                      className="w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-slate-700 hover:bg-slate-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Award className="w-4 h-4 text-emerald-600" />
-                        <span>Kuis Evaluasi Sains</span>
-                      </div>
-                      {lastQuizScore !== null && (
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
-                          {lastQuizScore}/100
-                        </span>
-                      )}
-                    </button>
-                  )}
                 </div>
               )}
 
-              {/* Section 3: Reagen Aktif di Meja */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="px-1 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Bahan di Meja 3D ({vessels.length})
+              {isExperimentLocked && (
+                <span className="bg-[#FB7185] text-white border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] text-[11px] font-black uppercase px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Terkunci (Review)</span>
+                </span>
+              )}
+            </div>
+
+            {/* Expandable Floating Task Instruction Popover */}
+            {labMode === "task" && currentTask && isInstructionOpen && (
+              <div className="pop-card rounded-2xl p-4 bg-[#FEF9C3] max-w-md space-y-2 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="flex items-center justify-between border-b-2 border-slate-900/15 pb-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-800">
+                    Panduan Tugas • KKM {kkmScore} •{" "}
+                    {allowRetakeBelowKkm ? "Remedial Diizinkan" : "Sekali Selesai"}
                   </span>
-                  {labMode === "sandbox" && (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddChemicalModalOpen(true)}
-                      className="text-[10px] text-emerald-700 hover:underline flex items-center gap-0.5 font-bold"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Tambah
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsInstructionOpen(false)}
+                    className="p-0.5 rounded hover:bg-slate-900/10 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-
-                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                  {vessels.length === 0 ? (
-                    <div className="py-3 px-2 bg-slate-50 border border-dashed border-slate-200 rounded-md text-center space-y-1">
-                      <p className="text-[11px] text-slate-500">Meja praktik kosong</p>
-                      <p className="text-[10px] text-slate-400">Klik &quot;Tambah&quot; untuk memilih zat</p>
-                    </div>
-                  ) : (
-                    vessels.map((v, i) => (
-                      <div
-                        key={v.id || i}
-                        className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md flex items-center justify-between text-[11px] group hover:border-sky-300 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 truncate pr-1">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full border border-black/20 shrink-0"
-                            style={{ backgroundColor: v.color }}
-                          />
-                          <div className="truncate">
-                            <span className="font-mono font-bold text-slate-900 mr-1">
-                              <ChemicalFormula formula={v.formula} />
-                            </span>
-                            <span className="text-slate-500 truncate text-[10px]">{v.name}</span>
-                          </div>
-                        </div>
-
-                        {labMode === "sandbox" && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveVessel(v.id)}
-                            className="opacity-60 hover:opacity-100 text-rose-600 p-0.5 rounded hover:bg-rose-50 transition-all shrink-0"
-                            title="Hapus bejana dari meja"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {labMode === "sandbox" && (
-                  <div className="pt-1 flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddChemicalModalOpen(true)}
-                      className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Tambah Zat</span>
-                    </button>
-                    {vessels.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleResetWorkbench}
-                        className="py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors border border-slate-200"
-                        title="Kosongkan Meja"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )}
+                <p className="text-xs text-slate-900 leading-relaxed font-medium">
+                  {currentTask.instructions}
+                </p>
               </div>
-            </>
-          )}
-        </div>
-
-        {/* User Profile Bar Footer */}
-        <div className="h-14 bg-slate-50 px-3 flex items-center justify-between shrink-0 border-t border-slate-200">
-          <div
-            onClick={() => setIsAuthModalOpen(true)}
-            className="flex items-center gap-2.5 truncate cursor-pointer group flex-1"
-          >
-            <div className="relative shrink-0">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-xs ${
-                  currentUser?.role === "teacher"
-                    ? "bg-amber-100 text-amber-800 border border-amber-200"
-                    : currentUser?.role === "student"
-                    ? "bg-sky-100 text-sky-800 border border-sky-200"
-                    : "bg-slate-200 text-slate-700 border border-slate-300"
-                }`}
-              >
-                {currentUser ? currentUser.name.charAt(0).toUpperCase() : "G"}
-              </div>
-              <span
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                  currentUser ? "bg-emerald-500" : "bg-slate-400"
-                }`}
-              />
-            </div>
-            <div className="truncate">
-              <div className="text-xs font-semibold text-slate-900 truncate group-hover:text-sky-600 transition-colors">
-                {currentUser ? currentUser.name : "Pengguna Tamu"}
-              </div>
-              <div className="text-[10px] text-slate-500 truncate flex items-center gap-1">
-                {currentUser?.role === "teacher" ? (
-                  <span className="text-amber-700 font-semibold">● Guru Pengampu</span>
-                ) : currentUser?.role === "student" ? (
-                  <span className="text-emerald-700 font-semibold">● Siswa Praktikan</span>
-                ) : (
-                  <span>● Tamu (Klik Masuk)</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsAuthModalOpen(true)}
-            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors shrink-0 cursor-pointer shadow-2xs ${
-              currentUser
-                ? "text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200"
-                : "text-white bg-sky-600 hover:bg-sky-700 font-bold"
-            }`}
-          >
-            {currentUser ? "Ganti" : "Masuk"}
-          </button>
-        </div>
-      </aside>
-
-      {/* =========================================================================
-          MAIN WORKSPACE CONTENT (CENTER)
-          ========================================================================= */}
-      <main className="flex-1 flex flex-col min-w-0 bg-slate-100 overflow-hidden">
-        {/* Top Header Bar */}
-        <header className="h-14 border-b border-slate-200 bg-white px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-2.5">
-            <Link
-              href="/"
-              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs shrink-0"
-              title="Kembali ke Dashboard Kelas"
-            >
-              <ArrowLeft className="w-4 h-4 text-sky-600" />
-              <span className="hidden sm:inline">Dashboard Kelas</span>
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setIsMobileDrawerOpen(true)}
-              className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>
-                  {activeTab === "lab"
-                    ? isTeacher
-                      ? "Meja Sandbox Guru (Uji Coba Eksperimen 3D)"
-                      : "Meja Praktikum Sains 3D & Web-AR"
-                    : activeTab === "tasks"
-                    ? "Daftar Tugas Praktikum Kelas"
-                    : "Portal Guru: Dashboard Manajemen Praktikum"}
-                </span>
-              </h2>
-              <p className="text-[11px] text-slate-500 hidden sm:block">
-                {activeTab === "lab"
-                  ? isTeacher
-                    ? "Simulasi bebas racik zat kimia untuk demonstrasi & persiapan materi sebelum ditugaskan ke siswa"
-                    : "Simulasi interaktif reaksi zat kimia dengan gesture tangan & deteksi otomatis"
-                  : activeTab === "tasks"
-                  ? `Menampilkan tugas aktif untuk kelas dengan PIN Room [${roomCode}]`
-                  : "Buat tugas baru, tentukan komposisi zat di meja, dan susun kuis evaluasi AI"}
-              </p>
-            </div>
-          </div>
-
-          {/* Right Header Controls */}
-          <div className="flex items-center gap-2.5">
-            {/* Account Status / Login Button */}
-            {currentUser ? (
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
-                <span
-                  className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded shadow-xs ${
-                    currentUser.role === "teacher"
-                      ? "bg-amber-100 text-amber-800 border border-amber-200"
-                      : "bg-sky-100 text-sky-800 border border-sky-200" 
-                  }`}
-                >
-                  {currentUser.role === "teacher" ? "GURU" : "SISWA"}
-                </span>
-                <span className="text-xs font-bold text-slate-900 max-w-[110px] sm:max-w-[170px] truncate">
-                  {currentUser.name}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  title="Keluar / Ganti Akun"
-                  className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100 transition-colors ml-0.5 cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAuthModalOpen(true)}
-                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Masuk (Guru / Siswa)</span>
-              </button>
             )}
 
-            {activeTab === "lab" && (
+            {/* Reaction Animating Notification */}
+            {isReactionAnimating && (
+              <div className="pop-card rounded-xl px-3.5 py-2 bg-[#FACC15] text-slate-900 text-xs font-black flex items-center gap-2 animate-bounce">
+                <Sparkles className="w-4 h-4 animate-spin" />
+                <span>Reaksi Sedang Berlangsung! Amati Perubahan Zat di Meja 3D</span>
+              </div>
+            )}
+          </div>
+
+          {/* Top-Right Cluster: Camera Sensor, SFX, Tanya AI, Account + Compact Calibration */}
+          <div className="flex flex-col items-end gap-2 pointer-events-auto">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {/* Sensor Kamera Toggle */}
               <button
                 type="button"
                 onClick={() => {
-                  if (isExperimentLocked) return;
-                  setIsCameraActive((prev) => !prev);
+                  if (!isExperimentLocked) setIsCameraActive((prev) => !prev);
                 }}
                 disabled={isExperimentLocked}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm ${
+                className={`pop-btn px-3 py-2 rounded-xl text-xs gap-1.5 ${
                   isExperimentLocked
-                    ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-80"
+                    ? "bg-slate-200 text-slate-500"
                     : isCameraEffective
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
-                    : "bg-rose-600 text-white hover:bg-rose-700 cursor-pointer"
+                    ? "bg-[#A7F3D0] text-slate-900"
+                    : "bg-[#FFE4E6] text-slate-900"
                 }`}
                 title={
                   isExperimentLocked
-                    ? "Kamera dinonaktifkan dalam mode review praktikum selesai"
-                    : "Toggle sensor tangan"
+                    ? "Kamera nonaktif pada mode review selesai"
+                    : "Aktifkan atau matikan sensor gesture tangan"
                 }
               >
                 {isCameraEffective ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline">
                   {isExperimentLocked
-                    ? "🖐️ Sensor Nonaktif (Selesai)"
-                    : isCameraActive
-                    ? "🖐️ Sensor Tangan Aktif"
-                    : "🖐️ Sensor Nonaktif"}
+                    ? "Sensor Terkunci"
+                    : isCameraEffective
+                    ? handTransform.handDetected
+                      ? handTransform.hands && handTransform.hands.length > 1
+                        ? "2 Sarung Tangan Aktif"
+                        : handTransform.isGrabbing
+                        ? "Tangan: Menggenggam"
+                        : "Tangan: Membidik"
+                      : "Sensor: Aktif"
+                    : "Sensor: Nonaktif"}
                 </span>
               </button>
-            )}
-          </div>
-        </header>
 
-        {/* Body Viewport */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 space-y-4">
-          {/* ===================================================================
-              VIEW 1: MEJA PRAKTIKUM SAINS 3D
-              =================================================================== */}
-          {activeTab === "lab" && (
-            <div className="space-y-4 max-w-6xl mx-auto w-full">
-              {/* Note Banner: Ditampilkan saat siswa telah menyelesaikan tugas ini (Persistensi Database) */}
-              {!isTeacher && labMode === "task" && currentSubmission && (
-                <div
-                  className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in ${
-                    currentSubmission.score >= kkmScore
-                      ? "bg-emerald-50 border-emerald-300"
-                      : "bg-amber-50 border-amber-300"
+              {/* Toggle Buka/Tutup Pengaturan Jarak Kamera & Pratinjau */}
+              {isCameraEffective && (
+                <button
+                  type="button"
+                  onClick={() => setIsCameraSettingsOpen((prev) => !prev)}
+                  className={`pop-btn px-2.5 py-2 rounded-xl text-xs gap-1.5 ${
+                    isCameraSettingsOpen
+                      ? "bg-[#38BDF8] text-slate-900"
+                      : "bg-white hover:bg-slate-100 text-slate-900"
                   }`}
+                  title={isCameraSettingsOpen ? "Tutup pengaturan jarak kamera" : "Buka pengaturan jarak & cek kamera"}
                 >
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl text-white flex items-center justify-center shrink-0 shadow-2xs font-bold text-base ${
-                        currentSubmission.score >= kkmScore ? "bg-emerald-600" : "bg-amber-600"
-                      }`}
-                    >
-                      {currentSubmission.score >= kkmScore ? (
-                        <CheckCircle2 className="w-5 h-5" />
-                      ) : (
-                        <AlertCircle className="w-5 h-5" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                            currentSubmission.score >= kkmScore
-                              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                              : "bg-rose-100 text-rose-800 border-rose-300"
-                          }`}
-                        >
-                          {currentSubmission.score >= kkmScore
-                            ? `✓ TUNTAS (LULUS KKM ${kkmScore})`
-                            : `BELUM TUNTAS (< KKM ${kkmScore})`}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {currentSubmission.completedAt
-                            ? new Date(currentSubmission.completedAt).toLocaleString("id-ID", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "Tercatat di Database"}
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-0.5">
-                        Laporan Praktikum &amp; Nilai Kuis Tersimpan di Guru Pengampu
-                      </h4>
-                      <div className="text-xs text-slate-600 mt-0.5 space-y-0.5">
-                        <p>
-                          Nilai Kuis AI:{" "}
-                          <strong
-                            className={`text-sm ${
-                              currentSubmission.score >= kkmScore ? "text-emerald-700" : "text-rose-700"
-                            }`}
-                          >
-                            {currentSubmission.score}/100
-                          </strong>{" "}
-                          • Batas KKM: <strong>{kkmScore}</strong> • Target Reaksi:{" "}
-                          <strong className="text-emerald-700">
-                            {currentSubmission.isReactionAchieved
-                              ? "✓ Reaksi Berhasil Teruji"
-                              : "Observasi Selesai"}
-                          </strong>
-                        </p>
-                        {currentSubmission.score >= kkmScore ? (
-                          <p className="text-emerald-700 font-semibold">
-                            ✓ Selamat! Nilai Anda telah mencapai KKM. Eksperimen praktikum telah selesai secara permanen.
-                          </p>
-                        ) : allowRetakeBelowKkm ? (
-                          <p className="text-amber-800 font-semibold">
-                            ⚠️ Nilai di bawah KKM ({kkmScore}). Guru mengizinkan Anda mengulangi praktikum &amp; kuis sampai tuntas.
-                          </p>
-                        ) : (
-                          <p className="text-rose-700 font-semibold">
-                            ✕ Nilai di bawah KKM ({kkmScore}). Guru tidak mengizinkan pengulangan untuk tugas ini (Sekali Selesai).
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setViewingSubmissionDetail(currentSubmission)}
-                      className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 text-xs font-semibold rounded-xl transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <BookOpen className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Laporan Lengkap &amp; Evaluasi AI</span>
-                    </button>
-
-                    {!activeReaction && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (currentTask && currentSubmission) {
-                            const { reaction, vessel } = resolveReactionForTask(currentTask, currentSubmission.experimentDetails);
-                            setVessels([vessel]);
-                            setActiveReaction(reaction);
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold rounded-xl transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Buka Detail Reaksi Kimia</span>
-                      </button>
-                    )}
-
-                    {currentTask?.questions && currentTask.questions.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setIsQuizModalOpen(true)}
-                        className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer"
-                      >
-                        Lihat Kuis &amp; Pembahasan
-                      </button>
-                    )}
-                    {canRetake && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm("Ulangi praktikum ini dari awal? Reagen di meja akan di-reset ke bahan awal.")) {
-                            setIsTaskReactionDone(false);
-                            setLastQuizScore(null);
-                            if (currentTask) {
-                              const rawIds = currentTask.chemicalIds || [];
-                              const ids: string[] = typeof rawIds === "string" ? JSON.parse(rawIds) : Array.isArray(rawIds) ? rawIds : [];
-                              const taskVessels: ChemicalVessel[] = ids.map((chemId, index) => {
-                                const chem = chemicalCatalog.find((c) => c.id === chemId) || CHEMICAL_CATALOG.find((c) => c.id === chemId) || {
-                                  id: chemId,
-                                  name: "Bahan Kimia",
-                                  formula: "Reagen",
-                                  color: "#38bdf8",
-                                  level: currentTask.level || currentTask.gradeLevel || "SMP",
-                                };
-                                const posX = (index - ((ids.length - 1) / 2)) * 2.3;
-                                return {
-                                  id: `v_${chem.id}_${index}`,
-                                  name: chem.name,
-                                  formula: chem.formula,
-                                  type: index % 2 === 0 ? "beaker" : "flask",
-                                  color: chem.color,
-                                  initialColor: chem.color,
-                                  position: [posX, 0.55, 0.25],
-                                  level: currentTask.level || currentTask.gradeLevel || "SMP",
-                                  liquidLevel: 0.7,
-                                  temperatureC: 25,
-                                  components: [chem.formula],
-                                };
-                              });
-                              setVessels(taskVessels);
-                              setActiveReaction(null);
-                            }
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Ulangi Praktikum</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Jarak</span>
+                </button>
               )}
 
-              {/* Mode Bar & Task Target Banner */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded flex items-center gap-1.5 ${
-                        isTeacher
-                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                          : labMode === "task"
-                          ? "bg-sky-50 text-sky-800 border border-sky-200"
-                          : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                      }`}
-                    >
-                      {isTeacher ? (
-                        <>
-                          <FlaskConical className="w-3 h-3 text-emerald-600" />
-                          <span>Meja Uji Coba Guru (Mode Sandbox)</span>
-                        </>
-                      ) : labMode === "task" ? (
-                        <>
-                          <ClipboardList className="w-3 h-3 text-sky-600" />
-                          <span>Mode Tugas Terpandu</span>
-                        </>
-                      ) : (
-                        <>
-                          <FlaskConical className="w-3 h-3 text-emerald-600" />
-                          <span>Mode Sandbox (Eksplorasi Bebas)</span>
-                        </>
-                      )}
-                    </span>
+              {/* SFX Audio Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  const newMuted = labSound.toggleMute();
+                  setIsSoundMuted(newMuted);
+                  if (!newMuted) labSound.playGlassClink("soft");
+                }}
+                className={`pop-btn px-3 py-2 rounded-xl text-xs gap-1.5 ${
+                  !isSoundMuted ? "bg-white text-slate-900" : "bg-[#FED7AA] text-slate-900"
+                }`}
+                title={!isSoundMuted ? "Matikan Efek Suara" : "Aktifkan Efek Suara"}
+              >
+                {!isSoundMuted ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{!isSoundMuted ? "SFX ON" : "SFX OFF"}</span>
+              </button>
 
-                    {!isTeacher && labMode === "task" && isTaskReactionDone && (
-                      <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 font-bold px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
-                        <Lock className="w-3 h-3" />
-                        <span>Selesai & Dikunci</span>
-                      </span>
-                    )}
+              {/* Tanya Lab-AI Button */}
+              {!isGuest && (
+                <button
+                  type="button"
+                  onClick={() => setIsAiAssistantOpen(true)}
+                  className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-3.5 py-2 rounded-xl text-xs gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Tanya AI</span>
+                </button>
+              )}
 
-                    {!isTeacher && labMode === "task" && currentTask && (
-                      <span className="text-xs text-slate-500 font-medium">
-                        Guru: {currentTask.teacherName} • Jenjang {currentTask.gradeLevel} • PIN {currentTask.roomCode}
-                      </span>
-                    )}
-
-                    {isTeacher && (
-                      <span className="text-xs text-emerald-700 font-medium">
-                        ● Meja Bebas Uji Reagen & Spontanitas
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="font-bold text-sm text-slate-900">
-                    {isTeacher
-                      ? "Laboratorium Virtual Guru: Uji Coba & Demonstrasi Reaksi"
-                      : labMode === "task"
-                      ? currentTask?.title || "Eksperimen Netralisasi Asam Basa"
-                      : "Eksplorasi Meja Bebas (Sandbox Mode)"}
-                  </h3>
-
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {isTeacher ? (
-                      "Sebagai guru pengampu, Anda berada dalam mode Sandbox tanpa batasan tugas. Anda bebas menambahkan reagen apa pun, memeriksa reaksi alami spontan, serta memastikan keamanan simulasi sebelum merancangnya menjadi tugas kelas."
-                    ) : labMode === "task" ? (
-                      <>
-                        📋 <strong>Instruksi Guru:</strong>{" "}
-                        {currentTask?.instructions || "Campurkan reagen yang telah disiapkan di atas meja hingga bereaksi."}
-                        {isTaskReactionDone && (
-                          <span className="text-emerald-700 font-semibold ml-2">
-                            ✓ Target reaksi tercapai! Eksperimen dihentikan agar hasil tidak berubah.
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      "Bebas menambahkan reagen kimia apa saja ke meja lab, meracik berbagai kombinasi cairan, dan mengamati reaksi alami tanpa batasan tugas guru."
-                    )}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {isTeacher ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddChemicalModalOpen(true)}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>+ Tambah Zat</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleResetWorkbench}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
-                        title="Kosongkan Meja"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Reset Meja</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTeacherBuilderSection("create");
-                          setActiveTab("teacher_builder");
-                        }}
-                        className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
-                      >
-                        <ClipboardList className="w-4 h-4" />
-                        <span>Portal Guru →</span>
-                      </button>
-                    </>
-                  ) : labMode === "sandbox" ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddChemicalModalOpen(true)}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>+ Tambah Bahan Kimia</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleResetWorkbench}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
-                        title="Bersihkan Meja"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Reset Meja</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {currentTask?.questions && currentTask.questions.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setIsQuizModalOpen(true)}
-                          className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm ${
-                            isTaskReactionDone
-                              ? "bg-amber-400 hover:bg-amber-500 text-slate-950 font-black animate-pulse"
-                              : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200"
-                          }`}
-                        >
-                          <Award className="w-3.5 h-3.5" />
-                          <span>
-                            {lastQuizScore !== null
-                              ? `Kuis Selesai (${lastQuizScore}/100)`
-                              : "Kerjakan Kuis AI"}
-                          </span>
-                        </button>
-                      )}
-
-                      {canRetake && (
-                        <button
-                          type="button"
-                          onClick={handleResetWorkbench}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
-                          title="Ulangi Eksperimen"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Ulangi</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCurrentTask(null);
-                          setLabMode("sandbox");
-                          setVessels([]);
-                          setIsTaskReactionDone(false);
-                          setActiveReaction(null);
-                        }}
-                        className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
-                        title="Kembali ke meja lab bebas"
-                      >
-                        <FlaskConical className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Meja Bebas</span>
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Dedicated Science Instrument Rack (Termometer Celup, Kertas Lakmus, Indikator pH - Di Luar Layar Meja 3D) */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-2.5 sm:px-4 flex flex-wrap items-center justify-between gap-2 shadow-xs">
-                <div className="flex items-center gap-2 overflow-x-auto py-0.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 shrink-0">
-                    <FlaskConical className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Instrumen Lab:</span>
+              {/* User Pill */}
+              {currentUser ? (
+                <div className="flex items-center gap-1.5 bg-white border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-xl px-2.5 py-1.5">
+                  <span className="text-[10px] font-black uppercase bg-[#38BDF8] text-slate-900 border border-slate-900 px-1.5 py-0.5 rounded">
+                    {isTeacher ? "GURU" : "SISWA"}
                   </span>
-                  {[
-                    { id: "hand", label: "✋ Tangan (Tuang)", title: "Pindahkan & Tuangkan Bejana Reaksi" },
-                    { id: "thermometer", label: "🌡️ Termometer Celup", title: "Celupkan ke Bejana untuk Mengukur Suhu Termokimia" },
-                    { id: "litmus_red", label: "🔴 Lakmus Merah", title: "Uji Sifat Basa (Merah → Biru)" },
-                    { id: "litmus_blue", label: "🔵 Lakmus Biru", title: "Uji Sifat Asam (Biru → Merah)" },
-                    { id: "ph_meter", label: "🧪 Indikator pH", title: "Cek Derajat Keasaman pH Universal (0-14)" },
-                  ].map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => handleSelectTool(t.id as any)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0 ${
-                        activeTool === t.id
-                          ? "bg-sky-600 text-white shadow-xs"
-                          : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
-                      }`}
-                      title={t.title}
-                    >
-                      <span>{t.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Target Beaker Selector when instrument is active */}
-                {activeTool !== "hand" && vessels.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs shrink-0">
-                    <span className="text-slate-500 font-medium text-[11px]">Celup ke:</span>
-                    <div className="flex items-center gap-1 overflow-x-auto">
-                      {vessels.map((v) => {
-                        const isSelected = dippedVesselId === v.id;
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => handleDipTool(v, activeTool)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border ${
-                              isSelected
-                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                                : "bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
-                            }`}
-                          >
-                            <span
-                              className="w-2 h-2 rounded-full border border-black/20"
-                              style={{ backgroundColor: v.color || "#0284c7" }}
-                            />
-                            <span>{v.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 3D Workbench Stage Canvas Container - Clean Laboratory Environment */}
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-sm h-[490px] sm:h-[560px]">
-                {/* Layer 0: Camera Feed (Visually hidden - runs strictly for MediaPipe vision tracking without showing webcam video) */}
-                {isCameraEffective && (
-                  <div className="absolute inset-0 opacity-0 pointer-events-none -z-10">
-                    <CameraFeed
-                      isActive={isCameraEffective}
-                      onVideoReady={setVideoElement}
-                      showControls={false}
-                      className="w-full h-full rounded-none"
-                    />
-                  </div>
-                )}
-
-                {/* Layer 1: 3D WebGL Canvas */}
-                <div className="absolute inset-0 z-10 pointer-events-auto">
-                  <ChemistryLabScene
-                    handTransform={isCameraEffective ? handTransform : undefined}
-                    onReactionDetected={handleReactionDetected}
-                    vessels={vessels}
-                    setVessels={setVessels}
-                    activeReaction={activeReaction}
-                    reactions={reactionsList}
-                    isLocked={isExperimentLocked}
-                    activeTool={activeTool}
-                    dippedVesselId={dippedVesselId}
-                    onDipTool={handleDipTool}
-                  />
-                </div>
-
-                {/* Layer 2: Glowing Hand Skeleton Tracker Canvas */}
-                {isCameraEffective && (
-                  <div className="absolute inset-0 z-20 pointer-events-none">
-                    <HandGestureTracker
-                      videoElement={videoElement}
-                      isActive={isCameraEffective}
-                      onGestureUpdate={handleGestureUpdate}
-                    />
-                  </div>
-                )}
-
-                {/* Layer 3: HUD Status Overlay */}
-                <div className="absolute top-3 left-3 z-30 flex flex-col gap-1.5 pointer-events-none">
-                  {isCameraEffective ? (
-                    <span className="bg-white/95 backdrop-blur-md text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-sm">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      Hand Skeleton Tracker Active
-                    </span>
-                  ) : isExperimentLocked ? (
-                    <span className="bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-1.5 shadow-sm">
-                      <VideoOff className="w-3.5 h-3.5 text-slate-400" />
-                      Kamera Nonaktif (Mode Review Selesai)
-                    </span>
-                  ) : null}
-
-                  {isReactionAnimating && (
-                    <span className="bg-amber-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg border border-amber-600 flex items-center gap-2 shadow-md animate-bounce">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-spin" />
-                      <span>⚗️ Reaksi Berlangsung! Mengamati fenomena visual di meja 3D...</span>
-                    </span>
-                  )}
-
-                  {isExperimentLocked && (
-                    <span className="bg-rose-50 text-rose-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-rose-200 flex items-center gap-1.5 shadow-sm animate-pulse">
-                      <Lock className="w-3.5 h-3.5" />
-                      Praktikum Selesai (Bejana Terkunci)
-                    </span>
-                  )}
-                </div>
-
-                <div className="absolute top-3 right-3 z-30 flex items-center gap-2 pointer-events-none">
-                  <div className="bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl text-xs shadow-sm space-y-0.5 text-right">
-                    <div className="flex items-center justify-end gap-1.5 text-xs font-bold text-emerald-700">
-                      <span className={`w-2 h-2 rounded-full ${handTransform.handDetected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                      <span>{handTransform.handDetected ? "Sensor Tangan: Terdeteksi" : "Sensor: Arahkan Tangan..."}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      {isExperimentLocked
-                        ? "🔒 Terkunci - Praktikum Selesai"
-                        : handTransform.isGrabbing
-                        ? "✊ Memegang Bejana Kimia"
-                        : handTransform.handDetected
-                        ? "✋ Mode Membidik (Hover)"
-                        : "Arahkan tangan ke kamera"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sandbox Empty Table Banner */}    
-                {(labMode === "sandbox" || isGuest) && vessels.length === 0 && (
-                  <div className="absolute inset-x-0 bottom-16 flex justify-center pointer-events-none z-30">
-                    <div className="bg-white/95 backdrop-blur-md border border-slate-200 text-slate-800 px-4 py-2 rounded-xl shadow-lg flex items-center gap-3 pointer-events-auto">
-                      <FlaskConical className="w-4 h-4 text-emerald-600" />
-                      <span className="text-xs text-slate-600">Meja lab kosong. Klik <strong>+ Tambah Bahan</strong> untuk menaruh zat kimia.</span>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddChemicalModalOpen(true)}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Pilih Zat</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Task Mode Empty Table Banner (if task hasn't loaded reagents yet) */}
-                {!isGuest && labMode === "task" && vessels.length === 0 && (
-                  <div className="absolute inset-x-0 bottom-16 flex justify-center pointer-events-none z-30">
-                    <div className="bg-white/95 backdrop-blur-md border border-slate-200 text-slate-800 px-4 py-2 rounded-xl shadow-lg flex items-center gap-3 pointer-events-auto">
-                      <ClipboardList className="w-4 h-4 text-sky-600" />
-                      <span className="text-xs text-slate-600">
-                        {currentTask ? `Tugas "${currentTask.title}" siap dimulai.` : "Tugas kelas tersedia. Siapkan meja untuk memulai praktikum."}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (currentTask) applyTaskToWorkbench(currentTask);
-                          else if (tasks.length > 0) applyTaskToWorkbench(tasks[0]);
-                          else setActiveTab("tasks");
-                        }}
-                        className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm"
-                      >
-                        <Play className="w-3.5 h-3.5" />
-                        <span>Siapkan Meja Praktik</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Layer 4: Floating Quick Controls */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200 shadow-md text-slate-700 pointer-events-auto">
+                  <span className="text-xs font-bold text-slate-900 max-w-[100px] truncate hidden sm:inline">
+                    {currentUser.name}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (isExperimentLocked) return;
-                      setIsCameraActive((prev) => !prev);
-                    }}
-                    disabled={isExperimentLocked}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      isExperimentLocked
-                        ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-75"
-                        : isCameraActive
-                        ? "bg-slate-100 text-slate-800 hover:bg-slate-200 cursor-pointer"
-                        : "bg-rose-600 text-white cursor-pointer"
+                    onClick={handleLogout}
+                    title="Keluar Akun"
+                    className="p-0.5 text-slate-500 hover:text-rose-600 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="pop-btn bg-[#38BDF8] text-slate-900 px-3.5 py-2 rounded-xl text-xs gap-1.5"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Masuk</span>
+                </button>
+              )}
+            </div>
+
+            {/* Collapsible Camera Distance Calibration & Mini Preview Strip */}
+            {isCameraEffective && isCameraSettingsOpen && (
+              <div className="flex flex-wrap items-center justify-end gap-1.5 bg-white/95 border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-xl px-2.5 py-1.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 hidden sm:inline">
+                  Jarak:
+                </span>
+                {(
+                  [
+                    { id: "close", label: "Dekat" },
+                    { id: "normal", label: "Sedang" },
+                    { id: "wide", label: "Luas" },
+                  ] as const
+                ).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setHandRangePreset(preset.id)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all cursor-pointer ${
+                      handRangePreset === preset.id
+                        ? "bg-[#38BDF8] text-slate-900 border-slate-900 shadow-[1px_1px_0px_#0f172a]"
+                        : "bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100"
                     }`}
                     title={
-                      isExperimentLocked
-                        ? "Kamera dinonaktifkan dalam mode review/terkunci"
-                        : "Toggle sensor kamera"
+                      preset.id === "close"
+                        ? "Nyaman untuk duduk dekat di depan laptop (25-55 cm)"
+                        : preset.id === "normal"
+                        ? "Jarak standar meja belajar (50-80 cm)"
+                        : "Jangkauan penuh untuk jarak jauh (>80 cm)"
                     }
                   >
-                    {isExperimentLocked
-                      ? "🖐️ Sensor: OFF (Terkunci)"
-                      : isCameraActive
-                      ? "🖐️ Sensor: ON"
-                      : "🖐️ Sensor: OFF"}
+                    {preset.label}
                   </button>
+                ))}
 
-                  {/* Audio SFX Toggle */}
+                <span
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+                    handProximityHint === "too_close"
+                      ? "bg-[#FACC15] text-slate-900 border-slate-900"
+                      : handProximityHint === "optimal"
+                      ? "bg-[#A7F3D0] text-slate-900 border-slate-900"
+                      : "bg-slate-100 text-slate-500 border-slate-300"
+                  }`}
+                >
+                  {handProximityHint === "too_close"
+                    ? "Terlalu Dekat"
+                    : handProximityHint === "optimal"
+                    ? "Posisi Pas"
+                    : "Arahkan Tangan"}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCameraPreview((prev) => !prev)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-black border border-slate-900 flex items-center gap-1 cursor-pointer transition-all ${
+                    showCameraPreview
+                      ? "bg-[#FACC15] text-slate-900"
+                      : "bg-slate-100 text-slate-800 hover:bg-slate-200"
+                  }`}
+                  title="Tampilkan atau sembunyikan pratinjau kamera kecil"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>{showCameraPreview ? "Tutup Cam" : "Cek Cam"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCameraSettingsOpen(false)}
+                  className="p-0.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+                  title="Tutup panel jarak"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Empty Table Prompt (Center-Bottom above Dock) */}
+        {(labMode === "sandbox" || isGuest) && vessels.length === 0 && (
+          <div className="absolute inset-x-4 bottom-24 sm:bottom-28 flex justify-center pointer-events-none z-30">
+            <div className="pop-card rounded-2xl px-5 py-3 bg-[#FFFDF7] flex flex-wrap items-center justify-center gap-3 pointer-events-auto">
+              <FlaskConical className="w-5 h-5 text-emerald-700" />
+              <span className="text-xs font-bold text-slate-800">
+                Meja lab masih kosong. Tambahkan zat kimia untuk mulai bereksperimen!
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAddChemicalModalOpen(true)}
+                className="pop-btn px-3.5 py-1.5 bg-[#34D399] text-slate-900 text-xs rounded-xl gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Bahan Kimia</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isGuest && labMode === "task" && vessels.length === 0 && (
+          <div className="absolute inset-x-4 bottom-24 sm:bottom-28 flex justify-center pointer-events-none z-30">
+            <div className="pop-card rounded-2xl px-5 py-3 bg-[#FFFDF7] flex flex-wrap items-center justify-center gap-3 pointer-events-auto">
+              <ClipboardList className="w-5 h-5 text-[#2563EB]" />
+              <span className="text-xs font-bold text-slate-800">
+                {currentTask
+                  ? `Tugas "${currentTask.title}" siap dimulai di meja.`
+                  : "Siapkan bahan tugas ke meja praktik."}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (currentTask) applyTaskToWorkbench(currentTask);
+                  else if (tasks.length > 0) applyTaskToWorkbench(tasks[0]);
+                }}
+                className="pop-btn px-3.5 py-1.5 bg-[#38BDF8] text-slate-900 text-xs rounded-xl gap-1.5"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Siapkan Bahan</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Scroll CTA when Reaction / Measurement / Completion Exists */}
+        {hasObservationSection && (
+          <div className="absolute bottom-24 right-4 sm:right-6 z-30 pointer-events-auto">
+            <button
+              type="button"
+              onClick={scrollToObservations}
+              className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-4 py-2.5 rounded-2xl text-xs gap-2 animate-bounce"
+            >
+              <ArrowDown className="w-4 h-4" />
+              <span>Lihat Hasil &amp; Penjelasan di Bawah</span>
+            </button>
+          </div>
+        )}
+
+        {/* =======================================================================
+            FLOATING SPATIAL BOTTOM DOCK: INSTRUMENTS + ADD CHEMICALS + QUIZ TAB
+            ======================================================================= */}
+        <div className="absolute bottom-3 inset-x-3 sm:bottom-4 sm:inset-x-6 z-30 flex flex-col items-center gap-2 pointer-events-none">
+          {/* Active Beaker Immersion Sub-Bar (Visible when an instrument != hand is active) */}
+          {activeTool !== "hand" && vessels.length > 0 && (
+            <div className="pointer-events-auto bg-[#FFFDF7] border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-2xl px-3 py-1.5 flex flex-wrap items-center justify-center gap-1.5 max-w-full">
+              <span className="text-[11px] font-black uppercase text-slate-700 mr-1">
+                Celup ke Bejana:
+              </span>
+              {vessels.map((v) => {
+                const isSelected = dippedVesselId === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => handleDipTool(v, activeTool)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold border-2 border-slate-900 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? "bg-[#34D399] text-slate-900 shadow-[2px_2px_0px_#0f172a]"
+                        : "bg-white text-slate-800 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-slate-900 shrink-0"
+                      style={{ backgroundColor: v.color || "#0284c7" }}
+                    />
+                    <span>{v.formula}</span>
+                  </button>
+                );
+              })}
+
+              {activeMeasurement && (
+                <button
+                  type="button"
+                  onClick={scrollToObservations}
+                  className="ml-1 px-2.5 py-1 rounded-xl bg-[#FACC15] border-2 border-slate-900 text-[11px] font-black text-slate-900 cursor-pointer flex items-center gap-1"
+                >
+                  <ArrowDown className="w-3 h-3" />
+                  <span>Hasil Ukur</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Active Vessel Quick Popover (in Sandbox / Teacher mode for inspecting or removing individual beakers) */}
+          {(labMode === "sandbox" || isTeacher) && isVesselListOpen && (
+            <div className="pointer-events-auto pop-card rounded-2xl p-3 bg-[#FFFDF7] w-full max-w-md space-y-2">
+              <div className="flex items-center justify-between border-b-2 border-slate-900/10 pb-1.5">
+                <span className="text-[11px] font-black uppercase text-slate-800">
+                  Zat Aktif di Meja ({vessels.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsVesselListOpen(false)}
+                  className="p-0.5 rounded hover:bg-slate-100 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {vessels.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-2">Meja masih kosong.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                  {vessels.map((v, i) => (
+                    <div
+                      key={v.id || i}
+                      className="px-2.5 py-1.5 bg-white border-2 border-slate-900 rounded-xl flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span
+                          className="w-3 h-3 rounded-full border border-slate-900 shrink-0"
+                          style={{ backgroundColor: v.color }}
+                        />
+                        <span className="font-mono font-bold truncate">{v.formula}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVessel(v.id)}
+                        className="text-rose-600 hover:bg-rose-50 p-1 rounded-lg cursor-pointer shrink-0"
+                        title="Hapus zat ini dari meja"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Main Arcade-Lab Floating Dock */}
+          <div className="pointer-events-auto bg-[#FFFDF7] border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] rounded-2xl p-1.5 sm:px-2.5 flex flex-wrap items-center justify-center gap-1.5 max-w-full">
+            {/* Group 1: Interactive Instruments */}
+            {[
+              { id: "hand", label: "Tangan", icon: Hand, colorClass: "bg-[#38BDF8]" },
+              { id: "thermometer", label: "Termometer", icon: Thermometer, colorClass: "bg-[#FED7AA]" },
+              { id: "litmus_red", label: "Lakmus Merah", icon: Droplet, colorClass: "bg-[#FDA4AF]" },
+              { id: "litmus_blue", label: "Lakmus Biru", icon: Droplet, colorClass: "bg-[#93C5FD]" },
+              { id: "ph_meter", label: "Indikator pH", icon: TestTube2, colorClass: "bg-[#FDE047]" },
+            ].map((item) => {
+              const IconComp = item.icon;
+              const isSelected = activeTool === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectTool(item.id as InteractiveToolType)}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold border-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? `${item.colorClass} border-slate-900 text-slate-900 shadow-[2px_2px_0px_#0f172a] -translate-y-0.5`
+                      : "bg-white border-transparent hover:border-slate-900 text-slate-700 hover:text-slate-900"
+                  }`}
+                >
+                  <IconComp
+                    className={`w-3.5 h-3.5 ${
+                      item.id === "litmus_red"
+                        ? "text-rose-600"
+                        : item.id === "litmus_blue"
+                        ? "text-blue-600"
+                        : ""
+                    }`}
+                  />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+
+            <div className="w-0.5 h-6 bg-slate-900/20 mx-0.5 hidden sm:block" />
+
+            {/* Group 2: Workbench Reagents & Actions */}
+            {(labMode === "sandbox" || isTeacher) ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsAddChemicalModalOpen(true)}
+                  className="pop-btn bg-[#34D399] hover:bg-[#10B981] text-slate-900 px-3.5 py-1.5 rounded-xl text-xs gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tambah Zat</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsVesselListOpen((prev) => !prev)}
+                  className="pop-btn bg-white hover:bg-slate-100 text-slate-900 px-3 py-1.5 rounded-xl text-xs gap-1.5"
+                  title="Lihat & kelola bejana di atas meja"
+                >
+                  <Beaker className="w-3.5 h-3.5 text-[#2563EB]" />
+                  <span>Meja ({vessels.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetWorkbench}
+                  className="pop-btn bg-white hover:bg-rose-50 text-slate-900 px-3 py-1.5 rounded-xl text-xs gap-1.5"
+                  title="Kosongkan Meja"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Reset</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {currentTask?.questions && currentTask.questions.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => {
-                      const newMuted = labSound.toggleMute();
-                      setIsSoundMuted(newMuted);
-                      if (!newMuted) {
-                        labSound.playGlassClink("soft");
-                      }
-                    }}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                      !isSoundMuted
-                        ? "bg-slate-100 text-slate-800 hover:bg-slate-200"
-                        : "bg-amber-100 text-amber-800 border border-amber-200"
+                    onClick={handleOpenQuizInNewTab}
+                    className={`pop-btn px-3.5 py-1.5 rounded-xl text-xs gap-1.5 ${
+                      isTaskReactionDone
+                        ? "bg-[#FACC15] hover:bg-[#fde047] text-slate-900"
+                        : "bg-white hover:bg-slate-100 text-slate-900"
                     }`}
-                    title={!isSoundMuted ? "Matikan Suara SFX Lab" : "Aktifkan Suara SFX Lab"}
                   >
-                    {!isSoundMuted ? (
-                      <>
-                        <Volume2 className="w-3.5 h-3.5 text-sky-600" />
-                        <span>🔊 SFX: ON</span>
-                      </>
-                    ) : (
-                      <>
-                        <VolumeX className="w-3.5 h-3.5 text-amber-700" />
-                        <span>🔇 SFX: OFF</span>
-                      </>
-                    )}
+                    <Award className="w-4 h-4" />
+                    <span>
+                      {lastQuizScore !== null
+                        ? `Kuis (${lastQuizScore}/100)`
+                        : "Kerjakan Kuis"}
+                    </span>
+                    <ExternalLink className="w-3 h-3" />
                   </button>
+                )}
 
-                  {(labMode === "sandbox" || isGuest) && (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddChemicalModalOpen(true)}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Zat</span>
-                    </button>
-                  )}
-
+                {canRetake && (
                   <button
                     type="button"
                     onClick={handleResetWorkbench}
-                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition-colors border border-slate-200"
-                    title="Reset Posisi Bejana"
+                    className="pop-btn bg-white hover:bg-slate-100 text-slate-900 px-3 py-1.5 rounded-xl text-xs gap-1.5"
+                    title="Ulangi Eksperimen"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Ulangi</span>
                   </button>
+                )}
 
-                  {!isGuest && (
-                    <button
-                      type="button"
-                      onClick={() => setIsAiAssistantOpen(true)}
-                      className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-full text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Tanya AI</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Dedicated Interactive Measurement Inspector Panel (Di Luar Layar Meja 3D) */}
-              {activeTool !== "hand" && activeMeasurement && (
-                <InteractiveMeasurementInspector
-                  measurement={activeMeasurement}
-                  onClose={() => {
-                    setActiveTool("hand");
-                    setActiveMeasurement(null);
-                    setDippedVesselId(null);
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTask(null);
+                    setLabMode("sandbox");
+                    setVessels([]);
+                    setIsTaskReactionDone(false);
+                    setActiveReaction(null);
                   }}
-                  activeTool={activeTool}
-                  onSelectTool={handleSelectTool}
-                  allVessels={vessels.map((v) => ({ id: v.id, name: v.name, formula: v.formula }))}
-                  onSelectVessel={(vId) => {
-                    const v = vessels.find((item) => item.id === vId);
-                    if (v) handleDipTool(v, activeTool);
-                  }}
-                />
-              )}
+                  className="pop-btn bg-[#A7F3D0] text-slate-900 px-3 py-1.5 rounded-xl text-xs gap-1.5"
+                  title="Pindah ke Meja Sandbox Bebas"
+                >
+                  <FlaskConical className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sandbox</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
 
-              {/* Task Completion Celebration Modal (Auto-Stop in Task Mode) */}
-              {labMode === "task" && isTaskReactionDone && !isSuccessModalDismissed && (
-                <div className="bg-white border-2 border-emerald-500 rounded-2xl p-5 text-slate-900 shadow-xl animate-in zoom-in-95 duration-200">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🎉</span>
-                        <h4 className="font-extrabold text-base text-emerald-700">
-                          TARGET PRAKTIKUM TERCAPAI! (Eksperimen Dihentikan)
-                        </h4>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        Kamu berhasil mereaksikan zat hingga menghasilkan produk{" "}
-                        <strong className="text-slate-900 underline">
-                          {activeReaction?.resultName || activeReaction?.title}
-                        </strong>
-                        . Meja lab dikunci otomatis oleh sistem agar hasil pengamatan tidak berubah.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
-                      {currentTask?.questions && currentTask.questions.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setIsQuizModalOpen(true)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-transform hover:scale-105"
-                        >
-                          <Award className="w-4 h-4 text-slate-950" />
-                          <span>Kerjakan Kuis Evaluasi AI →</span>
-                        </button>
-                      )}
-
-                      {canRetake && (
-                        <button
-                          type="button"
-                          onClick={handleResetWorkbench}
-                          className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center gap-1 border border-slate-200"
-                          title="Ulangi praktikum dari awal"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Ulangi</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setIsSuccessModalDismissed(true)}
-                        className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
-                        title="Tutup banner"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Dedicated Reaction Observation Panel (Out of Camera & 3D Viewport) */}
-              {activeReaction && (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 text-slate-800 space-y-4 shadow-sm transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-                  {/* Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
-                    <div className="flex items-center gap-2.5 font-bold text-sm sm:text-base text-slate-900 max-w-full">
-                      <span className="p-1.5 rounded-lg bg-sky-50 text-sky-600 border border-sky-200 flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-emerald-600" />
+      {/* =========================================================================
+          BELOW-THE-STAGE OBSERVATION WORKSPACE
+          (HASIL REAKSI, ALASAN TERJADINYA REAKSI, PENGUKURAN ALAT)
+          ========================================================================= */}
+      {hasObservationSection && (
+        <section
+          id="lab-observation-section"
+          className="w-full pop-dots border-t-4 border-slate-900 py-8 px-4 sm:px-8"
+        >
+          <div className="max-w-6xl mx-auto space-y-6">
+            {/* 1. Task Submission / Completion Banner */}
+            {!isTeacher && labMode === "task" && (currentSubmission || isTaskReactionDone) && (
+              <div
+                className={`pop-card rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                  currentSubmission
+                    ? currentSubmission.score >= kkmScore
+                      ? "bg-[#D1FAE5]"
+                      : "bg-[#FEF08A]"
+                    : "bg-[#A7F3D0]"
+                }`}
+              >
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-black uppercase bg-white text-slate-900 border-2 border-slate-900 px-2.5 py-0.5 rounded-full">
+                      {currentSubmission
+                        ? currentSubmission.score >= kkmScore
+                          ? `TUNTAS LULUS KKM ${kkmScore}`
+                          : `BELUM TUNTAS (< KKM ${kkmScore})`
+                        : "TARGET REAKSI TERCAPAI"}
+                    </span>
+                    {currentSubmission && (
+                      <span className="text-xs font-mono font-black text-slate-900">
+                        Skor Kuis: {currentSubmission.score}/100
                       </span>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                        <span className="text-slate-900 font-extrabold text-base">Hasil Reaksi Terdeteksi:</span>
-                        <span className="text-emerald-700 font-bold">{activeReaction.title}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold bg-slate-50 text-sky-700 px-3 py-1 rounded-full border border-slate-200 shadow-xs">
-                        Kurikulum Jenjang {activeReaction.level}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setActiveReaction(null)}
-                        className="p-1.5 px-3 text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
-                      >
-                        ✕ Tutup
-                      </button>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Persamaan Kimia & Produk */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
-                    <div className="lg:col-span-8 flex flex-col justify-center">
-                      <ChemicalEquation
-                        equation={activeReaction.equation}
-                        showCopy={true}
-                        title="Persamaan Reaksi Kimia (Stoikiometri Seimbang)"
-                      />
-                    </div>
-                    <div className="lg:col-span-4 p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col justify-center gap-1 shadow-xs">
-                      <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500">Produk Reaksi</span>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0 shadow-xs"
-                          style={{ backgroundColor: activeReaction.resultColor || "#38bdf8" }}
-                        />
-                        <span className="text-sm font-extrabold text-slate-900 truncate">
-                          {activeReaction.resultName || "Produk Kimiawi"}
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-500 font-mono">
-                        Formula: <strong className="text-slate-900"><ChemicalFormula formula={activeReaction.resultFormula} /></strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3 Structured Columns: Alasan Terjadinya Reaksi, Penjelasan Sains Rinci, Ciri-Ciri Fisik & Termal */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch pt-1">
-                    {/* Kolom 1: Alasan Terjadinya Reaksi */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-amber-300 transition-colors">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-amber-800 uppercase tracking-wide border-b border-slate-200 pb-2">
-                          <span className="text-base">💡</span>
-                          <span>Alasan Terjadinya Reaksi</span>
-                        </div>
-                        <p className="text-xs text-slate-700 leading-relaxed">
-                          {activeReaction.reasonWhy ||
-                            "Reaksi terjadi akibat adanya driving force termodinamika atau afinitas ikatan antar-partikel zat (seperti pelepasan proton, pembentukan endapan tak larut, atau transfer elektron) menuju kondisi energi bebas yang lebih stabil."}
-                        </p>
-                      </div>
-                      <div className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-200">
-                        *Mekanisme molekuler & afinitas ikatan
-                      </div>
-                    </div>
-
-                    {/* Kolom 2: Penjelasan Sains Rinci */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 hover:border-emerald-300 transition-colors">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 uppercase tracking-wide border-b border-slate-200 pb-2">
-                          <span className="text-base">📖</span>
-                          <span>Penjelasan Sains Rinci</span>
-                        </div>
-                        <p className="text-xs text-slate-700 leading-relaxed">
-                          {activeReaction.explanation}
-                        </p>
-                      </div>
-                      <div className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-200">
-                        *Konsep materi kurikulum sains
-                      </div>
-                    </div>
-
-                    {/* Kolom 3: Ciri-Ciri Fisik Teramati & Suhu Termal */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-3 hover:border-sky-300 transition-colors">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-sky-800 uppercase tracking-wide border-b border-slate-200 pb-2">
-                          <span className="text-base">👁️</span>
-                          <span>Ciri-Ciri Fisik Teramati</span>
-                        </div>
-                        <p className="text-xs text-slate-700 leading-relaxed">
-                          {activeReaction.observablePhenomena ||
-                            "Teramati perubahan warna larutan, pembentukan fase baru, dan perubahan temperatur wadah sesuai karakteristik produk reaksi."}
-                        </p>
-                      </div>
-
-                      {/* Termal Badge */}
-                      <div className="pt-2 border-t border-slate-200 space-y-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Perubahan Suhu Termal:</span>
-                        <div
-                          className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${
-                            activeReaction.temperatureChange > 0
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : activeReaction.temperatureChange < 0
-                              ? "bg-sky-50 text-sky-700 border-sky-200"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
-                          }`}
-                        >
-                          <span>
-                            {activeReaction.temperatureChange > 0
-                              ? "🔥"
-                              : activeReaction.temperatureChange < 0
-                              ? "❄️"
-                              : "⚖️"}
-                          </span>
-                          <span>
-                            {activeReaction.temperatureChange > 0
-                              ? `+${activeReaction.temperatureChange}°C (Eksotermik / Melepas Panas)`
-                              : activeReaction.temperatureChange < 0
-                              ? `${activeReaction.temperatureChange}°C (Endotermik / Menyerap Panas)`
-                              : "Suhu Stabil (Netral pada Suhu Ruang)"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Footer */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-                    <div className="text-xs text-slate-500 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Hasil reaksi tercatat ke log observasi praktikum kelas.</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      {isTeacher ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTeacherBuilderSection("create");
-                            setActiveTab("teacher_builder");
-                          }}
-                          className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Rancang Jadi Tugas Siswa →</span>
-                        </button>
-                      ) : (
-                        currentTask?.questions && currentTask.questions.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setIsQuizModalOpen(true)}
-                            className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
-                          >
-                            <Award className="w-4 h-4 text-amber-300" />
-                            <span>Lanjut ke Kuis Pemahaman AI →</span>
-                          </button>
-                        )
-                      )}
-                      {!isGuest && (
-                        <button
-                          type="button"
-                          onClick={() => setIsAiAssistantOpen(true)}
-                          className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-3 py-2 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                          <span>Konsultasi Asisten Lab-AI</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ===================================================================
-              VIEW 2: DAFTAR TUGAS KELAS
-              =================================================================== */}
-          {activeTab === "tasks" && (
-            <div className="space-y-5 max-w-5xl mx-auto w-full">
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    Daftar Tugas Praktikum Sains
+                  <h3 className="text-lg sm:text-xl font-display font-bold text-slate-900">
+                    {currentSubmission
+                      ? "Laporan Praktikum & Nilai Kuis Tersimpan"
+                      : "Eksperimen Berhasil! Reaksi Kimia Sudah Terkunci untuk Pengamatan"}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Pilih tugas praktikum yang telah disiapkan guru untuk dimulai di Meja 3D.
+                  <p className="text-xs sm:text-sm text-slate-700 font-medium">
+                    {currentSubmission
+                      ? currentSubmission.score >= kkmScore
+                        ? "Selamat! Nilai kamu telah memenuhi standar ketuntasan minimal."
+                        : allowRetakeBelowKkm
+                        ? "Skor masih di bawah KKM. Kamu dapat mengulang praktikum atau membuka ulang tab kuis untuk remedial."
+                        : "Nilai telah tersimpan. Tugas ini bersifat sekali selesai."
+                      : currentTask?.questions && currentTask.questions.length > 0
+                      ? "Pelajari alasan dan penjelasan reaksi di bawah, lalu buka halaman Kuis di tab baru untuk mengerjakan evaluasi."
+                      : "Amati persamaan reaksi dan penjelasan ilmiah di bawah ini."}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                    placeholder="PIN ROOM"
-                    className="w-28 px-3 py-1.5 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 text-center rounded-xl outline-none focus:border-sky-500 focus:bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fetchTasks()}
-                    className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 text-xs font-semibold rounded-xl transition-colors shadow-sm"
-                  >
-                    Cari
-                  </button>
-                </div>
-              </div>
-
-              {tasks.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 text-xs border border-dashed border-slate-300 rounded-2xl bg-white p-8 space-y-4 max-w-lg mx-auto shadow-sm">
-                  <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto text-slate-400 border border-slate-200">
-                    <ClipboardList className="w-6 h-6 text-sky-600" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-slate-900 font-bold text-sm">Belum Ada Tugas Praktikum Aktif</h4>
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      {isTeacher
-                        ? `Belum ada tugas yang diterbitkan untuk Room ${roomCode}. Silakan rancang tugas baru untuk kelas ini.`
-                        : `Guru pengampu belum menerbitkan tugas praktikum baru untuk Room ${roomCode}. Anda dapat bereksplorasi di Meja Praktikum 3D.`}
-                    </p>
-                  </div>
-                  {isTeacher ? (
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  {currentTask?.questions && currentTask.questions.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setTeacherBuilderSection("create");
-                        setActiveTab("teacher_builder");
-                      }}
-                      className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 text-xs font-semibold rounded-xl shadow-sm inline-flex items-center gap-2 transition-colors"
+                      onClick={handleOpenQuizInNewTab}
+                      className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-5 py-2.5 rounded-xl text-xs gap-2"
                     >
-                      <PlusCircle className="w-4 h-4" />
-                      <span>+ Masuk ke Portal Guru &amp; Buat Tugas</span>
+                      <Award className="w-4 h-4" />
+                      <span>
+                        {currentSubmission
+                          ? !allowRetakeBelowKkm || currentSubmission.score >= kkmScore
+                            ? "Review Kuis (Tab Baru)"
+                            : "Kerjakan Remedial Kuis (Tab Baru)"
+                          : "Kerjakan Kuis Evaluasi (Tab Baru)"}
+                      </span>
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </button>
-                  ) : (
+                  )}
+
+                  {currentSubmission && (
                     <button
                       type="button"
-                      onClick={() => setActiveTab("lab")}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-xs font-semibold rounded-xl shadow-sm inline-flex items-center gap-2 transition-colors"
+                      onClick={() => setViewingSubmissionDetail(currentSubmission)}
+                      className="pop-btn bg-white text-slate-900 px-4 py-2.5 rounded-xl text-xs gap-1.5"
                     >
-                      <FlaskConical className="w-4 h-4" />
-                      <span>Eksplorasi Meja Praktikum 3D (Sandbox) →</span>
+                      <BookOpen className="w-4 h-4 text-[#2563EB]" />
+                      <span>Laporan Lengkap</span>
+                    </button>
+                  )}
+
+                  {canRetake && (
+                    <button
+                      type="button"
+                      onClick={handleResetWorkbench}
+                      className="pop-btn bg-white text-slate-900 px-4 py-2.5 rounded-xl text-xs gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Ulangi Praktik</span>
                     </button>
                   )}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {tasks.map((task) => {
-                    const sub = studentSubmissions.find((s) => s.taskId === task.id);
-                    return (
-                      <div
-                        key={task.id}
-                        className={`bg-white hover:bg-slate-50/80 border rounded-2xl p-5 space-y-3 transition-colors flex flex-col justify-between shadow-sm ${
-                          sub ? "border-emerald-300 ring-1 ring-emerald-200" : "border-slate-200 hover:border-sky-300"
-                        }`}
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded uppercase">
-                                {task.gradeLevel}
-                              </span>
-                              {sub ? (
-                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded uppercase flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  <span>Selesai ({sub.score}/100)</span>
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded uppercase">
-                                  Belum Dikerjakan
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-xs text-slate-500">Guru: {task.teacherName}</span>
-                          </div>
+              </div>
+            )}
 
-                          <h4 className="font-bold text-sm text-slate-900">{task.title}</h4>
-                          <p className="text-xs text-slate-600 leading-relaxed">
-                            {task.instructions}
-                          </p>
-
-                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
-                            <span className="text-emerald-700 font-semibold">
-                              🔬 {task.chemicalIds?.length || 0} Reagen Kimia Tersedia
-                            </span>
-                            {sub && (
-                              <span className="text-xs font-semibold text-slate-400">
-                                Selesai: {sub.completedAt ? new Date(sub.completedAt).toLocaleDateString("id-ID") : "-"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {sub ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                            <button
-                              type="button"
-                              onClick={() => applyTaskToWorkbench(task)}
-                              className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <FlaskConical className="w-3.5 h-3.5" />
-                              <span>Review Meja 3D</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setViewingSubmissionDetail(sub)}
-                              className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl transition-colors shadow-2xs text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <BookOpen className="w-3.5 h-3.5 text-sky-600" />
-                              <span>Laporan &amp; Evaluasi AI</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => applyTaskToWorkbench(task)}
-                            className="w-full py-2.5 text-xs font-semibold rounded-xl transition-colors shadow-sm text-center mt-2 flex items-center justify-center gap-1.5 cursor-pointer bg-sky-600 hover:bg-sky-700 text-white"
-                          >
-                            <Play className="w-3.5 h-3.5" />
-                            <span>Buka Meja Lab &amp; Mulai Praktikum</span>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ===================================================================
-              VIEW 3: GURU MEMBUAT TUGAS (KHUSUS ROLE GURU & ADMIN)
-              =================================================================== */}
-          {activeTab === "teacher_builder" && isTeacher && (
-            <div className="max-w-5xl mx-auto w-full">
-              <TeacherTaskBuilder
-                roomCode={roomCode}
-                teacherName={currentUser?.name || "Budi Santoso, S.Pd"}
-                tasks={tasks}
-                initialSection={teacherBuilderSection}
-                onSectionChange={setTeacherBuilderSection}
-                onTaskCreated={() => {
-                  fetchTasks();
+            {/* 2. Interactive Measurement Inspector Panel */}
+            {activeTool !== "hand" && activeMeasurement && (
+              <InteractiveMeasurementInspector
+                measurement={activeMeasurement}
+                onClose={() => {
+                  setActiveTool("hand");
+                  setActiveMeasurement(null);
+                  setDippedVesselId(null);
                 }}
-                onDeleteTask={handleDeleteTask}
-                onPreviewTask={(task) => applyTaskToWorkbench(task)}
-                onCancel={() => {
-                  setLabMode("sandbox");
-                  setActiveTab("lab");
+                activeTool={activeTool}
+                onSelectTool={handleSelectTool}
+                allVessels={vessels.map((v) => ({ id: v.id, name: v.name, formula: v.formula }))}
+                onSelectVessel={(vId) => {
+                  const v = vessels.find((item) => item.id === vId);
+                  if (v) handleDipTool(v, activeTool);
                 }}
               />
-            </div>
-          )}
-        </div>
-      </main>
+            )}
+
+            {/* 3. Reaction Observation Panel (Hasil Reaksi, Alasan, Penjelasan, Fenomena) */}
+            {activeReaction && (
+              <div className="pop-card rounded-3xl p-5 sm:p-7 bg-white space-y-5 animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-slate-900/15 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#34D399] border-2 border-slate-900 flex items-center justify-center text-slate-900 shrink-0">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                        HASIL REAKSI KIMIA TERDETEKSI
+                      </span>
+                      <h3 className="text-lg sm:text-xl font-display font-bold text-slate-900">
+                        {activeReaction.title}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black bg-[#BAE6FD] text-slate-900 px-3 py-1 rounded-full border-2 border-slate-900">
+                      Jenjang {activeReaction.level}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveReaction(null)}
+                      className="pop-btn px-3 py-1.5 text-xs bg-white text-slate-800 rounded-xl gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Tutup</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Equation & Result Product */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                  <div className="lg:col-span-8 flex flex-col justify-center">
+                    <ChemicalEquation
+                      equation={activeReaction.equation}
+                      showCopy={true}
+                      title="Persamaan Reaksi Kimia (Stoikiometri Seimbang)"
+                    />
+                  </div>
+                  <div className="lg:col-span-4 p-4 bg-[#FEF9C3] border-2 border-slate-900 rounded-2xl flex flex-col justify-center gap-1.5">
+                    <span className="text-[10px] font-black tracking-wider uppercase text-slate-600">
+                      Produk Reaksi Terbentuk
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 rounded-full border-2 border-slate-900 shrink-0"
+                        style={{ backgroundColor: activeReaction.resultColor || "#38bdf8" }}
+                      />
+                      <span className="text-sm font-extrabold text-slate-900 truncate">
+                        {activeReaction.resultName || "Produk Kimiawi"}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-700 font-mono">
+                      Formula:{" "}
+                      <strong className="text-slate-900">
+                        <ChemicalFormula formula={activeReaction.resultFormula} />
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3 Structured Columns: Alasan, Penjelasan, Ciri Fisik */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch pt-1">
+                  {/* Column 1: Alasan Terjadinya Reaksi */}
+                  <div className="bg-[#FEF9C3] border-2 border-slate-900 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wide border-b-2 border-slate-900/15 pb-2">
+                        <Lightbulb className="w-4 h-4 text-amber-700" />
+                        <span>Alasan Terjadinya Reaksi</span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                        {activeReaction.reasonWhy ||
+                          "Reaksi terjadi akibat adanya driving force termodinamika atau afinitas ikatan antar-partikel zat menuju kondisi kestabilan energi yang lebih rendah."}
+                      </p>
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-600 pt-2 border-t border-slate-900/15">
+                      Mekanisme molekuler &amp; afinitas ikatan
+                    </div>
+                  </div>
+
+                  {/* Column 2: Penjelasan Sains Rinci */}
+                  <div className="bg-[#D1FAE5] border-2 border-slate-900 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wide border-b-2 border-slate-900/15 pb-2">
+                        <BookOpen className="w-4 h-4 text-emerald-800" />
+                        <span>Penjelasan Sains Rinci</span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                        {activeReaction.explanation}
+                      </p>
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-600 pt-2 border-t border-slate-900/15">
+                      Konsep materi kurikulum sains
+                    </div>
+                  </div>
+
+                  {/* Column 3: Ciri-Ciri Fisik & Suhu Termal */}
+                  <div className="bg-[#E0F2FE] border-2 border-slate-900 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wide border-b-2 border-slate-900/15 pb-2">
+                        <Eye className="w-4 h-4 text-[#2563EB]" />
+                        <span>Ciri-Ciri Fisik Teramati</span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                        {activeReaction.observablePhenomena ||
+                          "Teramati perubahan warna larutan, pembentukan fase baru, dan perubahan temperatur wadah."}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-900/15 space-y-1.5">
+                      <span className="text-[10px] font-black text-slate-700 uppercase">
+                        Perubahan Suhu Termal:
+                      </span>
+                      <div
+                        className={`text-xs font-extrabold px-3 py-1.5 rounded-xl border-2 border-slate-900 flex items-center gap-1.5 ${
+                          activeReaction.temperatureChange > 0
+                            ? "bg-[#FFE4E6] text-slate-900"
+                            : activeReaction.temperatureChange < 0
+                            ? "bg-white text-slate-900"
+                            : "bg-white text-slate-900"
+                        }`}
+                      >
+                        {activeReaction.temperatureChange > 0 ? (
+                          <Flame className="w-4 h-4 text-rose-600 shrink-0" />
+                        ) : activeReaction.temperatureChange < 0 ? (
+                          <Snowflake className="w-4 h-4 text-sky-600 shrink-0" />
+                        ) : (
+                          <Scale className="w-4 h-4 text-slate-700 shrink-0" />
+                        )}
+                        <span>
+                          {activeReaction.temperatureChange > 0
+                            ? `+${activeReaction.temperatureChange}°C (Eksotermik / Melepas Panas)`
+                            : activeReaction.temperatureChange < 0
+                            ? `${activeReaction.temperatureChange}°C (Endotermik / Menyerap Panas)`
+                            : "Suhu Stabil (Netral pada Suhu Ruang)"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Footer */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t-2 border-slate-900/15">
+                  <div className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Hasil pengamatan reaksi siap dijadikan bahan evaluasi kuis.</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {!isTeacher && currentTask?.questions && currentTask.questions.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleOpenQuizInNewTab}
+                        className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-5 py-2.5 text-xs rounded-xl gap-2"
+                      >
+                        <Award className="w-4 h-4" />
+                        <span>Kerjakan Kuis Evaluasi (Tab Baru)</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {!isGuest && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAiAssistantOpen(true)}
+                        className="pop-btn bg-[#38BDF8] text-slate-900 px-4 py-2.5 text-xs rounded-xl gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Tanya Asisten Lab-AI</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* =========================================================================
-          MODALS
+          MODALS (AI ASSISTANT, CHEMICAL CATALOG PICKER, LOGIN, SUBMISSION DETAIL)
           ========================================================================= */}
-      {/* Modal 1: AI Lab Assistant Modal */}
       <AiLabAssistantModal
         isOpen={isAiAssistantOpen && !isGuest}
         onClose={() => setIsAiAssistantOpen(false)}
@@ -2500,37 +1618,21 @@ export default function SmartScienceLabViewer() {
         roomCode={roomCode}
       />
 
-      {/* Modal 2: Post-Lab Quiz Modal */}
-      {currentTask && (
-        <PostLabQuizModal
-          isOpen={isQuizModalOpen}
-          onClose={() => setIsQuizModalOpen(false)}
-          taskTitle={currentTask.title}
-          questions={currentTask.questions || []}
-          onSubmitQuiz={handleSubmitQuiz}
-          initialSubmission={currentSubmission}
-          kkmScore={kkmScore}
-          canRetake={canRetake}
-          showQuizReviewDetails={currentTask.showQuizReviewDetails !== false}
-        />
-      )}
-
-      {/* Modal 3: Sandbox Mode - Chemical Catalog Picker Modal */}
+      {/* Chemical Catalog Picker Modal (Mode Sandbox) */}
       {isAddChemicalModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm">
-                  <FlaskConical className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="pop-card rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden bg-[#FFFDF7] animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:px-6 border-b-2 border-slate-900 flex items-center justify-between bg-[#34D399]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white border-2 border-slate-900 flex items-center justify-center text-slate-900">
+                  <FlaskConical className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">
-                    Katalog Reagen Kimia (Mode Sandbox)
+                  <h3 className="font-display font-bold text-slate-900 text-base">
+                    Katalog Reagen Kimia (Sandbox)
                   </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Pilih bahan kimia untuk diletakkan di atas meja praktik lab 3D.
+                  <p className="text-[11px] font-semibold text-slate-800">
+                    Pilih zat kimia untuk diletakkan di atas meja lab 3D.
                   </p>
                 </div>
               </div>
@@ -2538,45 +1640,44 @@ export default function SmartScienceLabViewer() {
               <button
                 type="button"
                 onClick={() => setIsAddChemicalModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 rounded-xl bg-white border-2 border-slate-900 flex items-center justify-center text-slate-900 hover:bg-rose-100 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Search & Filter Toolbar */}
-            <div className="p-3 border-b border-slate-100 bg-white space-y-2.5">
+            {/* Search & Filter */}
+            <div className="p-4 border-b-2 border-slate-900/15 bg-white space-y-2.5">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchChemicalQuery}
                   onChange={(e) => setSearchChemicalQuery(e.target.value)}
                   placeholder="Cari zat kimia (misal: NaOH, Air, Asam Klorida, Garam)..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-sky-500 focus:bg-white"
+                  className="w-full pl-10 pr-3 py-2 bg-slate-50 border-2 border-slate-900 rounded-xl text-xs font-semibold text-slate-900 placeholder-slate-400 outline-none"
                 />
               </div>
 
-              {/* Category Pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
                 {["ALL", "asam", "basa", "garam", "oksidator", "organik", "indikator"].map((cat) => (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => setSelectedCategoryFilter(cat)}
-                    className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${
+                    className={`px-3 py-1 rounded-full font-black whitespace-nowrap border-2 border-slate-900 transition-colors cursor-pointer ${
                       selectedCategoryFilter === cat
-                        ? "bg-sky-600 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+                        ? "bg-[#FACC15] text-slate-900"
+                        : "bg-white text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    {cat === "ALL" ? "Semua Kategori" : cat.toUpperCase()}
+                    {cat === "ALL" ? "Semua" : cat.toUpperCase()}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Chemicals Grid View */}
+            {/* Chemicals Grid */}
             <div className="p-4 overflow-y-auto flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {chemicalCatalog
                 .filter((chem) => {
@@ -2593,37 +1694,32 @@ export default function SmartScienceLabViewer() {
                 .map((chem) => (
                   <div
                     key={chem.id}
-                    className="p-3 bg-slate-50 hover:bg-white border border-slate-200 hover:border-sky-300 rounded-xl flex items-center justify-between gap-3 transition-colors group shadow-xs hover:shadow-sm"
+                    className="p-3 bg-white border-2 border-slate-900 rounded-2xl flex items-center justify-between gap-3 shadow-[2px_2px_0px_#0f172a]"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className="w-9 h-9 rounded-xl border border-black/10 flex items-center justify-center shrink-0 shadow-xs"
+                        className="w-9 h-9 rounded-xl border-2 border-slate-900 flex items-center justify-center shrink-0"
                         style={{ backgroundColor: chem.color || "#06b6d4" }}
                       >
                         <FlaskConical className="w-4 h-4 text-white drop-shadow-xs" />
                       </div>
                       <div className="truncate">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-slate-900 text-xs">
+                          <span className="font-mono font-black text-slate-900 text-xs">
                             {chem.formula}
                           </span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-slate-200 text-slate-700">
+                          <span className="text-[9px] px-1.5 py-0.2 rounded font-black uppercase bg-[#FEF08A] border border-slate-900 text-slate-900">
                             {chem.level}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-700 truncate">{chem.name}</div>
-                        {chem.category && (
-                          <div className="text-[10px] text-slate-400 capitalize">
-                            {chem.category}
-                          </div>
-                        )}
+                        <div className="text-xs font-bold text-slate-700 truncate">{chem.name}</div>
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => handleAddChemicalToWorkbench(chem)}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1 shadow-xs transition-colors"
+                      className="pop-btn px-3 py-1.5 bg-[#34D399] text-slate-900 text-xs rounded-xl shrink-0 gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Taruh</span>
@@ -2632,15 +1728,12 @@ export default function SmartScienceLabViewer() {
                 ))}
             </div>
 
-            {/* Footer */}
-            <div className="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
-              <span>
-                {chemicalCatalog.length} reagen kimia siap digunakan di laboratorium 3D
-              </span>
+            <div className="p-3 px-5 border-t-2 border-slate-900 bg-white flex items-center justify-between text-xs font-bold text-slate-600">
+              <span>{chemicalCatalog.length} bahan kimia siap diracik</span>
               <button
                 type="button"
                 onClick={() => setIsAddChemicalModalOpen(false)}
-                className="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold shadow-xs"
+                className="pop-btn px-4 py-1.5 bg-slate-100 text-slate-900 rounded-xl text-xs"
               >
                 Tutup
               </button>
@@ -2649,21 +1742,51 @@ export default function SmartScienceLabViewer() {
         </div>
       )}
 
-      {/* Modal 4: Authentication & Role Login Modal (Guru & Siswa) */}
+      {/* Auth Modal */}
       <AuthLoginModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onLoginSuccess={handleLoginSuccess}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setIsAuthModalOpen(false);
+          if (user.role === "student") {
+            setStudentName(user.name);
+            fetchStudentSubmissions(user.name);
+          }
+        }}
         currentUser={currentUser}
       />
 
-      {/* Modal 5: Student Submission Detail & Pedagogical AI Evaluation Modal */}
+      {/* Submission Detail Modal */}
       {viewingSubmissionDetail && (
         <StudentSubmissionDetailModal
           submission={viewingSubmissionDetail}
+          isTeacherView={isTeacher}
           task={currentTask || tasks.find((t) => t.id === viewingSubmissionDetail.taskId)}
           onClose={() => setViewingSubmissionDetail(null)}
         />
+      )}
+
+      {/* Full-Screen Pop-Bauhaus Loading Overlay saat kembali ke Dashboard */}
+      {isNavigatingBack && (
+        <div className="fixed inset-0 z-[100] bg-[#FFFDF7]/95 backdrop-blur-sm pop-dots flex items-center justify-center p-4">
+          <div className="pop-card rounded-3xl px-8 py-7 bg-white flex flex-col items-center gap-4 max-w-sm w-full text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#38BDF8] border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] flex items-center justify-center">
+              <FlaskConical className="w-7 h-7 text-slate-900 animate-bounce" />
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-slate-100 border-2 border-slate-900 overflow-hidden">
+              <div className="h-full w-2/3 bg-[#FACC15] animate-pulse rounded-full" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-black uppercase tracking-wider text-slate-900">
+                Kembali ke Dashboard...
+              </p>
+              <p className="text-xs font-medium text-slate-600">
+                Menutup meja lab 3D &amp; menyiapkan daftar kelasmu.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

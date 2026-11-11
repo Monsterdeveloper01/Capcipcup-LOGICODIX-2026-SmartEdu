@@ -1,22 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #09090b;
+  --background: #fffdf7;
+  --foreground: #0f172a;
   --surface-card: #ffffff;
-  --surface-muted: #f1f5f9;
-  --border-stark: #000000;
+  --surface-muted: #f8f5ec;
+  --border-ink: #0f172a;
   --accent-yellow: #facc15;
-  --accent-cyan: #06b6d4;
-  --accent-red: #ef4444;
-  --accent-green: #10b981;
+  --accent-sky: #38bdf8;
+  --accent-cobalt: #2563eb;
+  --accent-mint: #34d399;
+  --accent-coral: #fb7185;
+  --accent-tangerine: #fb923c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-geist-mono), monospace;
+  --font-sans: var(--font-sans-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-display), var(--font-sans-body), sans-serif;
+  --font-mono: var(--font-mono), monospace;
 }
 
 body {
@@ -24,290 +27,128 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
-  selection-background-color: #facc15;
-  selection-color: #000000;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
 }
 
 /* ============================================================================
-   LIGHT-THEME NEO-BRUTALIST ARCHITECTURAL GRID BACKGROUND
+   POP-BAUHAUS PAPER GRID & DOT MATRIX BACKGROUNDS
    ============================================================================ */
-.brutal-grid {
-  background-color: #f8fafc;
-  background-image: 
-    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+.pop-grid {
+  background-color: #fffdf7;
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.055) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 
-.brutal-grid-dense {
-  background-image: 
-    linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
-  background-size: 14px 14px;
+.pop-dots {
+  background-color: #fffdf7;
+  background-image: radial-gradient(rgba(15, 23, 42, 0.14) 1.25px, transparent 1.25px);
+  background-size: 18px 18px;
 }
 
 /* ============================================================================
-   NEO-BRUTALIST HARD CARDS & SURFACES (CRISP LIGHT THEME)
+   POP-BAUHAUS TACTILE CARDS & BUTTONS
    ============================================================================ */
+.pop-card {
+  background: #ffffff;
+  color: #0f172a;
+  border: 2px solid #0f172a;
+  box-shadow: 4px 4px 0px 0px #0f172a;
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pop-card-interactive:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #0f172a;
+}
+
+.pop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0f172a;
+  font-weight: 800;
+  box-shadow: 3px 3px 0px 0px #0f172a;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pop-btn:hover:not(:disabled) {
+  transform: translate(-1.5px, -1.5px);
+  box-shadow: 4.5px 4.5px 0px 0px #0f172a;
+}
+
+.pop-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px 0px #0f172a;
+}
+
+.pop-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   RETRO / NEO-BRUTALIST COMPATIBILITY HELPERS
+   ============================================================================ */
+.brutal-grid {
+  background-color: #fffdf7;
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
 .brutal-card {
   background: #ffffff;
-  color: #09090b;
-  border: 2px solid #000000;
-  box-shadow: 4px 4px 0px 0px #000000;
+  color: #0f172a;
+  border: 2px solid #0f172a;
+  box-shadow: 4px 4px 0px 0px #0f172a;
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.brutal-card:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px 0px #000000;
-}
-
-.brutal-card-white {
-  background: #ffffff;
-  color: #09090b;
-  border: 2px solid #000000;
-  box-shadow: 4px 4px 0px 0px #000000;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.brutal-card-white:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px 0px #facc15;
-}
-
-.brutal-card-yellow {
-  background: #facc15;
-  color: #000000;
-  border: 2px solid #000000;
-  box-shadow: 4px 4px 0px 0px #000000;
-}
-
-.brutal-card-cyan {
-  background: #06b6d4;
-  color: #000000;
-  border: 2px solid #000000;
-  box-shadow: 4px 4px 0px 0px #000000;
-}
-
-/* ============================================================================
-   NEO-BRUTALIST TACTILE BUTTONS (CRUNCH FEEDBACK)
-   ============================================================================ */
 .brutal-btn-yellow {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background-color: #facc15;
-  color: #000000;
-  border: 2px solid #000000;
-  font-family: var(--font-mono);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: 4px 4px 0px 0px #000000;
+  color: #0f172a;
+  border: 2px solid #0f172a;
+  font-weight: 800;
+  box-shadow: 3px 3px 0px 0px #0f172a;
   transition: all 0.1s ease;
   cursor: pointer;
-  user-select: none;
 }
 
 .brutal-btn-yellow:hover:not(:disabled) {
   background-color: #fde047;
   transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px 0px #000000;
-}
-
-.brutal-btn-yellow:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px 0px #000000;
-}
-
-.brutal-btn-yellow:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: 2px 2px 0px 0px #000000;
-}
-
-.brutal-btn-cyan {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #22d3ee;
-  color: #000000;
-  border: 2px solid #000000;
-  font-family: var(--font-mono);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: 4px 4px 0px 0px #000000;
-  transition: all 0.1s ease;
-  cursor: pointer;
-}
-
-.brutal-btn-cyan:hover:not(:disabled) {
-  background-color: #67e8f9;
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px 0px #000000;
-}
-
-.brutal-btn-cyan:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px 0px #000000;
-}
-
-.brutal-btn-red {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #ef4444;
-  color: #ffffff;
-  border: 2px solid #000000;
-  font-family: var(--font-mono);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: 4px 4px 0px 0px #000000;
-  transition: all 0.1s ease;
-  cursor: pointer;
-}
-
-.brutal-btn-red:hover:not(:disabled) {
-  background-color: #f87171;
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px 0px #000000;
-}
-
-.brutal-btn-red:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px 0px #000000;
-}
-
-.brutal-btn-dark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #09090b;
-  color: #ffffff;
-  border: 2px solid #000000;
-  font-family: var(--font-mono);
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: 4px 4px 0px 0px #000000;
-  transition: all 0.1s ease;
-  cursor: pointer;
-}
-
-.brutal-btn-dark:hover:not(:disabled) {
-  background-color: #27272a;
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px 0px #facc15;
-}
-
-.brutal-btn-dark:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px 0px #000000;
-}
-
-.brutal-btn-white {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #ffffff;
-  color: #09090b;
-  border: 2px solid #000000;
-  font-family: var(--font-mono);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: 4px 4px 0px 0px #000000;
-  transition: all 0.1s ease;
-  cursor: pointer;
-}
-
-.brutal-btn-white:hover:not(:disabled) {
-  background-color: #f4f4f5;
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px 0px #000000;
-}
-
-.brutal-btn-white:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px 0px #000000;
+  box-shadow: 5px 5px 0px 0px #0f172a;
 }
 
 /* ============================================================================
-   HAZARD WARNING STRIPES (LIGHT THEME)
+   CUSTOM SCROLLBAR (LIGHT CLEAN POP)
    ============================================================================ */
-.hazard-stripes {
-  background: repeating-linear-gradient(
-    -45deg,
-    #facc15,
-    #facc15 12px,
-    #000000 12px,
-    #000000 24px
-  );
-}
-
-.hazard-stripes-subtle {
-  background: repeating-linear-gradient(
-    -45deg,
-    #fef08a,
-    #fef08a 10px,
-    #ffffff 10px,
-    #ffffff 20px
-  );
-}
-
-/* Glowing Border for Spoken Item in Brutal Style */
-.brutal-glow-active {
-  border-color: #000000 !important;
-  background-color: #fef08a !important;
-  box-shadow: 0 0 0 3px #facc15, 6px 6px 0px 0px #000000 !important;
-  transform: translate(-3px, -3px) !important;
-}
-
-/* Crosshair indicator */
-.crosshair-reticle {
-  background: 
-    linear-gradient(to right, #000000 2px, transparent 2px) 50% 50% / 40px 40px no-repeat,
-    linear-gradient(to bottom, #000000 2px, transparent 2px) 50% 50% / 40px 40px no-repeat;
-}
-
-/* CupLabs Modern Clean Laboratory Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f8f5ec;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: #94a3b8;
+  border-radius: 9999px;
+  border: 2px solid #f8f5ec;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #0f172a;
 }
-
-/* CupLabs Interactive Icon Transition */
-.cuplabs-lab-icon {
-  border-radius: 20px;
-  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
-}
-.cuplabs-lab-icon:hover,
-.cuplabs-lab-icon.active {
-  border-radius: 14px;
-  background-color: #0284c7;
-  color: #ffffff;
-}
-
-/* Ensure Next.js dev indicator portal never obscures the bottom-left sidebar user profile */
-nextjs-portal {
-  bottom: 16px !important;
-  left: auto !important;
-  right: 16px !important;
-}
-

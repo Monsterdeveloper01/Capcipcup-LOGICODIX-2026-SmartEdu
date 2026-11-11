@@ -96,6 +96,11 @@ export interface ExperimentDetailLog {
 export interface LabSubmission {
   id: string;
   taskId: string;
+  taskTitle?: string;
+  classroomId?: string;
+  roomCode?: string;
+  teacherName?: string;
+  kkmScore?: number;
   studentId?: string;
   studentName: string;
   isReactionAchieved: boolean;
