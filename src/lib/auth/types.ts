@@ -10,5 +10,6 @@ export interface AuthUser {
   xp: number;
   level: number;
   streakDays: number;
+  hasCompletedTutorial?: boolean;
 }
 

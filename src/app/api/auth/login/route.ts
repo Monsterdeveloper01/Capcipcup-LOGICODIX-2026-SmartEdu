@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const cleanPass = password.trim();
 
     const users = await query<any[]>(
-      `SELECT id, name, username, email, password, role, avatar_url as avatarUrl, xp, level, streak_days as streakDays 
+      `SELECT id, name, username, email, password, role, avatar_url as avatarUrl, xp, level, streak_days as streakDays, has_completed_tutorial as hasCompletedTutorial 
        FROM users 
        WHERE username = ? OR email = ? 
        LIMIT 1`,
@@ -59,6 +59,7 @@ export async function POST(req: Request) {
       xp: dbUser.xp || 0,
       level: dbUser.level || 1,
       streakDays: dbUser.streakDays || 1,
+      hasCompletedTutorial: Boolean(dbUser.hasCompletedTutorial),
     };
 
     // Update last_active_at

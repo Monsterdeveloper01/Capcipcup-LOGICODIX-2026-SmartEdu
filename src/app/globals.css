@@ -152,3 +152,98 @@ h1, h2, h3, .font-display {
 ::-webkit-scrollbar-thumb:hover {
   background: #0f172a;
 }
+
+/* ============================================================================
+   MASCOT & HERO ANIMATIONS (POP-BAUHAUS)
+   ============================================================================ */
+@keyframes mascot-float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(1.2deg);
+  }
+}
+
+.mascot-floating {
+  animation: mascot-float 3.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes mascot-shadow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(0.85);
+    opacity: 0.18;
+  }
+}
+
+.mascot-shadow-anim {
+  animation: mascot-shadow 3.5s ease-in-out infinite;
+}
+
+@keyframes orbital-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mascot-orbital {
+  animation: orbital-spin 25s linear infinite;
+}
+
+/* ============================================================================
+   STUDENT ONBOARDING TUTORIAL ANIMATIONS (GHOST CURSOR & RIPPLES)
+   ============================================================================ */
+@keyframes ghost-pointer-bounce {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-8px, -8px) scale(1.12);
+  }
+}
+
+.ghost-pointer-anim {
+  animation: ghost-pointer-bounce 1.1s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes ripple-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.ripple-pulse-anim {
+  animation: ripple-pulse 1.3s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+@keyframes shake-gentle {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-6px);
+  }
+  40%, 80% {
+    transform: translateX(6px);
+  }
+}
+
+.shake-gentle-anim {
+  animation: shake-gentle 0.4s ease-in-out;
+}
+
+

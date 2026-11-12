@@ -1541,10 +1541,10 @@ function Interactive3DMeasurementTool({
   const posZ = vessel.position[2];
 
   const groupRef = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
+  useFrame(() => {
     if (groupRef.current) {
       // Gentle micro-buoyancy bobbing (0.003 unit) anchored strictly to vessel base Y
-      groupRef.current.position.y = baseY + Math.sin(clock.getElapsedTime() * 1.5) * 0.003;
+      groupRef.current.position.y = baseY + Math.sin(performance.now() * 0.0015) * 0.003;
       groupRef.current.position.x = posX;
       groupRef.current.position.z = posZ;
     }

@@ -24,6 +24,9 @@ import { evaluateChemicalProperties, ChemicalMeasurement } from "@/lib/lab/chemi
 import { CHEMICAL_CATALOG, REACTION_CATALOG } from "@/lib/lab/chemicals-db";
 import { resolveReactionForTask } from "@/lib/lab/reactionResolver";
 import { LabTask, LabSubmission, ExperimentDetailLog } from "@/lib/lab/types";
+import LabTutorialGuide from "@/components/onboarding/LabTutorialGuide";
+import InteractiveQuizArena from "@/components/quiz/InteractiveQuizArena";
+import { DUMMY_TUTORIAL_TASK } from "@/lib/lab/tutorialConstants";
 import {
   FlaskConical,
   RotateCcw,
@@ -35,6 +38,7 @@ import {
   ClipboardList,
   Video,
   VideoOff,
+  Bot,
   X,
   BookOpen,
   Search,
@@ -44,6 +48,7 @@ import {
   LogIn,
   LogOut,
   ArrowLeft,
+  ArrowRight,
   ArrowDown,
   Play,
   Volume2,
@@ -118,6 +123,7 @@ export default function SmartScienceLabViewer() {
 
   // Modals & Task State
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
   const [isTaskReactionDone, setIsTaskReactionDone] = useState<boolean>(false);
   const [lastQuizScore, setLastQuizScore] = useState<number | null>(null);
   const [isReactionAnimating, setIsReactionAnimating] = useState<boolean>(false);
@@ -128,6 +134,50 @@ export default function SmartScienceLabViewer() {
   const urlTaskId = searchParams.get("taskId");
   const urlMode = searchParams.get("mode");
   const urlClassCode = searchParams.get("classCode");
+  const urlTutorial = searchParams.get("tutorial") === "true";
+  const [isLabTutorialActive, setIsLabTutorialActive] = useState<boolean>(false);
+  const hasAutoStartedLabTutorialRef = useRef<boolean>(false);
+
+  // Close & complete lab tutorial handler (prevents any loop / endless repeat)
+  const handleCloseLabTutorial = useCallback(async () => {
+    setIsLabTutorialActive(false);
+    hasAutoStartedLabTutorialRef.current = true;
+
+    // Clean URL query param so refresh or state changes never re-trigger tutorial
+    if (typeof window !== "undefined" && window.location.search.includes("tutorial=")) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("tutorial");
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      } catch (_) {}
+    }
+
+    if (currentUser?.id) {
+      setCurrentUser((prev) => (prev ? { ...prev, hasCompletedTutorial: true } : null));
+      try {
+        await fetch("/api/auth/complete-tutorial", { method: "POST" });
+      } catch (_) {}
+    }
+  }, [currentUser]);
+
+  // Auto start 3D lab tutorial if requested via URL or first visit by student account (ONCE per visit)
+  useEffect(() => {
+    if (hasAutoStartedLabTutorialRef.current) return;
+
+    if (urlTutorial) {
+      hasAutoStartedLabTutorialRef.current = true;
+      const timer = setTimeout(() => {
+        setIsLabTutorialActive(true);
+      }, 700);
+      return () => clearTimeout(timer);
+    } else if (!isTeacher && !isGuest && currentUser?.id && !currentUser.hasCompletedTutorial) {
+      hasAutoStartedLabTutorialRef.current = true;
+      const timer = setTimeout(() => {
+        setIsLabTutorialActive(true);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [urlTutorial, isTeacher, isGuest, currentUser]);
 
   // Room & Tasks State
   const [roomCode, setRoomCode] = useState<string>(urlClassCode ? urlClassCode.toUpperCase() : "LAB889");
@@ -361,6 +411,11 @@ export default function SmartScienceLabViewer() {
     }
 
     const code = (urlClassCode || roomCode || "").trim().toUpperCase();
+    if (urlTaskId === DUMMY_TUTORIAL_TASK.id || code === "TUTOR10") {
+      setTasks([DUMMY_TUTORIAL_TASK]);
+      applyTaskToWorkbench(DUMMY_TUTORIAL_TASK);
+      return;
+    }
     if (code) {
       setRoomCode(code);
       const taskQueryUrl = urlTaskId
@@ -470,14 +525,11 @@ export default function SmartScienceLabViewer() {
     [activeReaction, currentTask, vessels]
   );
 
-  // Open quiz in a new browser tab
+  // Open quiz interactive modal directly in the SAME tab
   const handleOpenQuizInNewTab = () => {
     if (!currentTask) return;
     persistPendingExperimentForQuiz(isTaskReactionDone, activeReaction);
-    const quizUrl = `/quiz?taskId=${encodeURIComponent(currentTask.id)}&classCode=${encodeURIComponent(
-      roomCode || currentTask.roomCode
-    )}`;
-    window.open(quizUrl, "_blank", "noopener,noreferrer");
+    setIsQuizModalOpen(true);
   };
 
   // Tool handlers
@@ -839,6 +891,7 @@ export default function SmartScienceLabViewer() {
               {/* Sensor Kamera Toggle */}
               <button
                 type="button"
+                id="tutorial-lab-camera-btn"
                 onClick={() => {
                   if (!isExperimentLocked) setIsCameraActive((prev) => !prev);
                 }}
@@ -918,32 +971,16 @@ export default function SmartScienceLabViewer() {
                 </button>
               )}
 
-              {/* User Pill */}
-              {currentUser ? (
-                <div className="flex items-center gap-1.5 bg-white border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-xl px-2.5 py-1.5">
-                  <span className="text-[10px] font-black uppercase bg-[#38BDF8] text-slate-900 border border-slate-900 px-1.5 py-0.5 rounded">
-                    {isTeacher ? "GURU" : "SISWA"}
-                  </span>
-                  <span className="text-xs font-bold text-slate-900 max-w-[100px] truncate hidden sm:inline">
-                    {currentUser.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    title="Keluar Akun"
-                    className="p-0.5 text-slate-500 hover:text-rose-600 cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
+              {/* Tur Lab 3D Guide Button */}
+              {!isGuest && (
                 <button
                   type="button"
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="pop-btn bg-[#38BDF8] text-slate-900 px-3.5 py-2 rounded-xl text-xs gap-1.5"
+                  onClick={() => setIsLabTutorialActive(true)}
+                  className="pop-btn bg-[#BAE6FD] hover:bg-[#7dd3fc] text-slate-900 px-3 py-2 rounded-xl text-xs gap-1.5 font-bold"
+                  title="Buka panduan interaktif Meja Lab 3D"
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Masuk</span>
+                  <Bot className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Tur Lab</span>
                 </button>
               )}
             </div>
@@ -1175,8 +1212,12 @@ export default function SmartScienceLabViewer() {
           )}
 
           {/* Main Arcade-Lab Floating Dock */}
-          <div className="pointer-events-auto bg-[#FFFDF7] border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] rounded-2xl p-1.5 sm:px-2.5 flex flex-wrap items-center justify-center gap-1.5 max-w-full">
+          <div
+            id="tutorial-lab-dock"
+            className="pointer-events-auto bg-[#FFFDF7] border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] rounded-2xl p-1.5 sm:px-2.5 flex flex-wrap items-center justify-center gap-1.5 max-w-full"
+          >
             {/* Group 1: Interactive Instruments */}
+            <div id="tutorial-lab-tools-bar" className="flex items-center gap-1">
             {[
               { id: "hand", label: "Tangan", icon: Hand, colorClass: "bg-[#38BDF8]" },
               { id: "thermometer", label: "Termometer", icon: Thermometer, colorClass: "bg-[#FED7AA]" },
@@ -1210,6 +1251,7 @@ export default function SmartScienceLabViewer() {
                 </button>
               );
             })}
+            </div>
 
             <div className="w-0.5 h-6 bg-slate-900/20 mx-0.5 hidden sm:block" />
 
@@ -1250,6 +1292,7 @@ export default function SmartScienceLabViewer() {
                 {currentTask?.questions && currentTask.questions.length > 0 && (
                   <button
                     type="button"
+                    id="tutorial-lab-quiz-btn"
                     onClick={handleOpenQuizInNewTab}
                     className={`pop-btn px-3.5 py-1.5 rounded-xl text-xs gap-1.5 ${
                       isTaskReactionDone
@@ -1575,11 +1618,11 @@ export default function SmartScienceLabViewer() {
                       <button
                         type="button"
                         onClick={handleOpenQuizInNewTab}
-                        className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-5 py-2.5 text-xs rounded-xl gap-2"
+                        className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-5 py-2.5 text-xs rounded-xl gap-2 font-black shadow-[3px_3px_0px_#0f172a]"
                       >
                         <Award className="w-4 h-4" />
-                        <span>Kerjakan Kuis Evaluasi (Tab Baru)</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Kerjakan Kuis Evaluasi</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     )}
 
@@ -1787,6 +1830,62 @@ export default function SmartScienceLabViewer() {
             </div>
           </div>
         </div>
+      )}
+      {/* 3D Lab Interactive Onboarding Tutorial */}
+      {isLabTutorialActive && (
+        <LabTutorialGuide
+          isActive={isLabTutorialActive}
+          onClose={handleCloseLabTutorial}
+          onActivateCamera={() => {
+            if (!isCameraEffective) setIsCameraActive(true);
+          }}
+          onOpenTools={() => {
+            // ensure bottom dock is ready
+          }}
+        />
+      )}
+
+      {/* Interactive Quiz Arena In-Lab Modal (Same Tab) */}
+      {isQuizModalOpen && currentTask && (
+        <InteractiveQuizArena
+          task={currentTask}
+          currentUser={currentUser}
+          initialSubmission={currentSubmission}
+          isReactionAchieved={isTaskReactionDone}
+          pendingExperimentDetails={
+            activeReaction
+              ? {
+                  reactionTitle: activeReaction.title,
+                  reactionEquation: activeReaction.equation,
+                  temperatureChange: activeReaction.temperatureChange,
+                  observablePhenomena: activeReaction.observablePhenomena,
+                  explanation: activeReaction.explanation,
+                  reasonWhy: activeReaction.reasonWhy,
+                  mixedChemicals: vessels.map((v) => ({
+                    name: v.name,
+                    formula: v.formula,
+                    color: v.color,
+                  })),
+                  resultVessel: vessels[0]
+                    ? {
+                        name: vessels[0].name,
+                        formula: vessels[0].formula,
+                        color: vessels[0].color,
+                        temperatureC: vessels[0].temperatureC,
+                      }
+                    : undefined,
+                  completedAt: new Date().toISOString(),
+                }
+              : undefined
+          }
+          isModal={true}
+          onClose={() => setIsQuizModalOpen(false)}
+          onSubmissionSuccess={(newScore) => {
+            setLastQuizScore(newScore);
+            setIsTaskReactionDone(true);
+            fetchStudentSubmissions();
+          }}
+        />
       )}
     </div>
   );

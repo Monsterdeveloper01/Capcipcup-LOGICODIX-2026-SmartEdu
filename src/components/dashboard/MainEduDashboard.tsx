@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import AuthLoginModal from "@/components/auth/AuthLoginModal";
 import TeacherTaskBuilder from "@/components/lab/TeacherTaskBuilder";
 import StudentSubmissionDetailModal from "@/components/lab/StudentSubmissionDetailModal";
+import StudentTutorialGuide from "@/components/onboarding/StudentTutorialGuide";
+import { DUMMY_TUTORIAL_CLASSROOM, DUMMY_TUTORIAL_TASK } from "@/lib/lab/tutorialConstants";
 import { AuthUser } from "@/lib/auth/types";
 import { CHEMICAL_CATALOG } from "@/lib/lab/chemicals-db";
 import { LabSubmission, LabTask } from "@/lib/lab/types";
@@ -43,6 +45,13 @@ import {
   Bot,
   TrendingUp,
   Lightbulb,
+  Sunrise,
+  Sun,
+  Sunset,
+  Moon,
+  Clock,
+  Volume2,
+  GraduationCap,
 } from "lucide-react";
 
 interface Classroom {
@@ -91,9 +100,224 @@ export default function MainEduDashboard() {
 
   // Authentication State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
   const isTeacher = currentUser?.role === "teacher" || currentUser?.role === "superadmin";
   const isStudent = currentUser?.role === "student";
+
+  // Live time ticker for dynamic greeting
+  const [mounted, setMounted] = useState(false);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  useEffect(() => {
+    setMounted(true);
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const timeGreeting = useMemo(() => {
+    const hours = currentTime.getHours();
+    const timeString = currentTime.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    if (hours >= 4 && hours < 11) {
+      return {
+        period: "Pagi",
+        title: "Selamat Pagi!",
+        mascotQuote: "Udara pagi yang segar sangat pas untuk bereksperimen! Siap meracik reaksi kimia hari ini?",
+        subtext: "Awali harimu dengan eksperimen sains interaktif di Laboratorium Virtual 3D Capcipcup.",
+        icon: Sunrise,
+        badgeBg: "bg-[#FEF08A]",
+        badgeText: "text-amber-950",
+        timeString,
+      };
+    } else if (hours >= 11 && hours < 15) {
+      return {
+        period: "Siang",
+        title: "Selamat Siang!",
+        mascotQuote: "Tetap semangat di tengah hari! Ayo uji coba reaksi eksotermik & perubahan warna larutan!",
+        subtext: "Eksplorasi reaksi kimia dan amati presipitasi endapan kristal secara real-time.",
+        icon: Sun,
+        badgeBg: "bg-[#FED7AA]",
+        badgeText: "text-orange-950",
+        timeString,
+      };
+    } else if (hours >= 15 && hours < 18) {
+      return {
+        period: "Sore",
+        title: "Selamat Sore!",
+        mascotQuote: "Waktu yang tepat untuk mengulang praktikum atau menyelesaikan tugas lab dari gurumu!",
+        subtext: "Tuntaskan misi praktikum sebelum tenggat waktu dan raih nilai terbaik di atas KKM.",
+        icon: Sunset,
+        badgeBg: "bg-[#FDE047]",
+        badgeText: "text-amber-950",
+        timeString,
+      };
+    } else {
+      return {
+        period: "Malam",
+        title: "Selamat Malam!",
+        mascotQuote: "Belajar sains di malam hari terasa lebih magis! Jangan lupa istirahat yang cukup ya.",
+        subtext: "Meja Sandbox 3D selalu terbuka kapan pun kamu ingin menguji rasa ingin tahumu.",
+        icon: Moon,
+        badgeBg: "bg-[#C7D2FE]",
+        badgeText: "text-indigo-950",
+        timeString,
+      };
+    }
+  }, [currentTime]);
+
+  // Mascot Cinematic Entrance Animation State (Only for Guest / Unauthenticated users)
+  // Stage flow: "rising" (from bottom to center) -> "greeting" (screen dims, mascot greets) -> "sliding" (mascot slides right) -> "docked" (final layout)
+  const [introStage, setIntroStage] = useState<"rising" | "greeting" | "sliding" | "docked">("docked");
+  const introAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hasPlayedIntroSoundRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    // If authentication is still being checked or user is already logged in, stay docked (no dark overlay)
+    if (isAuthLoading || currentUser) {
+      setIntroStage("docked");
+      return;
+    }
+
+    // Play intro sound effect (/sound/lucadialessandro-intro-sound-180639.mp3) - STRICTLY 1 KALI SAJA untuk Guest
+    const alreadyPlayedInSession =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem("capcipcup_intro_sound_played") === "true";
+
+    if (alreadyPlayedInSession) {
+      setIntroStage("docked");
+      return;
+    }
+
+    // Start guest cinematic intro only for real unauthenticated guests
+    setIntroStage("rising");
+
+    if (!hasPlayedIntroSoundRef.current && !alreadyPlayedInSession) {
+      hasPlayedIntroSoundRef.current = true;
+      try {
+        sessionStorage.setItem("capcipcup_intro_sound_played", "true");
+        const audio = new Audio("/sound/lucadialessandro-intro-sound-180639.mp3");
+        audio.volume = 0.75;
+        audio.loop = false; // Memastikan lagu tidak berulang dan hanya diputar 1 kali
+        introAudioRef.current = audio;
+
+        audio.onended = () => {
+          introAudioRef.current = null;
+        };
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // If browser autoplay restriction requires a user gesture first,
+            // play on first user tap/click/keypress while still in intro
+            const playOnGesture = () => {
+              if (introAudioRef.current) {
+                introAudioRef.current.play().catch(() => {});
+              }
+              window.removeEventListener("pointerdown", playOnGesture);
+              window.removeEventListener("keydown", playOnGesture);
+            };
+            window.addEventListener("pointerdown", playOnGesture, { once: true });
+            window.addEventListener("keydown", playOnGesture, { once: true });
+          });
+        }
+      } catch (e) {
+        console.warn("Intro sound playback error:", e);
+      }
+    }
+
+    // Phase 1 -> Phase 2: Mascot finishes rising from bottom to center after 650ms
+    const t1 = setTimeout(() => {
+      setIntroStage("greeting");
+    }, 650);
+
+    // Phase 2 -> Phase 3: Mascot greets for 2.8s, then smoothly slides to the right
+    const t2 = setTimeout(() => {
+      setIntroStage("sliding");
+    }, 3400);
+
+    // Phase 3 -> Phase 4: Completes sliding into docked hero
+    const t3 = setTimeout(() => {
+      setIntroStage("docked");
+    }, 4100);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      if (introAudioRef.current) {
+        introAudioRef.current.pause();
+        introAudioRef.current = null;
+      }
+    };
+  }, [currentUser, isAuthLoading]);
+
+  const handleProceedToDocked = () => {
+    if (introStage !== "docked") {
+      setIntroStage("sliding");
+      setTimeout(() => {
+        setIntroStage("docked");
+      }, 650);
+
+      // Smoothly fade out audio when user skips or clicks proceed
+      if (introAudioRef.current) {
+        const a = introAudioRef.current;
+        const fadeInterval = setInterval(() => {
+          if (a.volume > 0.15) {
+            a.volume = Math.max(0, a.volume - 0.2);
+          } else {
+            clearInterval(fadeInterval);
+            a.pause();
+            introAudioRef.current = null;
+          }
+        }, 60);
+      }
+    }
+  };
+
+  // Interactive Onboarding Tutorial for Students (Skenario Orientasi Awal)
+  const [isStudentTutorialActive, setIsStudentTutorialActive] = useState(false);
+  const hasAutoStartedStudentTutorialRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (hasAutoStartedStudentTutorialRef.current) return;
+    // Only auto-start tutorial if this account has NOT completed the tutorial in the database yet
+    if (currentUser?.role === "student" && currentUser.id && !currentUser.hasCompletedTutorial) {
+      hasAutoStartedStudentTutorialRef.current = true;
+      const timer = setTimeout(() => {
+        setIsStudentTutorialActive(true);
+      }, 900);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser]);
+
+  const handleFinishStudentTutorial = async () => {
+    setIsStudentTutorialActive(false);
+    hasAutoStartedStudentTutorialRef.current = true;
+    if (currentUser?.id) {
+      // Update local state immediately
+      setCurrentUser((prev) => (prev ? { ...prev, hasCompletedTutorial: true } : null));
+
+      // Save permanently to database so other browsers & future logins never replay it
+      try {
+        await fetch("/api/auth/complete-tutorial", { method: "POST" });
+      } catch (err) {
+        console.warn("Failed saving tutorial completion to database:", err);
+      }
+    }
+  };
+
+  const handleRestartStudentTutorial = () => {
+    setActiveClassroom(null);
+    setSelectedTaskForDetail(null);
+    setIsStudentTutorialActive(true);
+  };
 
   // Classrooms State
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
@@ -139,6 +363,26 @@ export default function MainEduDashboard() {
   // Create Classroom Modal State
   const [isCreateClassModalOpen, setIsCreateClassModalOpen] = useState(false);
   const [newClassName, setNewClassName] = useState("");
+
+  // Effective Classrooms for Student (inject dummy demo classroom if student has 0 classrooms during tutorial)
+  const effectiveStudentClassrooms = useMemo(() => {
+    if (isStudent && classrooms.length === 0 && isStudentTutorialActive) {
+      return [DUMMY_TUTORIAL_CLASSROOM as any];
+    }
+    return classrooms;
+  }, [classrooms, isStudent, isStudentTutorialActive]);
+
+  // Effective Classroom Tasks (inject dummy demo task if classroom has 0 tasks during tutorial or dummy classroom)
+  const effectiveClassroomTasks = useMemo(() => {
+    if (
+      isStudent &&
+      classroomTasks.length === 0 &&
+      (activeClassroom?.id === DUMMY_TUTORIAL_CLASSROOM.id || isStudentTutorialActive)
+    ) {
+      return [DUMMY_TUTORIAL_TASK];
+    }
+    return classroomTasks;
+  }, [classroomTasks, isStudent, activeClassroom, isStudentTutorialActive]);
   const [newClassGrade, setNewClassGrade] = useState("SMA Kelas 11");
   const [newClassCode, setNewClassCode] = useState("");
   const [newClassDesc, setNewClassDesc] = useState("");
@@ -168,9 +412,17 @@ export default function MainEduDashboard() {
       .then((data) => {
         if (data.authenticated && data.user) {
           setCurrentUser(data.user);
+        } else {
+          setCurrentUser(null);
         }
       })
-      .catch((e) => console.warn("Failed fetching session user:", e));
+      .catch((e) => {
+        console.warn("Failed fetching session user:", e);
+        setCurrentUser(null);
+      })
+      .finally(() => {
+        setIsAuthLoading(false);
+      });
   }, []);
 
   // Fetch Classrooms, Student Submissions & All Student Tasks whenever currentUser changes
@@ -223,6 +475,12 @@ export default function MainEduDashboard() {
   // Fetch data for Active Classroom
   useEffect(() => {
     if (!activeClassroom) return;
+
+    if (activeClassroom.id === DUMMY_TUTORIAL_CLASSROOM.id) {
+      setClassroomTasks([DUMMY_TUTORIAL_TASK]);
+      setIsLoadingTasks(false);
+      return;
+    }
 
     setIsLoadingTasks(true);
     fetch(`/api/lab/tasks?roomCode=${encodeURIComponent(activeClassroom.classCode)}&classroomId=${encodeURIComponent(activeClassroom.id)}`)
@@ -679,14 +937,30 @@ export default function MainEduDashboard() {
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-4 py-2 text-xs rounded-xl gap-1.5"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Masuk Akun</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthModalMode("login");
+                  setIsAuthModalOpen(true);
+                }}
+                className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-3.5 py-2 text-xs rounded-xl gap-1.5 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Masuk</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthModalMode("register");
+                  setIsAuthModalOpen(true);
+                }}
+                className="pop-btn bg-[#38BDF8] hover:bg-[#7dd3fc] text-slate-900 px-3.5 py-2 text-xs rounded-xl gap-1.5 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-slate-900" />
+                <span>Daftar</span>
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -698,7 +972,14 @@ export default function MainEduDashboard() {
         {/* =====================================================================
             VIEW 1: TEACHER DASHBOARD (GURU PENGAMPU)
             ===================================================================== */}
-        {isTeacher ? (
+        {isAuthLoading ? (
+          <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-3 animate-in fade-in">
+            <div className="w-10 h-10 rounded-2xl bg-[#FACC15] border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] flex items-center justify-center animate-bounce">
+              <FlaskConical className="w-5 h-5 text-slate-900" />
+            </div>
+            <p className="text-xs font-bold text-slate-600">Memuat dashboard...</p>
+          </div>
+        ) : isTeacher ? (
           <div className="space-y-6 animate-in fade-in">
             {activeClassroom ? (
               <div className="space-y-6">
@@ -1412,7 +1693,7 @@ export default function MainEduDashboard() {
                       TUGAS TERSEDIA
                     </span>
                     <span className="text-xl font-mono font-black text-slate-900">
-                      {classroomTasks.length}
+                      {effectiveClassroomTasks.length}
                     </span>
                   </div>
                 </div>
@@ -1429,7 +1710,7 @@ export default function MainEduDashboard() {
                   <div className="pop-card rounded-3xl p-10 text-center text-xs font-bold text-slate-600">
                     Memuat daftar tugas dari guru...
                   </div>
-                ) : classroomTasks.length === 0 ? (
+                ) : effectiveClassroomTasks.length === 0 ? (
                   <div className="pop-card rounded-3xl p-10 text-center space-y-3 bg-white">
                     <FlaskConical className="w-10 h-10 text-slate-400 mx-auto" />
                     <p className="font-display font-bold text-base text-slate-900">
@@ -1448,7 +1729,7 @@ export default function MainEduDashboard() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {classroomTasks.map((task, idx) => {
+                    {effectiveClassroomTasks.map((task, idx) => {
                       const sub = studentSubmissions.find((s) => s.taskId === task.id);
                       const kkm = task.kkmScore ?? 75;
                       const isPassed = sub ? sub.score >= kkm : false;
@@ -1458,6 +1739,7 @@ export default function MainEduDashboard() {
                       return (
                         <div
                           key={task.id}
+                          id={idx === 0 ? "tutorial-first-task" : undefined}
                           onClick={() => setSelectedTaskForDetail(task)}
                           className="pop-card pop-card-interactive rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between group"
                         >
@@ -1511,6 +1793,7 @@ export default function MainEduDashboard() {
 
                               <button
                                 type="button"
+                                id={idx === 0 ? "tutorial-task-detail-btn" : undefined}
                                 className="pop-btn w-full py-2.5 bg-[#FACC15] group-hover:bg-[#fde047] text-slate-900 text-xs rounded-xl gap-2"
                               >
                                 <BookOpen className="w-4 h-4" />
@@ -1530,7 +1813,7 @@ export default function MainEduDashboard() {
             /* Student Main Dashboard (Before clicking a Classroom) */
             <div className="space-y-6 animate-in fade-in">
               {/* Student Hero Banner with Interactive AI Co-Pilot Mentor */}
-              <div className="pop-card rounded-3xl p-6 sm:p-8 bg-white border-2 border-slate-900 shadow-[6px_6px_0px_#0f172a] relative overflow-hidden">
+              <div id="tutorial-student-hero" className="pop-card rounded-3xl p-6 sm:p-8 bg-white border-2 border-slate-900 shadow-[6px_6px_0px_#0f172a] relative overflow-hidden">
                 <div className="flex flex-col lg:flex-row lg:items-stretch justify-between gap-6">
                   {/* Left Column: Greeting + Dynamic AI Companion Box */}
                   <div className="flex-1 space-y-4">
@@ -1634,6 +1917,16 @@ export default function MainEduDashboard() {
                             <FlaskConical className="w-3.5 h-3.5" />
                             <span>Meja Sandbox 3D</span>
                           </Link>
+
+                          <button
+                            type="button"
+                            onClick={handleRestartStudentTutorial}
+                            className="pop-btn bg-[#FEF08A] hover:bg-[#FDE047] text-slate-900 px-3.5 py-2 text-xs rounded-xl gap-1.5 flex items-center cursor-pointer"
+                            title="Panduan Interaktif Siswa dari Prof. Cupcup"
+                          >
+                            <GraduationCap className="w-3.5 h-3.5 text-slate-900" />
+                            <span>Tur Pemandu Lab</span>
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1781,14 +2074,14 @@ export default function MainEduDashboard() {
               <div className="space-y-4">
                 <h3 className="text-base sm:text-lg font-display font-bold text-slate-900 flex items-center gap-2">
                   <School className="w-5 h-5 text-[#2563EB]" />
-                  <span>Kelas yang Kamu Ikuti ({classrooms.length})</span>
+                  <span>Kelas yang Kamu Ikuti ({effectiveStudentClassrooms.length})</span>
                 </h3>
 
                 {isLoadingClassrooms ? (
                   <div className="pop-card rounded-2xl p-10 text-center text-slate-600 text-xs font-bold">
                     Memuat kelas...
                   </div>
-                ) : classrooms.length === 0 ? (
+                ) : effectiveStudentClassrooms.length === 0 ? (
                   <div className="pop-card rounded-3xl p-8 text-center space-y-2 bg-white">
                     <School className="w-10 h-10 text-slate-400 mx-auto" />
                     <p className="font-bold text-sm text-slate-900">Kamu belum bergabung ke kelas mana pun</p>
@@ -1798,11 +2091,12 @@ export default function MainEduDashboard() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {classrooms.map((cls, idx) => {
+                    {effectiveStudentClassrooms.map((cls, idx) => {
                       const palette = classroomAccentPalette[idx % classroomAccentPalette.length];
                       return (
                         <div
                           key={cls.id}
+                          id={idx === 0 ? "tutorial-first-classroom" : undefined}
                           onClick={() => setActiveClassroom(cls)}
                           className="pop-card pop-card-interactive rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between group"
                         >
@@ -1836,6 +2130,7 @@ export default function MainEduDashboard() {
 
                               <button
                                 type="button"
+                                id={idx === 0 ? "tutorial-buka-kelas-btn" : undefined}
                                 className="pop-btn px-4 py-2 bg-[#FACC15] group-hover:bg-[#fde047] text-slate-900 text-xs rounded-xl gap-1.5"
                               >
                                 <span>Buka Kelas</span>
@@ -1853,75 +2148,278 @@ export default function MainEduDashboard() {
           )
         ) : (
           /* =====================================================================
-             VIEW 3: GUEST / UNREGISTERED USER LANDING (POP-BAUHAUS)
+             VIEW 3: GUEST / UNREGISTERED USER CLEAN LANDING (POP-BAUHAUS)
+             Tampilan utama bersih sebelum login dengan maskot animasi sinematik, sapaan live, dan tombol aksi
              ===================================================================== */
-          <div className="py-6 sm:py-10 max-w-5xl mx-auto space-y-8 animate-in fade-in">
-            <div className="pop-card rounded-3xl p-7 sm:p-12 bg-[#FEF9C3] text-center space-y-6">
-              <div className="inline-flex items-center gap-2 bg-[#38BDF8] border-2 border-slate-900 px-4 py-1 rounded-full text-xs font-black uppercase text-slate-900">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>LABORATORIUM KIMIA VIRTUAL SMP &amp; SMA</span>
-              </div>
+          <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300 py-2 sm:py-6 relative">
+            {/* Pop-Bauhaus Master Hero Card */}
+            <div
+              className={`pop-card rounded-3xl p-6 sm:p-10 bg-white border-2 border-slate-900 shadow-[8px_8px_0px_#0f172a] relative overflow-hidden transition-all duration-700 ${
+                introStage === "rising" || introStage === "greeting"
+                  ? "opacity-30 scale-[0.98] blur-[1px]"
+                  : "opacity-100 scale-100 blur-none"
+              }`}
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+                {/* Left Column: Live Time Greeting, Text Intro, Speech Bubble & Animated CTAs */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Live Clock & Time of Day Greeting Badges */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div
+                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border-2 border-slate-900 font-extrabold text-xs shadow-[2px_2px_0px_#0f172a] ${timeGreeting.badgeBg} ${timeGreeting.badgeText}`}
+                    >
+                      <timeGreeting.icon className="w-4 h-4 animate-pulse" />
+                      <span suppressHydrationWarning>{timeGreeting.title}</span>
+                    </div>
 
-              <h2 className="text-3xl sm:text-5xl font-display font-bold text-slate-900 tracking-tight leading-tight max-w-3xl mx-auto">
-                Eksperimen Kimia 3D Seru Tanpa Takut Meledak!
-              </h2>
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border-2 border-slate-900 bg-white text-slate-800 font-mono font-bold text-xs shadow-[2px_2px_0px_#0f172a]">
+                      <Clock className="w-3.5 h-3.5 text-slate-600" />
+                      <span suppressHydrationWarning>{timeGreeting.timeString} WIB</span>
+                    </div>
 
-              <p className="text-sm sm:text-base text-slate-700 max-w-2xl mx-auto leading-relaxed font-medium">
-                Campurkan reagen kimia nyata di atas meja 3D, celupkan termometer &amp; kertas lakmus interaktif, kendalikan bejana pakai gerakan tangan, dan selesaikan misi kelas dari gurumu.
-              </p>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-slate-900 bg-[#E0F2FE] text-sky-950 font-extrabold text-xs shadow-[2px_2px_0px_#0f172a]">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      <span>Lab Siap Praktik</span>
+                    </div>
+                  </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="pop-btn px-7 py-3.5 bg-[#FACC15] hover:bg-[#fde047] text-slate-900 text-sm rounded-2xl gap-2"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>Masuk Akun Siswa / Guru</span>
-                </button>
+                  {/* Headline & Description */}
+                  <div className="space-y-3">
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-black text-slate-900 leading-[1.12] tracking-tight">
+                      Laboratorium Sains 3D{" "}
+                      <span className="inline-block bg-[#FACC15] px-3 py-0.5 rounded-2xl border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] rotate-[-1deg]">
+                        Capcipcup
+                      </span>
+                    </h1>
+                    <p suppressHydrationWarning className="text-sm sm:text-base text-slate-700 leading-relaxed font-medium max-w-xl">
+                      {timeGreeting.subtext} Bereksperimen dengan aman tanpa risiko ledakan zat kimia,
+                      kendalikan tabung reaksi dengan kamera AI gestur tangan, atau selesaikan misi praktikum dari kelas gurumu.
+                    </p>
+                  </div>
 
-                <Link
-                  href="/lab?mode=sandbox"
-                  className="pop-btn px-7 py-3.5 bg-[#34D399] hover:bg-[#10B981] text-slate-900 text-sm rounded-2xl gap-2"
-                >
-                  <FlaskConical className="w-4 h-4" />
-                  <span>Langsung Coba Meja Lab 3D</span>
-                </Link>
+                  {/* Mascot Speech Bubble (Live Text Greeting based on current hour) */}
+                  <div className="relative bg-[#FFFDF7] border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] rounded-2xl p-4 max-w-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#FACC15] border-2 border-slate-900 flex items-center justify-center shrink-0 shadow-[2px_2px_0px_#0f172a]">
+                        <Bot className="w-5 h-5 text-slate-900" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span suppressHydrationWarning>Pesan Sahabat Maskot Lab &bull; {timeGreeting.period}</span>
+                        </div>
+                        <p suppressHydrationWarning className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                          &ldquo;{timeGreeting.mascotQuote}&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Animated Action Buttons (Login, Signup, Sandbox) */}
+                  <div className="space-y-2 pt-1">
+                    <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Mulai Petualangan Lab:</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Button 1: Masuk Akun */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthModalMode("login");
+                          setIsAuthModalOpen(true);
+                        }}
+                        className="pop-btn bg-[#FACC15] hover:bg-[#FDE047] text-slate-900 px-5 sm:px-6 py-3 rounded-2xl text-xs sm:text-sm font-black gap-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-[6px_6px_0px_#0f172a] active:translate-y-0 active:shadow-[2px_2px_0px_#0f172a] cursor-pointer"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        <span>Masuk ke Akun</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+
+                      {/* Button 2: Daftar Akun Baru */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthModalMode("register");
+                          setIsAuthModalOpen(true);
+                        }}
+                        className="pop-btn bg-[#38BDF8] hover:bg-[#7DD3FC] text-slate-900 px-5 sm:px-6 py-3 rounded-2xl text-xs sm:text-sm font-black gap-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-[6px_6px_0px_#0f172a] active:translate-y-0 active:shadow-[2px_2px_0px_#0f172a] cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4 text-slate-900" />
+                        <span>Daftar Akun Baru</span>
+                      </button>
+
+                      {/* Button 3: Coba Meja Sandbox 3D */}
+                      <Link
+                        href="/lab?mode=sandbox"
+                        className="pop-btn bg-[#34D399] hover:bg-[#6EE7B7] text-slate-900 px-5 sm:px-6 py-3 rounded-2xl text-xs sm:text-sm font-black gap-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-[6px_6px_0px_#0f172a] active:translate-y-0 active:shadow-[2px_2px_0px_#0f172a]"
+                      >
+                        <FlaskConical className="w-4 h-4" />
+                        <span>Coba Meja Sandbox 3D</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Animated Floating Mascot & Bauhaus Badges */}
+                <div className="lg:col-span-5 flex flex-col items-center justify-center relative py-8 select-none">
+                  {/* Orbital spinning ring in background */}
+                  <div className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full border-2 border-dashed border-slate-900/20 mascot-orbital pointer-events-none" />
+
+                  {/* Soft Bauhaus decorative halo */}
+                  <div className="absolute w-52 h-52 sm:w-72 sm:h-72 rounded-full bg-[#FEF08A]/45 blur-xl pointer-events-none" />
+
+                  {/* Floating Mascot Image */}
+                  <div className="relative z-10 mascot-floating flex flex-col items-center">
+                    <img
+                      src="/models/img/Gemini_Generated_Image_pnk3ggpnk3ggpnk3-removebg-preview.png"
+                      alt="Capcipcup AI Science Mascot"
+                      className="w-56 h-56 sm:w-72 sm:h-72 object-contain drop-shadow-[0_14px_24px_rgba(15,23,42,0.18)] pointer-events-none"
+                    />
+                  </div>
+
+                  {/* Breathing dynamic shadow underneath */}
+                  <div className="w-36 h-4 sm:w-48 sm:h-5 bg-slate-900/25 rounded-full blur-xs mascot-shadow-anim mt-1" />
+
+                  {/* Floating Pop-Bauhaus Feature Badges around mascot */}
+                  <div className="absolute top-4 left-0 sm:-left-3 bg-white border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-xl px-3 py-1.5 text-xs font-black text-slate-900 flex items-center gap-1.5 z-20">
+                    <Atom className="w-4 h-4 text-[#2563EB]" />
+                    <span>Fisika &amp; Kimia 3D</span>
+                  </div>
+
+                  <div className="absolute bottom-8 right-0 sm:-right-2 bg-[#FACC15] border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] rounded-xl px-3 py-1.5 text-xs font-black text-slate-900 flex items-center gap-1.5 z-20">
+                    <Zap className="w-4 h-4 text-slate-900" />
+                    <span>Kamera AI Tangan</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* 3 Highlight Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="pop-card rounded-2xl p-5 bg-[#BAE6FD] space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-white border-2 border-slate-900 flex items-center justify-center">
-                  <FlaskConical className="w-5 h-5 text-[#2563EB]" />
-                </div>
-                <h3 className="font-display font-bold text-base text-slate-900">Simulasi Reaksi 3D</h3>
-                <p className="text-xs text-slate-800 leading-relaxed">
-                  Amati perubahan warna, gelembung gas, endapan hujan emas, dan reaksi eksotermik langsung di meja praktik.
-                </p>
-              </div>
+            {/* =========================================================================
+                CINEMATIC MASCOT ENTRANCE OVERLAY (SEBELUM LOGIN)
+                Mascot muncul dari bawah tengah layar dengan latar menggelap, menyapa ramah, lalu bergeser ke kanan
+                ========================================================================= */}
+            {!currentUser && introStage !== "docked" && (
+              <div
+                onClick={handleProceedToDocked}
+                className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-4 transition-all duration-700 select-none ${
+                  introStage === "sliding"
+                    ? "bg-slate-900/0 backdrop-blur-none pointer-events-none"
+                    : "bg-slate-900/70 backdrop-blur-[3px] cursor-pointer"
+                }`}
+              >
+                {/* Controls on top right: Sound Indicator & Skip Button */}
+                <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+                  <div className="bg-white/95 border-2 border-slate-900 shadow-[2px_2px_0px_#0f172a] rounded-xl px-2.5 py-1 flex items-center gap-1.5 text-[11px] font-black text-slate-900">
+                    <Volume2 className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    <span className="hidden sm:inline">Intro Audio</span>
+                  </div>
 
-              <div className="pop-card rounded-2xl p-5 bg-[#A7F3D0] space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-white border-2 border-slate-900 flex items-center justify-center">
-                  <Layers className="w-5 h-5 text-emerald-700" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleProceedToDocked();
+                    }}
+                    className="pop-btn bg-white/95 hover:bg-white text-slate-900 text-xs px-3.5 py-1.5 rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_#0f172a] gap-1.5 cursor-pointer"
+                  >
+                    <span>Lewati Intro</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <h3 className="font-display font-bold text-base text-slate-900">Alat Ukur Interaktif</h3>
-                <p className="text-xs text-slate-800 leading-relaxed">
-                  Celupkan termometer kaca, lakmus merah, lakmus biru, hingga indikator pH universal ke dalam larutan.
-                </p>
-              </div>
 
-              <div className="pop-card rounded-2xl p-5 bg-[#FED7AA] space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-white border-2 border-slate-900 flex items-center justify-center">
-                  <Award className="w-5 h-5 text-orange-700" />
+                {/* Animated Mascot & Speech Container */}
+                <div
+                  className={`flex flex-col items-center max-w-lg w-full transition-all duration-700 ease-in-out ${
+                    introStage === "rising"
+                      ? "translate-y-[70vh] opacity-0 scale-75"
+                      : introStage === "greeting"
+                      ? "translate-y-0 translate-x-0 opacity-100 scale-100"
+                      : /* introStage === 'sliding' */
+                        "translate-y-0 translate-x-[26vw] lg:translate-x-[30vw] opacity-0 scale-90"
+                  }`}
+                >
+                  {/* Mascot Center Stage with Glowing Aura */}
+                  <div className="relative flex flex-col items-center">
+                    {/* Soft Golden/Sky Aura Halo */}
+                    <div className="absolute inset-0 bg-[#FEF08A]/40 rounded-full blur-2xl scale-125 pointer-events-none" />
+
+                    <div className="relative z-10">
+                      <img
+                        src="/models/img/Gemini_Generated_Image_pnk3ggpnk3ggpnk3-removebg-preview.png"
+                        alt="Maskot Lab Sains Capcipcup"
+                        className={`w-60 h-60 sm:w-72 sm:h-72 object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.4)] pointer-events-none ${
+                          introStage === "greeting" ? "mascot-floating" : ""
+                        }`}
+                      />
+                    </div>
+
+                    {/* Dynamic Breathing Shadow */}
+                    <div className="w-40 h-4 bg-slate-950/45 rounded-full blur-xs mx-auto mt-2 mascot-shadow-anim" />
+                  </div>
+
+                  {/* Mascot Live Speech Bubble (Menyapa saat di tengah layar) */}
+                  <div
+                    className={`mt-4 sm:mt-6 w-full transition-all duration-500 ease-out ${
+                      introStage === "greeting"
+                        ? "opacity-100 translate-y-0 scale-100"
+                        : "opacity-0 translate-y-6 scale-95 pointer-events-none"
+                    }`}
+                  >
+                    <div className="pop-card bg-[#FFFDF7] border-2 border-slate-900 shadow-[6px_6px_0px_#0f172a] rounded-3xl p-5 sm:p-6 space-y-3.5 text-center relative">
+                      {/* Speech bubble pointy arrow on top */}
+                      <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-[#FFFDF7] border-t-2 border-l-2 border-slate-900 rotate-45" />
+
+                      {/* Time & Period Pill */}
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <div
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-slate-900 font-black text-xs shadow-[2px_2px_0px_#0f172a] ${timeGreeting.badgeBg} ${timeGreeting.badgeText}`}
+                        >
+                          <timeGreeting.icon className="w-3.5 h-3.5 animate-pulse" />
+                          <span suppressHydrationWarning>{timeGreeting.title}</span>
+                        </div>
+
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-slate-900 bg-white text-slate-800 font-mono font-bold text-xs shadow-[2px_2px_0px_#0f172a]">
+                          <Clock className="w-3 h-3 text-slate-600" />
+                          <span suppressHydrationWarning>{timeGreeting.timeString} WIB</span>
+                        </div>
+                      </div>
+
+                      {/* Greeting text */}
+                      <div className="space-y-1">
+                        <h2 className="font-display font-black text-lg sm:text-xl text-slate-900 flex items-center justify-center gap-1.5">
+                          <span>Halo, Saintis Muda!</span>
+                          <Sparkles className="w-5 h-5 text-amber-500" />
+                        </h2>
+                        <p suppressHydrationWarning className="text-xs sm:text-sm font-bold text-slate-800 leading-relaxed max-w-sm mx-auto">
+                          &ldquo;{timeGreeting.mascotQuote}&rdquo;
+                        </p>
+                      </div>
+
+                      {/* Interactive Proceed Button */}
+                      <div className="pt-1 flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProceedToDocked();
+                          }}
+                          className="pop-btn bg-[#FACC15] hover:bg-[#FDE047] text-slate-900 px-6 py-2.5 text-xs font-black rounded-xl gap-2 shadow-[4px_4px_0px_#0f172a] transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0px_#0f172a] cursor-pointer"
+                        >
+                          <span>Masuk ke Meja Lab</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                          &bull; Sentuh layar untuk lanjut &bull;
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="font-display font-bold text-base text-slate-900">Misi Kelas &amp; Kuis Seru</h3>
-                <p className="text-xs text-slate-800 leading-relaxed">
-                  Gabung kelas dengan kode PIN, kerjakan praktikum terpandu, dan raih nilai di atas KKM lewat kuis interaktif.
-                </p>
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>
@@ -1977,7 +2475,7 @@ export default function MainEduDashboard() {
               {/* Modal Body */}
               <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
                 {/* 3 Key Rules Cards: Quiz, KKM, Remedial */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div id="tutorial-briefing-rules" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-3.5 rounded-2xl border-2 border-slate-900 bg-[#BAE6FD] space-y-1">
                     <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-800">
                       <Award className="w-3.5 h-3.5" />
@@ -2091,15 +2589,13 @@ export default function MainEduDashboard() {
                       </button>
 
                       {hasQuiz && (
-                        <a
+                        <Link
                           href={`/quiz?taskId=${task.id}&classCode=${activeClassroom.classCode}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="pop-btn bg-[#FACC15] text-slate-900 px-3 py-1.5 rounded-xl text-xs gap-1"
+                          className="pop-btn bg-[#FACC15] hover:bg-[#fde047] text-slate-900 px-3 py-1.5 rounded-xl text-xs gap-1 font-bold"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <Award className="w-3.5 h-3.5" />
                           <span>{!isPassed && allowRemed ? "Ulangi Kuis" : "Review Kuis"}</span>
-                        </a>
+                        </Link>
                       )}
                     </div>
                   </div>
@@ -2118,13 +2614,16 @@ export default function MainEduDashboard() {
 
                 <button
                   type="button"
+                  id="tutorial-proceed-btn"
                   disabled={isOpeningLab}
                   onClick={() => {
                     setIsOpeningLab(true);
                     router.push(
                       `/lab?classCode=${encodeURIComponent(
                         activeClassroom.classCode
-                      )}&taskId=${encodeURIComponent(task.id)}&mode=task`
+                      )}&taskId=${encodeURIComponent(task.id)}&mode=task${
+                        isStudentTutorialActive ? "&tutorial=true" : ""
+                      }`
                     );
                   }}
                   className="pop-btn bg-[#34D399] hover:bg-[#10B981] text-slate-900 px-6 py-2.5 rounded-xl text-xs sm:text-sm gap-2 disabled:opacity-70"
@@ -2264,6 +2763,7 @@ export default function MainEduDashboard() {
       <AuthLoginModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalMode}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
           setIsAuthModalOpen(false);
@@ -2341,6 +2841,28 @@ export default function MainEduDashboard() {
             </div>
           </div>
         </div>
+      )}
+      {/* =========================================================================
+          MODAL 4: INTERACTIVE ONBOARDING TUTORIAL GUIDE FOR STUDENTS
+          ========================================================================= */}
+      {isStudent && isStudentTutorialActive && (
+        <StudentTutorialGuide
+          isActive={isStudentTutorialActive}
+          onClose={handleFinishStudentTutorial}
+          activeClassroom={activeClassroom}
+          selectedTask={selectedTaskForDetail}
+          hasClassrooms={effectiveStudentClassrooms.length > 0}
+          onOpenFirstClassroom={() => {
+            if (effectiveStudentClassrooms.length > 0) {
+              setActiveClassroom(effectiveStudentClassrooms[0]);
+            }
+          }}
+          onOpenFirstTask={() => {
+            if (effectiveClassroomTasks.length > 0) {
+              setSelectedTaskForDetail(effectiveClassroomTasks[0]);
+            }
+          }}
+        />
       )}
     </div>
   );

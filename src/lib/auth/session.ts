@@ -27,7 +27,7 @@ export async function getServerSessionUser(): Promise<AuthUser | null> {
     }
 
     const rows = await query<any[]>(
-      `SELECT id, name, username, email, role, avatar_url as avatarUrl, xp, level, streak_days as streakDays 
+      `SELECT id, name, username, email, role, avatar_url as avatarUrl, xp, level, streak_days as streakDays, has_completed_tutorial as hasCompletedTutorial 
        FROM users 
        WHERE id = ? 
        LIMIT 1`,
@@ -49,6 +49,7 @@ export async function getServerSessionUser(): Promise<AuthUser | null> {
       xp: dbUser.xp || 0,
       level: dbUser.level || 1,
       streakDays: dbUser.streakDays || 1,
+      hasCompletedTutorial: Boolean(dbUser.hasCompletedTutorial),
     };
   } catch (err) {
     console.warn("getServerSessionUser error:", err);
