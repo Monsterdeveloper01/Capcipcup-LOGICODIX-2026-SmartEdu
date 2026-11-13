@@ -368,15 +368,35 @@ export default function TeacherTaskBuilder({
   // Save & Publish Task to Classroom (Supports both CREATE and UPDATE)
   const handleSaveTask = async () => {
     if (!title.trim()) {
-      setErrorMsg("Judul tugas praktikum wajib diisi.");
+      setErrorMsg("Judul tugas praktikum wajib diisi (*).");
+      setBuilderStep(1);
+      return;
+    }
+    if (!instructions.trim()) {
+      setErrorMsg("Panduan & instruksi kerja siswa di meja 3D wajib diisi (*).");
+      setBuilderStep(1);
       return;
     }
     if (selectedChemicalIds.length === 0) {
-      setErrorMsg("Pilih minimal 1 zat kimia untuk ditaruh di meja 3D siswa.");
+      setErrorMsg("Pilih minimal 1 zat kimia (*) untuk ditaruh di meja 3D siswa.");
+      setBuilderStep(2);
       return;
     }
     if (questions.length === 0) {
-      setErrorMsg("Tugas memerlukan minimal 1 butir kuis pemahaman (klik 'Generate Kuis AI' atau analisis RPP).");
+      setErrorMsg("Tugas memerlukan minimal 1 butir kuis pemahaman (*) (klik 'Generate 3 Soal (AI)' atau tambah manual).");
+      setBuilderStep(3);
+      return;
+    }
+    const emptyQ = questions.find((q) => !q.question.trim());
+    if (emptyQ) {
+      setErrorMsg("Semua butir pertanyaan kuis wajib diisi teks soalnya (*).");
+      setBuilderStep(3);
+      return;
+    }
+    const emptyOpt = questions.find((q) => q.options.some((o) => !o.trim()));
+    if (emptyOpt) {
+      setErrorMsg("Semua pilihan opsi jawaban (A, B, C, D) kuis wajib diisi (*).");
+      setBuilderStep(3);
       return;
     }
 
@@ -602,7 +622,7 @@ export default function TeacherTaskBuilder({
                   title: "Langkah 1",
                   label: "Identitas & RPP",
                   desc: title.trim() ? title : "Judul & Panduan Meja",
-                  isDone: Boolean(title.trim()),
+                  isDone: Boolean(title.trim() && instructions.trim()),
                 },
                 {
                   step: 2,
@@ -623,7 +643,7 @@ export default function TeacherTaskBuilder({
                   title: "Langkah 4",
                   label: "KKM & Terbitkan",
                   desc: `KKM ${kkmScore} • Siap Terbitkan`,
-                  isDone: Boolean(title.trim() && selectedChemicalIds.length > 0 && questions.length > 0),
+                  isDone: Boolean(title.trim() && instructions.trim() && selectedChemicalIds.length > 0 && questions.length > 0),
                 },
               ].map((s) => {
                 const isActive = builderStep === s.step;
@@ -631,7 +651,30 @@ export default function TeacherTaskBuilder({
                   <button
                     key={s.step}
                     type="button"
-                    onClick={() => setBuilderStep(s.step as any)}
+                    onClick={() => {
+                      if (s.step > 1 && !title.trim()) {
+                        setErrorMsg("Ketik judul tugas praktikum terlebih dahulu (*).");
+                        setBuilderStep(1);
+                        return;
+                      }
+                      if (s.step > 1 && !instructions.trim()) {
+                        setErrorMsg("Panduan & instruksi kerja siswa di meja 3D wajib diisi (*).");
+                        setBuilderStep(1);
+                        return;
+                      }
+                      if (s.step > 2 && selectedChemicalIds.length === 0) {
+                        setErrorMsg("Pilih minimal 1 zat kimia (*) untuk meja 3D.");
+                        setBuilderStep(2);
+                        return;
+                      }
+                      if (s.step > 3 && questions.length === 0) {
+                        setErrorMsg("Tugas memerlukan minimal 1 butir kuis evaluasi (*).");
+                        setBuilderStep(3);
+                        return;
+                      }
+                      setErrorMsg(null);
+                      setBuilderStep(s.step as any);
+                    }}
                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 ${
                       isActive
                         ? "bg-white border-sky-500 ring-2 ring-sky-500/20 shadow-xs"
@@ -714,8 +757,9 @@ export default function TeacherTaskBuilder({
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-amber-500" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                        Input Teks RPP / Modul Ajar Kurikulum Merdeka
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1">
+                        <span>Input Teks RPP / Modul Ajar Kurikulum Merdeka</span>
+                        <span className="text-rose-500 font-black text-sm leading-none" title="Wajib diisi jika menggunakan mode AI">*</span>
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-500">Gemini AI Lab &amp; Quiz Engine</span>
@@ -742,6 +786,7 @@ export default function TeacherTaskBuilder({
 
                   {/* RPP Textarea */}
                   <textarea
+                    required
                     value={rppText}
                     onChange={(e) => setRppText(e.target.value)}
                     rows={4}
@@ -780,37 +825,53 @@ export default function TeacherTaskBuilder({
 
               {/* Form Identitas Praktikum */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xs">
-                <div className="flex items-center gap-2 border-b border-slate-200 pb-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-2xs shrink-0">
-                    <FileText className="w-4 h-4" />
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                        Spesifikasi &amp; Panduan Praktikum Sains
+                      </h4>
+                      <span className="text-[10px] text-slate-500">Judul tugas, jenjang sekolah, dan instruksi kerja siswa</span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      Spesifikasi &amp; Panduan Praktikum Sains
-                    </h4>
-                    <span className="text-[10px] text-slate-500">Judul tugas, jenjang sekolah, dan instruksi kerja siswa</span>
-                  </div>
+
+                  <span className="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shrink-0 flex items-center gap-1 shadow-2xs">
+                    <span className="text-rose-500 font-black text-sm leading-none">*</span>
+                    <span>Kolom Wajib Diisi</span>
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 uppercase">
-                      Judul Tugas Praktikum:
+                    <label className="text-[11px] font-bold text-slate-700 uppercase flex items-center gap-1">
+                      <span>Judul Tugas Praktikum:</span>
+                      <span className="text-rose-500 font-black text-sm leading-none" title="Wajib diisi">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       value={title}
-                      onChange={(e) => setTitle(e.target.value)}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        if (errorMsg) setErrorMsg(null);
+                      }}
                       placeholder="Contoh: Praktikum Reaksi Asam Basa &amp; Kalor"
-                      className="w-full p-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 shadow-2xs transition-colors"
+                      className={`w-full p-2.5 bg-white border ${
+                        !title.trim() && errorMsg ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/20" : "border-slate-200"
+                      } text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 shadow-2xs transition-colors`}
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 uppercase">
-                      Jenjang Sekolah:
+                    <label className="text-[11px] font-bold text-slate-700 uppercase flex items-center gap-1">
+                      <span>Jenjang Sekolah:</span>
+                      <span className="text-rose-500 font-black text-sm leading-none" title="Wajib diisi">*</span>
                     </label>
                     <select
+                      required
                       value={gradeLevel}
                       onChange={(e) => setGradeLevel(e.target.value as any)}
                       className="w-full p-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 shadow-2xs cursor-pointer"
@@ -824,7 +885,12 @@ export default function TeacherTaskBuilder({
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-slate-700 uppercase flex items-center justify-between">
-                    <span>Target Reaksi Kimia (Stoikiometri):</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>Target Reaksi Kimia (Stoikiometri):</span>
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-200/80 border border-slate-300 px-1.5 py-0.2 rounded-md font-sans">
+                        (Opsional)
+                      </span>
+                    </div>
                     <span className="text-[10px] text-slate-400 font-normal">Mencocokkan animasi 3D dan produk reaksi</span>
                   </label>
                   <select
@@ -832,7 +898,7 @@ export default function TeacherTaskBuilder({
                     onChange={(e) => setExpectedReactionId(e.target.value)}
                     className="w-full p-2.5 bg-white border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl outline-none focus:border-sky-500 shadow-2xs cursor-pointer truncate"
                   >
-                    <option value="">-- Reaksi Eksplorasi Bebas / Otomatis --</option>
+                    <option value="">-- Reaksi Eksplorasi Bebas / Otomatis (Opsional) --</option>
                     {REACTION_CATALOG.map((rx) => (
                       <option key={rx.id} value={rx.id}>
                         [{rx.level}] {rx.title} — {rx.equation}
@@ -842,15 +908,25 @@ export default function TeacherTaskBuilder({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase">
-                    Panduan &amp; Instruksi Kerja Siswa di Meja 3D:
+                  <label className="text-[11px] font-bold text-slate-700 uppercase flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <span>Panduan &amp; Instruksi Kerja Siswa di Meja 3D:</span>
+                      <span className="text-rose-500 font-black text-sm leading-none" title="Wajib diisi">*</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-normal">Petunjuk penuangan zat &amp; observasi siswa</span>
                   </label>
                   <textarea
+                    required
                     value={instructions}
-                    onChange={(e) => setInstructions(e.target.value)}
+                    onChange={(e) => {
+                      setInstructions(e.target.value);
+                      if (errorMsg) setErrorMsg(null);
+                    }}
                     rows={3}
                     placeholder="Instruksi penuangan zat, hal yang perlu diamati di meja 3D, dan cara menguji suhu/warna..."
-                    className="w-full p-2.5 bg-white border border-slate-200 text-xs text-slate-900 rounded-xl outline-none focus:border-sky-500 leading-relaxed shadow-2xs transition-colors"
+                    className={`w-full p-2.5 bg-white border ${
+                      !instructions.trim() && errorMsg ? "border-rose-400 ring-2 ring-rose-200 bg-rose-50/20" : "border-slate-200"
+                    } text-xs text-slate-900 rounded-xl outline-none focus:border-sky-500 leading-relaxed shadow-2xs transition-colors`}
                   />
                 </div>
               </div>
@@ -865,7 +941,11 @@ export default function TeacherTaskBuilder({
                   type="button"
                   onClick={() => {
                     if (!title.trim()) {
-                      setErrorMsg("Ketik judul tugas praktikum terlebih dahulu.");
+                      setErrorMsg("Judul tugas praktikum wajib diisi (*).");
+                      return;
+                    }
+                    if (!instructions.trim()) {
+                      setErrorMsg("Panduan & instruksi kerja siswa di meja 3D wajib diisi (*).");
                       return;
                     }
                     setErrorMsg(null);
@@ -892,8 +972,12 @@ export default function TeacherTaskBuilder({
                       <FlaskConical className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                        Bahan Kimia di Meja Praktik Siswa ({selectedChemicalIds.length} Zat Terpilih)
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>Bahan Kimia di Meja Praktik Siswa</span>
+                        <span className="text-rose-500 font-black text-sm leading-none" title="Minimal 1 zat wajib">*</span>
+                        <span className="text-xs text-slate-500 font-normal">
+                          ({selectedChemicalIds.length} Zat Terpilih)
+                        </span>
                       </h4>
                       <span className="text-[10px] text-slate-500">
                         Zat kimia ini akan otomatis diletakkan di atas meja 3D siswa saat mereka membuka tugas.
@@ -901,8 +985,9 @@ export default function TeacherTaskBuilder({
                     </div>
                   </div>
 
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-black">
-                    AKTIF DI MEJA 3D
+                  <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded font-black flex items-center gap-1">
+                    <span className="text-rose-500 font-black">*</span>
+                    <span>MINIMAL 1 ZAT WAJIB DIPILIH</span>
                   </span>
                 </div>
 
@@ -1025,7 +1110,7 @@ export default function TeacherTaskBuilder({
                   type="button"
                   onClick={() => {
                     if (selectedChemicalIds.length === 0) {
-                      setErrorMsg("Pilih minimal 1 zat kimia untuk ditaruh di meja lab 3D siswa.");
+                      setErrorMsg("Pilih minimal 1 zat kimia (*) untuk ditaruh di meja lab 3D siswa.");
                       return;
                     }
                     setErrorMsg(null);
@@ -1049,15 +1134,19 @@ export default function TeacherTaskBuilder({
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                        Butir Soal Kuis Pemahaman Pasca-Praktikum ({questions.length} Soal)
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>Butir Soal Kuis Pemahaman Pasca-Praktikum</span>
+                        <span className="text-rose-500 font-black text-sm leading-none" title="Wajib minimal 1 soal">*</span>
+                        <span className="text-xs text-slate-500 font-normal">
+                          ({questions.length} Soal)
+                        </span>
                       </h4>
                       <span className="text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300 px-2 py-0.5 rounded">
                         {questions.length === 3 ? "Standard AI (3 Soal)" : `${questions.length} Soal Tersedia`}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 block mt-0.5">
-                      Kuis ini dikerjakan siswa pasca-praktikum. Klik tombol radio hijau untuk menentukan kunci jawaban yang benar.
+                      Kuis ini dikerjakan siswa pasca-praktikum. Klik tombol radio hijau untuk menentukan kunci jawaban yang benar (*).
                     </span>
                   </div>
 
@@ -1129,11 +1218,13 @@ export default function TeacherTaskBuilder({
 
                         {/* Pertanyaan */}
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Teks Pertanyaan Kuis:
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                            <span>Teks Pertanyaan Kuis:</span>
+                            <span className="text-rose-500 font-black text-xs leading-none" title="Wajib diisi">*</span>
                           </label>
                           <input
                             type="text"
+                            required
                             value={q.question}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -1148,9 +1239,12 @@ export default function TeacherTaskBuilder({
 
                         {/* Opsi Pilihan Jawaban (A, B, C, D) */}
                         <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                            <span>Pilihan Jawaban (Pilih Radio untuk Menentukan Kunci Jawaban Benar):</span>
-                            <span className="text-emerald-700 font-medium">● radio hijau = kunci jawaban</span>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                            <span className="flex items-center gap-1">
+                              <span>Pilihan Jawaban (A, B, C, D):</span>
+                              <span className="text-rose-500 font-black text-xs leading-none" title="Wajib diisi">*</span>
+                            </span>
+                            <span className="text-emerald-700 font-bold">● radio hijau = kunci jawaban (*)</span>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1180,7 +1274,7 @@ export default function TeacherTaskBuilder({
                                       );
                                     }}
                                     className="accent-emerald-600 cursor-pointer w-4 h-4 shrink-0"
-                                    title={`Tandai opsi ${optLetter} sebagai kunci jawaban benar`}
+                                    title={`Tandai opsi ${optLetter} sebagai kunci jawaban benar (*)`}
                                   />
 
                                   {/* Huruf Opsi A/B/C/D */}
@@ -1197,6 +1291,7 @@ export default function TeacherTaskBuilder({
                                   {/* Input Teks Pilihan Jawaban */}
                                   <input
                                     type="text"
+                                    required
                                     value={opt}
                                     onChange={(e) => {
                                       const val = e.target.value;
@@ -1224,8 +1319,11 @@ export default function TeacherTaskBuilder({
 
                         {/* Penjelasan Jawaban Ilmiah */}
                         <div className="space-y-1 pt-1.5 border-t border-slate-100">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Pembahasan &amp; Penjelasan Sains Ilmiah (Muncul saat Siswa Selesai Kuis):
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Pembahasan &amp; Penjelasan Sains Ilmiah (Muncul saat Siswa Selesai Kuis):</span>
+                            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded-md font-sans">
+                              (Opsional)
+                            </span>
                           </label>
                           <input
                             type="text"
@@ -1277,7 +1375,17 @@ export default function TeacherTaskBuilder({
                   type="button"
                   onClick={() => {
                     if (questions.length === 0) {
-                      setErrorMsg("Tugas memerlukan minimal 1 butir kuis evaluasi.");
+                      setErrorMsg("Tugas memerlukan minimal 1 butir kuis evaluasi (*).");
+                      return;
+                    }
+                    const emptyQ = questions.find((q) => !q.question.trim());
+                    if (emptyQ) {
+                      setErrorMsg("Semua teks pertanyaan kuis wajib diisi (*).");
+                      return;
+                    }
+                    const emptyOpt = questions.find((q) => q.options.some((o) => !o.trim()));
+                    if (emptyOpt) {
+                      setErrorMsg("Semua pilihan opsi jawaban (A, B, C, D) kuis wajib diisi (*).");
                       return;
                     }
                     setErrorMsg(null);
@@ -1321,7 +1429,10 @@ export default function TeacherTaskBuilder({
                     {/* Input KKM Slider */}
                     <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                       <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
-                        <span>Batas Nilai KKM:</span>
+                        <div className="flex items-center gap-1">
+                          <span>Batas Nilai KKM:</span>
+                          <span className="text-rose-500 font-black text-sm leading-none" title="Wajib diisi">*</span>
+                        </div>
                         <span className="text-sky-600 font-mono font-black text-sm">{kkmScore} / 100</span>
                       </label>
                       <div className="flex items-center gap-2">

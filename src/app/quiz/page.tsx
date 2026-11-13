@@ -12,6 +12,7 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 function QuizArenaContent() {
   const searchParams = useSearchParams();
   const taskId = searchParams.get("taskId");
+  const classCode = searchParams.get("classCode") || undefined;
 
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -127,6 +128,7 @@ function QuizArenaContent() {
     <InteractiveQuizArena
       task={task}
       currentUser={currentUser}
+      classCode={classCode}
       initialSubmission={submission}
       isModal={false}
     />

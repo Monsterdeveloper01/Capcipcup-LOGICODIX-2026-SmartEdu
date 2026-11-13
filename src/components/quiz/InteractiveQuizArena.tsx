@@ -34,6 +34,7 @@ export type QuizStage = "answering" | "feedback" | "appreciation" | "evaluation"
 interface InteractiveQuizArenaProps {
   task: LabTask;
   currentUser: AuthUser | null;
+  classCode?: string;
   onClose?: () => void;
   onSubmissionSuccess?: (score: number, submission: any) => void;
   initialSubmission?: LabSubmission | null;
@@ -45,6 +46,7 @@ interface InteractiveQuizArenaProps {
 export default function InteractiveQuizArena({
   task,
   currentUser,
+  classCode,
   onClose,
   onSubmissionSuccess,
   initialSubmission,
@@ -52,6 +54,7 @@ export default function InteractiveQuizArena({
   isReactionAchieved = true,
   isModal = false,
 }: InteractiveQuizArenaProps) {
+  const effectiveClassCode = classCode || task.roomCode || "LAB889";
   const questions: LabTaskQuestion[] = useMemo(() => task.questions || [], [task.questions]);
   const kkmScore = task.kkmScore ?? 75;
   const allowRetake = task.allowRetakeBelowKkm !== false;
@@ -547,7 +550,9 @@ export default function InteractiveQuizArena({
                 </button>
               ) : (
                 <Link
-                  href={`/lab?classCode=${task.roomCode}&taskId=${task.id}&mode=task`}
+                  href={`/lab?classCode=${encodeURIComponent(effectiveClassCode)}&taskId=${encodeURIComponent(
+                    task.id
+                  )}&mode=task`}
                   className="pop-btn bg-[#38BDF8] hover:bg-[#7dd3fc] text-slate-900 px-4 py-2 rounded-xl text-xs font-black gap-1.5 shadow-[2px_2px_0px_#0f172a]"
                 >
                   <FlaskConical className="w-4 h-4" />
@@ -937,7 +942,9 @@ export default function InteractiveQuizArena({
 
           <div className="flex items-center gap-2">
             <Link
-              href={`/lab?classCode=${task.roomCode}&taskId=${task.id}&mode=task`}
+              href={`/lab?classCode=${encodeURIComponent(effectiveClassCode)}&taskId=${encodeURIComponent(
+                task.id
+              )}&mode=task`}
               className="pop-btn bg-white hover:bg-slate-100 text-slate-900 px-3.5 py-1.5 rounded-xl text-xs gap-1.5"
             >
               <FlaskConical className="w-3.5 h-3.5 text-[#2563EB]" />

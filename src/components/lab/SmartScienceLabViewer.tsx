@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import { useSearchParams, usePathname } from "next/navigation";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import CameraFeed from "@/components/camera/CameraFeed";
 import HandGestureTracker, {
   HandTransform,
@@ -25,7 +25,6 @@ import { CHEMICAL_CATALOG, REACTION_CATALOG } from "@/lib/lab/chemicals-db";
 import { resolveReactionForTask } from "@/lib/lab/reactionResolver";
 import { LabTask, LabSubmission, ExperimentDetailLog } from "@/lib/lab/types";
 import LabTutorialGuide from "@/components/onboarding/LabTutorialGuide";
-import InteractiveQuizArena from "@/components/quiz/InteractiveQuizArena";
 import { DUMMY_TUTORIAL_TASK } from "@/lib/lab/tutorialConstants";
 import {
   FlaskConical,
@@ -123,13 +122,13 @@ export default function SmartScienceLabViewer() {
 
   // Modals & Task State
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
-  const [isQuizModalOpen, setIsQuizModalOpen] = useState<boolean>(false);
   const [isTaskReactionDone, setIsTaskReactionDone] = useState<boolean>(false);
   const [lastQuizScore, setLastQuizScore] = useState<number | null>(null);
   const [isReactionAnimating, setIsReactionAnimating] = useState<boolean>(false);
   const reactionLockTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // URL Search Params
+  // URL & Navigation State
+  const router = useRouter();
   const searchParams = useSearchParams();
   const urlTaskId = searchParams.get("taskId");
   const urlMode = searchParams.get("mode");
@@ -525,12 +524,16 @@ export default function SmartScienceLabViewer() {
     [activeReaction, currentTask, vessels]
   );
 
-  // Open quiz interactive modal directly in the SAME tab
-  const handleOpenQuizInNewTab = () => {
+  // Navigate to dedicated quiz & evaluation page in the SAME tab (bukan modal popup, bukan tab baru)
+  const handleOpenQuiz = () => {
     if (!currentTask) return;
     persistPendingExperimentForQuiz(isTaskReactionDone, activeReaction);
-    setIsQuizModalOpen(true);
+    const quizUrl = `/quiz?taskId=${encodeURIComponent(currentTask.id)}&classCode=${encodeURIComponent(
+      roomCode || currentTask.roomCode
+    )}`;
+    router.push(quizUrl);
   };
+  const handleOpenQuizInNewTab = handleOpenQuiz;
 
   // Tool handlers
   const handleSelectTool = (tool: InteractiveToolType) => {
@@ -1841,49 +1844,6 @@ export default function SmartScienceLabViewer() {
           }}
           onOpenTools={() => {
             // ensure bottom dock is ready
-          }}
-        />
-      )}
-
-      {/* Interactive Quiz Arena In-Lab Modal (Same Tab) */}
-      {isQuizModalOpen && currentTask && (
-        <InteractiveQuizArena
-          task={currentTask}
-          currentUser={currentUser}
-          initialSubmission={currentSubmission}
-          isReactionAchieved={isTaskReactionDone}
-          pendingExperimentDetails={
-            activeReaction
-              ? {
-                  reactionTitle: activeReaction.title,
-                  reactionEquation: activeReaction.equation,
-                  temperatureChange: activeReaction.temperatureChange,
-                  observablePhenomena: activeReaction.observablePhenomena,
-                  explanation: activeReaction.explanation,
-                  reasonWhy: activeReaction.reasonWhy,
-                  mixedChemicals: vessels.map((v) => ({
-                    name: v.name,
-                    formula: v.formula,
-                    color: v.color,
-                  })),
-                  resultVessel: vessels[0]
-                    ? {
-                        name: vessels[0].name,
-                        formula: vessels[0].formula,
-                        color: vessels[0].color,
-                        temperatureC: vessels[0].temperatureC,
-                      }
-                    : undefined,
-                  completedAt: new Date().toISOString(),
-                }
-              : undefined
-          }
-          isModal={true}
-          onClose={() => setIsQuizModalOpen(false)}
-          onSubmissionSuccess={(newScore) => {
-            setLastQuizScore(newScore);
-            setIsTaskReactionDone(true);
-            fetchStudentSubmissions();
           }}
         />
       )}
