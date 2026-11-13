@@ -9,12 +9,12 @@
 - **Nama Aplikasi:** **CupLabs**
 
 ### Daftar Anggota Tim:
-| No. & Peran | Nama Lengkap | Nomor Induk Mahasiswa (NIM) |
-| :---: | :--- | :---: |
-| **1. Ketua Tim / Lead Full-Stack & 3D** | **Farel Fadlillah** | **110012600046** |
-| **2. Backend & AI Integration** | **Muhammad Assegaf Al Khalifi** | **110012600138** |
-| **3. UI/UX & Frontend Developer** | **Mishya Yumna Ramadhani** | **110012600303** |
-| **4. Research, QA & Documentation** | **Ghina Syakirah** | **110012600278** |
+| No. | Peran dalam Tim | Nama Lengkap | Nomor Induk Mahasiswa (NIM) |
+| :---: | :--- | :--- | :---: |
+| 1 | **Ketua Tim / Lead Full-Stack & 3D** | **Farel Fadlillah** | **110012600046** |
+| 2 | **Backend & AI Integration** | **Muhammad Assegaf Al Khalifi** | **110012600138** |
+| 3 | **UI/UX & Frontend Developer** | **Mishya Yumna Ramadhani** | **110012600303** |
+| 4 | **Research, QA & Documentation** | **Ghina Syakirah** | **110012600278** |
 
 ---
 
