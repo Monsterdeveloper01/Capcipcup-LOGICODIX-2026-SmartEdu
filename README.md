@@ -1,4 +1,4 @@
-# 🧪 CAPCIPCUP SMARTEDU — 3D Virtual Science & Chemistry Laboratory
+# 🧪 CUPLABS — 3D Virtual Science & Chemistry Laboratory
 > **Platform Laboratorium Sains & Praktikum Reaksi Kimia Virtual Berbasis 3D WebGL, AR Hand Gesture Tracking, dan Asisten Evaluasi AI.**
 
 ---
@@ -6,7 +6,7 @@
 ## 👥 Informasi Tim Pengembang
 - **Nama Tim:** Capcipcup
 - **Kategori Lomba / Karya:** Aplikasi Web (**Web Application**)
-- **Nama Aplikasi:** **Capcipcup SmartEdu** (CupLabs)
+- **Nama Aplikasi:** **CupLabs**
 
 ### Daftar Anggota Tim:
 | No. & Peran | Nama Lengkap | Nomor Induk Mahasiswa (NIM) |
@@ -27,7 +27,7 @@
 4. **Beban Administratif Guru:** Guru membutuhkan waktu yang cukup lama untuk menyusun modul instruksi kerja laboratorium dan butir soal kuis evaluasi yang selaras dengan Capaian Pembelajaran Kurikulum Merdeka.
 
 ### 2. Solusi yang Ditawarkan (*Solution Overview*)
-**Capcipcup SmartEdu** menghadirkan laboratorium virtual imersif yang dapat diakses langsung melalui peramban web modern tanpa memerlukan perangkat keras khusus:
+**CupLabs** menghadirkan laboratorium virtual imersif yang dapat diakses langsung melalui peramban web modern tanpa memerlukan perangkat keras khusus:
 - **Meja Sains 3D Interaktif:** Siswa dapat memegang, menuangkan zat (*tilt & pour*), dan mengamati reaksi stoikiometri secara real-time dengan visual fluida dinamis, meniskus cairan, perubahan suhu bejana, buih gas, dan kristal presipitasi.
 - **Kontrol Gestur Tangan AR Bebas-Sentuh:** Memanfaatkan kamera webcam biasa untuk mendeteksi koordinat telapak tangan siswa secara spasial (*pinch to lift, tilt to pour*), menghadirkan sensasi bereksperimen nyata tanpa menyentuh keyboard/mouse.
 - **Kak Lab-AI (Asisten Interaktif Cerdas):** Membimbing siswa secara real-time dengan kesadaran situasional meja lab (*situational awareness*) dan guardrail pedagogis ketat (fokus sains dan keselamatan K3).
@@ -267,10 +267,10 @@ Aplikasi ini memanfaatkan kecerdasan buatan terapan pada 4 titik strategis:
 - **SDK AI Generatif:** Google Gen AI SDK (`@google/genai` oleh Google LLC, Lisensi Apache 2.0).
 - **Ikonografi Antarmuka:** Lucide Icons (Lucide Project Contributors, Lisensi ISC).
 - **Tipografi:** Plus Jakarta Sans (Gumpita Rahayu / Tokotype), Space Grotesk (Florian Karsten), dan JetBrains Mono (JetBrains).
-- **Karakter Maskot Edukasi:** Prof. Cupcup (Dibuat dan dirancang secara orisinal untuk Capcipcup SmartEdu).
+- **Karakter Maskot Edukasi:** Prof. Cupcup (Di modifikasi dari maskot utama TelkomUniversity).
 - **Dataset Reaksi Kimia:** Disusun berdasarkan silabus resmi Kimia & IPA Kurikulum Merdeka Kemendikbudristek RI.
 
 ---
 
 ## 📄 Lisensi
-Proyek **Capcipcup SmartEdu** dikembangkan untuk kepentingan kompetisi teknologi dan kemajuan pendidikan sains Indonesia di bawah lisensi terbuka **MIT License**.
+Proyek **CupLabs** dikembangkan oleh tim **Capcipcup** untuk kepentingan kompetisi teknologi dan kemajuan pendidikan sains Indonesia di bawah lisensi terbuka **MIT License**.
