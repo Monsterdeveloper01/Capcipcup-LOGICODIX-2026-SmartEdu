@@ -11,10 +11,10 @@
 ### Daftar Anggota Tim:
 | No. & Peran | Nama Lengkap | Nomor Induk Mahasiswa (NIM) |
 | :---: | :--- | :---: |
-| **Anggota 1** | **Farel Fadlillah** | **110012600046** |
-| **Anggota 2** | **Muhammad Assegaf Al Khalifi** | **110012600138** |
-| **Anggota 3** | **Mishya Yumna Ramadhani** | **110012600303** |
-| **Anggota 4** | **Ghina Syakirah** | **110012600278** |
+| **1. Ketua Tim / Lead Full-Stack & 3D** | **Farel Fadlillah** | **110012600046** |
+| **2. Backend & AI Integration** | **Muhammad Assegaf Al Khalifi** | **110012600138** |
+| **3. UI/UX & Frontend Developer** | **Mishya Yumna Ramadhani** | **110012600303** |
+| **4. Research, QA & Documentation** | **Ghina Syakirah** | **110012600278** |
 
 ---
 
@@ -193,7 +193,7 @@ npm install
 ```
 
 #### C. Konfigurasi Variabel Lingkungan (`.env.local`):
-Salin file template [`.env.example`](file:///.env.example) menjadi `.env.local`:
+Salin file template [`.env.example`](./.env.example) menjadi `.env.local`:
 ```bash
 cp .env.example .env.local
 ```
@@ -267,7 +267,7 @@ Aplikasi ini memanfaatkan kecerdasan buatan terapan pada 4 titik strategis:
 - **SDK AI Generatif:** Google Gen AI SDK (`@google/genai` oleh Google LLC, Lisensi Apache 2.0).
 - **Ikonografi Antarmuka:** Lucide Icons (Lucide Project Contributors, Lisensi ISC).
 - **Tipografi:** Plus Jakarta Sans (Gumpita Rahayu / Tokotype), Space Grotesk (Florian Karsten), dan JetBrains Mono (JetBrains).
-- **Karakter Maskot Edukasi:** Prof. Cupcup (Di modifikasi dari maskot utama TelkomUniversity).
+- **Karakter Maskot Edukasi (Prof. Cupcup):** Ilustrasi adaptasi visual yang dihasilkan menggunakan *Google Gemini Image Generation*, terinspirasi dari karakter maskot Galih (Telkom University) untuk keperluan demonstrasi edukasi non-komersial.
 - **Dataset Reaksi Kimia:** Disusun berdasarkan silabus resmi Kimia & IPA Kurikulum Merdeka Kemendikbudristek RI.
 
 ---
