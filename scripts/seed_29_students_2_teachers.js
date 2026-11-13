@@ -130,6 +130,19 @@ async function main() {
   try {
     await conn.beginTransaction();
 
+    // 0. Seed Administrator Akun Pengujian
+    const adminHash = await bcrypt.hash('admin123', 10);
+    await conn.query(
+      `INSERT INTO users (id, name, username, email, password, role, avatar_url, xp, level, streak_days)
+       VALUES ('usr_admin_01', 'Administrator Sistem', 'admin', 'admin@capcipcup.edu', ?, 'superadmin', NULL, 9999, 99, 30)
+       ON DUPLICATE KEY UPDATE
+         name = VALUES(name),
+         email = VALUES(email),
+         password = VALUES(password),
+         role = 'superadmin'`,
+      [adminHash]
+    );
+
     for (const teacher of TEACHERS) {
       const hash = await bcrypt.hash(teacher.password, 10);
       await conn.query(

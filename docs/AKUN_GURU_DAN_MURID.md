@@ -6,6 +6,7 @@ Dokumen ini berisi daftar akun guru dan murid yang telah dimasukkan ke database 
 
 - **Total Akun Guru Baru:** 2 akun
 - **Total Akun Murid Baru:** 29 akun
+- **Total Akun Administrator:** 1 akun (`admin` / `admin123`)
 - **Pembagian Kelas:**
   - **Guru 1 (`guru.rina`)** — Kelas **X IPA 1 - Kimia Dasar** (`KIM10A`): **10 murid** (`murid01` s.d. `murid10`)
   - **Guru 2 (`guru.hendra`)** — Kelas **XI IPA 2 - Reaksi Larutan** (`KIM11B`): **10 murid** (`murid11` s.d. `murid20`)

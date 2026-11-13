@@ -4,7 +4,7 @@
 ---
 
 ## 👥 Informasi Tim Pengembang
-- **Nama Tim:** Capcipcup Developer Team
+- **Nama Tim:** Capcipcup
 - **Kategori Lomba / Karya:** Aplikasi Web (**Web Application**)
 - **Nama Aplikasi:** **Capcipcup SmartEdu** (CupLabs)
 

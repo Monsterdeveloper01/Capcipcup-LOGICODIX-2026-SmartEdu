@@ -191,16 +191,18 @@ async function setup() {
   `);
   console.log('   [V] Tabel `lab_submissions`');
 
-  // Seed default users (Guru & Siswa demo)
+  // Seed default users (Admin, Guru & Siswa demo)
   const passwordHash = await bcrypt.hash('password123', 10);
+  const adminPasswordHash = await bcrypt.hash('admin123', 10);
   await dbConn.query(`
     INSERT INTO users (id, name, username, email, password, role, xp, level)
     VALUES 
+      ('usr_admin_01', 'Administrator Sistem', 'admin', 'admin@capcipcup.edu', ?, 'superadmin', 9999, 99),
       ('usr_teacher_1', 'Budi Santoso, S.Pd', 'guru', 'guru@smartedu.id', ?, 'teacher', 1500, 5),
       ('usr_student_1', 'Ahmad Faiz', 'siswa', 'faiz@smartedu.id', ?, 'student', 450, 2),
       ('usr_student_2', 'Siti Rahma', 'siswa2', 'siti@smartedu.id', ?, 'student', 520, 2)
     ON DUPLICATE KEY UPDATE name=VALUES(name);
-  `, [passwordHash, passwordHash, passwordHash]);
+  `, [adminPasswordHash, passwordHash, passwordHash, passwordHash]);
 
   // Seed demo class: IPA Kelas 10 (PIN: LAB889)
   await dbConn.query(`
