@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { REACTION_CATALOG } from "@/lib/lab/chemicals-db";
+import { requireTeacher } from "@/lib/auth/session";
 
 export async function GET(req: Request) {
   try {
@@ -118,6 +119,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireTeacher();
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
 
     // Support single reaction object or array of reactions!

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireTeacher } from "@/lib/auth/session";
 
 // GET: Ambil daftar siswa yang terdaftar di suatu kelas
 export async function GET(req: Request) {
@@ -7,6 +8,14 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const classroomId = searchParams.get("classroomId");
     const classCode = searchParams.get("classCode");
+
+    // Jika tanpa parameter kelas, pastikan pemanggil adalah Guru / Admin
+    if (!classroomId && !classCode) {
+      const auth = await requireTeacher();
+      if (!auth.success) {
+        return NextResponse.json({ error: "Parameter kelas (classroomId / classCode) diperlukan." }, { status: 400 });
+      }
+    }
 
     let sql = `
       SELECT cm.*, c.class_code, c.name as classroom_name

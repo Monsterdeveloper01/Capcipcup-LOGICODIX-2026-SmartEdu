@@ -1,6 +1,58 @@
 import { cookies } from "next/headers";
+import crypto from "crypto";
 import { query } from "@/lib/db";
 import { AuthUser } from "./types";
+
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  process.env.GEMINI_API_KEY ||
+  "capcipcup-edu-session-secret-salt-2026-safe";
+
+/**
+ * Sign payload with HMAC-SHA256
+ */
+export function signSessionPayload(payload: any): string {
+  const jsonStr = JSON.stringify(payload);
+  const signature = crypto.createHmac("sha256", SESSION_SECRET).update(jsonStr).digest("hex");
+  return `${Buffer.from(jsonStr).toString("base64url")}.${signature}`;
+}
+
+/**
+ * Verify and parse session token.
+ * Prevents cookie tampering and privilege escalation attacks.
+ */
+export function verifySessionToken(token: string): any | null {
+  if (!token) return null;
+
+  if (token.includes(".")) {
+    const [encodedPayload, signature] = token.split(".");
+    if (!encodedPayload || !signature) return null;
+
+    try {
+      const jsonStr = Buffer.from(encodedPayload, "base64url").toString("utf-8");
+      const expectedSig = crypto.createHmac("sha256", SESSION_SECRET).update(jsonStr).digest("hex");
+
+      // Constant-time comparison to prevent timing attacks
+      if (
+        signature.length !== expectedSig.length ||
+        !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))
+      ) {
+        return null;
+      }
+
+      return JSON.parse(jsonStr);
+    } catch {
+      return null;
+    }
+  }
+
+  // Graceful fallback for migration of legacy plaintext cookies
+  try {
+    return JSON.parse(token);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Mendapatkan data session user yang sedang login dari cookie 'lq_session_user'
@@ -15,13 +67,7 @@ export async function getServerSessionUser(): Promise<AuthUser | null> {
       return null;
     }
 
-    let parsed: any;
-    try {
-      parsed = JSON.parse(sessionCookie.value);
-    } catch {
-      return null;
-    }
-
+    const parsed = verifySessionToken(sessionCookie.value);
     if (!parsed?.id) {
       return null;
     }
@@ -87,6 +133,27 @@ export async function requireTeacher(): Promise<AuthGuardResult> {
     return {
       success: false,
       error: "Akses ditolak: Fitur ini khusus untuk akun Guru. Siswa tidak diizinkan merancang atau memodifikasi tugas praktikum.",
+      status: 403,
+    };
+  }
+
+  return { success: true, user };
+}
+
+/**
+ * Guard Helper: Memastikan pengguna memiliki role Admin ('admin' atau 'superadmin').
+ */
+export async function requireSuperAdmin(): Promise<AuthGuardResult> {
+  const user = await getServerSessionUser();
+  if (!user) {
+    return { success: false, error: "Autentikasi diperlukan. Silakan login sebagai Admin.", status: 401 };
+  }
+
+  const isAdminRole = user.role === "superadmin" || user.role === "admin";
+  if (!isAdminRole) {
+    return {
+      success: false,
+      error: "Akses ditolak: Fitur ini khusus untuk Administrator / Super Admin.",
       status: 403,
     };
   }

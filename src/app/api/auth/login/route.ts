@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { AuthUser } from "@/lib/auth/types";
+import { signSessionPayload } from "@/lib/auth/session";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
@@ -71,9 +72,9 @@ export async function POST(req: Request) {
       user,
     });
 
-    // Set cookie
-    response.cookies.set("lq_session_user", JSON.stringify(user), {
-      httpOnly: false,
+    // Set secure signed cookie
+    response.cookies.set("lq_session_user", signSessionPayload(user), {
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 days

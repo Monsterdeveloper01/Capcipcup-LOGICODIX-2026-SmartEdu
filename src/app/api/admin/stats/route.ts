@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hasAiKey } from "@/lib/ai/client";
+import { requireSuperAdmin } from "@/lib/auth/session";
 
 export async function GET() {
   try {
+    const auth = await requireSuperAdmin();
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const [totalUsersRows] = await query<any[]>("SELECT COUNT(*) as cnt FROM users");
     const [studentsRows] = await query<any[]>("SELECT COUNT(*) as cnt FROM users WHERE role = 'student'");
     const [teachersRows] = await query<any[]>("SELECT COUNT(*) as cnt FROM users WHERE role = 'teacher'");

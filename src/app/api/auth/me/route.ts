@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { query } from "@/lib/db";
 import { AuthUser } from "@/lib/auth/types";
+import { verifySessionToken } from "@/lib/auth/session";
 
 export async function GET() {
   try {
@@ -12,13 +13,7 @@ export async function GET() {
       return NextResponse.json({ authenticated: false, user: null });
     }
 
-    let parsed: any;
-    try {
-      parsed = JSON.parse(sessionCookie.value);
-    } catch {
-      return NextResponse.json({ authenticated: false, user: null });
-    }
-
+    const parsed = verifySessionToken(sessionCookie.value);
     if (!parsed?.id) {
       return NextResponse.json({ authenticated: false, user: null });
     }

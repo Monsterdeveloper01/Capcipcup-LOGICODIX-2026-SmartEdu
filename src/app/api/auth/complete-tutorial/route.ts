@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { query } from "@/lib/db";
-import { getServerSessionUser } from "@/lib/auth/session";
+import { getServerSessionUser, signSessionPayload } from "@/lib/auth/session";
 
 export async function POST() {
   try {
@@ -26,8 +26,8 @@ export async function POST() {
       user: updatedUser,
     });
 
-    res.cookies.set("lq_session_user", JSON.stringify(updatedUser), {
-      httpOnly: false,
+    res.cookies.set("lq_session_user", signSessionPayload(updatedUser), {
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,

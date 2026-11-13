@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { requireSuperAdmin } from "@/lib/auth/session";
 
 export async function GET() {
   try {
+    const auth = await requireSuperAdmin();
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const users = await query<any[]>(
       `SELECT u.id, u.name, u.username, u.email, u.role, u.avatar_url as avatarUrl, 
               u.xp, u.level, u.streak_days as streakDays, u.last_active_at as lastActiveAt, 
@@ -22,6 +28,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireSuperAdmin();
+    if (!auth.success) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
     const { action, id, name, username, email, password, role, xp } = body;
 

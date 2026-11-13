@@ -7,11 +7,13 @@ export async function POST(req: Request) {
   try {
     const { taskId, studentName, isReactionAchieved, score, answers, aiAnalysis, experimentDetails } = await req.json();
 
-    if (!taskId || !studentName) {
+    const sessionUser = await getServerSessionUser();
+    const cleanStudent = (sessionUser?.name || studentName || "").trim();
+
+    if (!taskId || !cleanStudent) {
       return NextResponse.json({ error: "Task ID dan nama siswa wajib diisi." }, { status: 400 });
     }
 
-    const cleanStudent = studentName.trim();
     const existing = await query<any[]>(
       "SELECT id FROM lab_submissions WHERE task_id = ? AND UPPER(TRIM(student_name)) = ? LIMIT 1",
       [taskId, cleanStudent.toUpperCase()]
